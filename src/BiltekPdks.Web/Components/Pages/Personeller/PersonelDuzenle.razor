@@ -98,9 +98,13 @@ else
         {
             await using var db = await FirmaDb.AcAsync();
             var kart = _form!.KartNo.Trim();
-            if (await db.Personeller.AnyAsync(p => p.KartNo == kart && p.Id != (Id ?? 0)))
+            // İşten ayrılanın kartı yeni personele verilebilir; çalışan iki kişide aynı kart olamaz.
+            var bugun = DateOnly.FromDateTime(DateTime.Today);
+            var cikisVar = _form.IstenCikisTarihi is { } c && c < bugun;
+            if (!cikisVar && await db.Personeller.AnyAsync(p => p.KartNo == kart && p.Id != (Id ?? 0)
+                    && (p.IstenCikisTarihi == null || p.IstenCikisTarihi >= bugun)))
             {
-                _hata = $"{kart} kart numarası başka bir personelde kayıtlı.";
+                _hata = $"{kart} kart numarası çalışan başka bir personelde kayıtlı.";
                 return;
             }
 

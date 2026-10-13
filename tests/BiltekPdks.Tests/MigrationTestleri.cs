@@ -40,12 +40,13 @@ public class MigrationTestleri
         await baglanti.OpenAsync();
         var secenek = new DbContextOptionsBuilder<SqlitePdksDbContext>().UseSqlite(baglanti).Options;
 
-        // İlk dağıtılan paketler veritabanını EnsureCreated ile kuruyordu.
-        await using (var eski = new SqlitePdksDbContext(secenek) { FirmaFiltresiKapali = true })
+        // İlk dağıtılan paketler veritabanını EnsureCreated ile ilk şemada kuruyordu (geçmiş tablosu yok).
+        await using (var eski = new SqlitePdksDbContext(secenek))
         {
-            await eski.Database.EnsureCreatedAsync();
-            eski.Firmalar.Add(new Firma { Kod = "ESKI", Ad = "Eski Kurulum" });
-            await eski.SaveChangesAsync();
+            var ilk = eski.Database.GetMigrations().First();
+            await eski.GetService<IMigrator>().MigrateAsync(ilk);
+            await eski.Database.ExecuteSqlRawAsync("DROP TABLE \"__EFMigrationsHistory\"");
+            await eski.Database.ExecuteSqlRawAsync("INSERT INTO firma (Kod, Ad, Aktif, OlusturmaTarihi) VALUES ('ESKI', 'Eski Kurulum', 1, '2026-10-13 00:00:00')");
         }
 
         await using (var db = new SqlitePdksDbContext(secenek) { FirmaFiltresiKapali = true })

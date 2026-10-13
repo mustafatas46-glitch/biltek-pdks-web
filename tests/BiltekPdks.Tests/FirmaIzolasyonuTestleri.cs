@@ -70,7 +70,7 @@ public class FirmaIzolasyonuTestleri
     }
 
     [Fact]
-    public void Ayni_kart_no_farkli_firmalarda_kullanilabilir_ayni_firmada_kullanilamaz()
+    public void Ayni_kart_no_farkli_firmalarda_kullanilabilir()
     {
         using var tv = new TestVeritabani();
         var a = tv.FirmaEkle("A");
@@ -79,9 +79,8 @@ public class FirmaIzolasyonuTestleri
         using (var db = tv.Db(a)) { db.Personeller.Add(Personel("100", "Ali")); db.SaveChanges(); }
         using (var db = tv.Db(b)) { db.Personeller.Add(Personel("100", "Berk")); db.SaveChanges(); }
 
-        using var db2 = tv.Db(a);
-        db2.Personeller.Add(Personel("100", "Cem"));
-        Assert.Throws<DbUpdateException>(() => db2.SaveChanges());
+        using var oku = tv.Sistem();
+        Assert.Equal(2, oku.Personeller.Count(p => p.KartNo == "100"));
     }
 }
 
