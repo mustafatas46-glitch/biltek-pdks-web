@@ -72,7 +72,8 @@ public static class TopluHareketServisi
 
             var giris = t.ToDateTime(istek.Giris);
             var cikis = (istek.Cikis <= istek.Giris ? t.AddDays(1) : t).ToDateTime(istek.Cikis);
-            if (istek.HareketiOlanGunleriAtla && mevcut.Any(z => DateOnly.FromDateTime(z) == t || (z >= giris && z <= cikis)))
+            // Vardiyanın 4 saat öncesi ile 4 saat sonrası arasında okutma varsa o gün dolu sayılır.
+            if (istek.HareketiOlanGunleriAtla && mevcut.Any(z => z >= giris.AddHours(-4) && z <= cikis.AddHours(4)))
             { dolu++; continue; }
 
             if (!deneme)
