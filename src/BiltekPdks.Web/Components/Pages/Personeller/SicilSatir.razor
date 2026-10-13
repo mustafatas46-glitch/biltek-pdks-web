@@ -1,0 +1,9 @@
+@* Sicil kartında "Etiket: [alan]" satırı. *@
+<label class="col-sm-4 col-form-label col-form-label-sm sicil-etiket @(Zorunlu ? "zorunlu" : "")">@Etiket</label>
+<div class="col-sm-8">@ChildContent</div>
+
+@code {
+    [Parameter] public string Etiket { get; set; } = "";
+    [Parameter] public bool Zorunlu { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

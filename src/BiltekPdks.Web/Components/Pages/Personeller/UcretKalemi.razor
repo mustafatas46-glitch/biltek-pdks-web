@@ -1,0 +1,20 @@
+@* Kazanç-kesinti sekmesindeki "tutar + günlük/aylık" kutusu. *@
+<div class="col-12">
+    <div class="border rounded p-2 d-flex flex-wrap align-items-center gap-3">
+        <b style="min-width:8rem">@Baslik</b>
+        <input class="form-control form-control-sm" style="width:9rem" type="number" step="0.01" min="0" value="@Tutar"
+               @onchange="e => TutarChanged.InvokeAsync(decimal.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var t) ? t : null)" />
+        <label class="form-check form-check-inline m-0"><input class="form-check-input" type="radio" checked="@Gunluk" @onchange="() => GunlukChanged.InvokeAsync(true)" /> Günlük</label>
+        <label class="form-check form-check-inline m-0"><input class="form-check-input" type="radio" checked="@(!Gunluk)" @onchange="() => GunlukChanged.InvokeAsync(false)" /> Aylık</label>
+        <small class="text-muted flex-grow-1">@Aciklama</small>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string Baslik { get; set; } = "";
+    [Parameter] public string Aciklama { get; set; } = "";
+    [Parameter] public decimal? Tutar { get; set; }
+    [Parameter] public EventCallback<decimal?> TutarChanged { get; set; }
+    [Parameter] public bool Gunluk { get; set; }
+    [Parameter] public EventCallback<bool> GunlukChanged { get; set; }
+}

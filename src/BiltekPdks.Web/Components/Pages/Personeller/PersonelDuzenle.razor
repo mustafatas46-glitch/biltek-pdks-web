@@ -3,7 +3,10 @@
 @inject FirmaDb FirmaDb
 @inject NavigationManager Navigation
 
-<h1 class="h3 mb-4">@(Id is null ? "Yeni personel" : "Personel kartı")</h1>
+<PageTitle>Personel Sicil Kartı</PageTitle>
+<div class="d-flex align-items-center mb-2">
+    <h1 class="h5 m-0">Personel Sicil Kartı (@(Id is null ? "Ekle" : "Değiştir"))@(_form is not null && Id is not null ? $" — {_form.Ad} {_form.Soyad}" : "")</h1>
+</div>
 
 @if (_bulunamadi)
 {
@@ -15,46 +18,203 @@ else if (_form is null)
 }
 else
 {
-    <EditForm Model="_form" OnValidSubmit="KaydetAsync" FormName="personel">
+    var e = _form.Ek;
+    <EditForm Model="_form" OnValidSubmit="KaydetAsync" FormName="personel" class="sicil-karti">
         <DataAnnotationsValidator />
-        @if (_hata is not null) { <div class="alert alert-danger">@_hata</div> }
-        @if (_bilgi is not null) { <div class="alert alert-success">@_bilgi</div> }
+        <ValidationSummary class="small text-danger" />
+        @if (_hata is not null) { <div class="alert alert-danger py-2">@_hata</div> }
+        @if (_bilgi is not null) { <div class="alert alert-success py-2">@_bilgi</div> }
 
-        <div class="row g-3">
-            <div class="col-md-3"><label class="form-label">Kart no *</label><InputText class="form-control" @bind-Value="_form.KartNo" /><ValidationMessage For="() => _form.KartNo" /></div>
-            <div class="col-md-3"><label class="form-label">Sicil no</label><InputText class="form-control" @bind-Value="_form.SicilNo" /></div>
-            <div class="col-md-3"><label class="form-label">Ad *</label><InputText class="form-control" @bind-Value="_form.Ad" /><ValidationMessage For="() => _form.Ad" /></div>
-            <div class="col-md-3"><label class="form-label">Soyad *</label><InputText class="form-control" @bind-Value="_form.Soyad" /><ValidationMessage For="() => _form.Soyad" /></div>
+        <ul class="nav nav-tabs">
+            @foreach (var (kod, ad) in Sekmeler)
+            {
+                <li class="nav-item"><a class="nav-link @(_sekme == kod ? "active" : "")" href="" @onclick:preventDefault @onclick="() => _sekme = kod">@ad</a></li>
+            }
+        </ul>
 
-            <div class="col-md-3"><label class="form-label">T.C. kimlik no</label><InputText class="form-control" @bind-Value="_form.TcKimlikNo" maxlength="11" /><ValidationMessage For="() => _form.TcKimlikNo" /></div>
-            <div class="col-md-3">
-                <label class="form-label">Cinsiyet</label>
-                <InputSelect class="form-select" @bind-Value="_form.Cinsiyet">
-                    <option value="@Cinsiyet.Belirtilmemis">—</option>
-                    <option value="@Cinsiyet.Erkek">Erkek</option>
-                    <option value="@Cinsiyet.Kadin">Kadın</option>
-                </InputSelect>
+        <div class="sekme-icerik">
+        @if (_sekme == "genel")
+        {
+            <div class="row g-2">
+                <div class="col-lg-7">
+                    <div class="row g-2 align-items-center">
+                        <SicilSatir Etiket="Kart ID"><InputText class="form-control form-control-sm" @bind-Value="e.KartId" maxlength="10" /><small class="text-muted">en çok 10 hane</small></SicilSatir>
+                        <SicilSatir Etiket="Kart No" Zorunlu="true"><InputText class="form-control form-control-sm" @bind-Value="_form.KartNo" maxlength="10" /><ValidationMessage For="() => _form.KartNo" /></SicilSatir>
+                        <SicilSatir Etiket="Adı" Zorunlu="true"><InputText class="form-control form-control-sm" @bind-Value="_form.Ad" /><ValidationMessage For="() => _form.Ad" /></SicilSatir>
+                        <SicilSatir Etiket="Soyadı" Zorunlu="true"><InputText class="form-control form-control-sm" @bind-Value="_form.Soyad" /><ValidationMessage For="() => _form.Soyad" /></SicilSatir>
+                        <SicilSatir Etiket="TC Kimlik No"><InputText class="form-control form-control-sm" @bind-Value="_form.TcKimlikNo" maxlength="11" /><ValidationMessage For="() => _form.TcKimlikNo" /></SicilSatir>
+                        <SicilSatir Etiket="Sicil No"><InputText class="form-control form-control-sm" @bind-Value="_form.SicilNo" /></SicilSatir>
+                        <SicilSatir Etiket="İlk Soyad"><InputText class="form-control form-control-sm" @bind-Value="e.IlkSoyad" /></SicilSatir>
+                        <SicilSatir Etiket="Vergi No"><InputText class="form-control form-control-sm" @bind-Value="e.VergiNo" /></SicilSatir>
+                        <SicilSatir Etiket="SGK Sicil No"><InputText class="form-control form-control-sm" @bind-Value="e.SgkSicilNo" /></SicilSatir>
+                        <SicilSatir Etiket="SGK Tarihi"><InputDate class="form-control form-control-sm" @bind-Value="e.SgkGirisTarihi" /></SicilSatir>
+                        <SicilSatir Etiket="Ücret tipi">
+                            <InputRadioGroup @bind-Value="e.UcretTipi">
+                                <label class="form-check form-check-inline m-0"><InputRadio class="form-check-input" Value="UcretTipi.Maas" /> Maaş</label>
+                                <label class="form-check form-check-inline m-0"><InputRadio class="form-check-input" Value="UcretTipi.SaatUcreti" /> Saat ücreti</label>
+                            </InputRadioGroup>
+                        </SicilSatir>
+                        <SicilSatir Etiket="@(e.UcretTipi == UcretTipi.Maas ? "Maaş" : "Saat ücreti")"><InputNumber class="form-control form-control-sm" @bind-Value="e.Ucret" /></SicilSatir>
+                        <SicilSatir Etiket="Eski maaş"><InputNumber class="form-control form-control-sm" @bind-Value="e.EskiUcret" /></SicilSatir>
+                        <SicilSatir Etiket="Mesai saat ücreti"><InputNumber class="form-control form-control-sm" @bind-Value="e.MesaiSaatUcreti" /><small class="text-muted">boşsa grup kuralından hesaplanır</small></SicilSatir>
+                        <SicilSatir Etiket="İlk işe başlama"><InputDate class="form-control form-control-sm" @bind-Value="e.IlkIseBaslamaTarihi" /><small class="text-muted">yıllık izin, kıdem, ihbar</small></SicilSatir>
+                    </div>
+                </div>
+                <div class="col-lg-5">
+                    <div class="border rounded p-2 mb-2 bg-light">
+                        <label class="form-check"><InputCheckbox class="form-check-input" @bind-Value="e.FazlaMesaiAlir" /> Fazla mesai alır</label>
+                        <div class="d-flex align-items-center gap-2 mt-1"><span class="small">Devamsızlık cezası</span><InputNumber class="form-control form-control-sm" style="width:6rem" @bind-Value="e.DevamsizlikCezaKatsayisi" /><small class="text-muted">ör: 1,5 / 2</small></div>
+                    </div>
+                </div>
             </div>
-            <div class="col-md-3"><label class="form-label">Doğum tarihi</label><InputDate class="form-control" @bind-Value="_form.DogumTarihi" /></div>
-            <div class="col-md-3"></div>
-
-            <div class="col-md-3"><label class="form-label">İşe giriş *</label><InputDate class="form-control" @bind-Value="_form.IseGirisTarihi" /><ValidationMessage For="() => _form.IseGirisTarihi" /></div>
-            <div class="col-md-3"><label class="form-label">İşten çıkış</label><InputDate class="form-control" @bind-Value="_form.IstenCikisTarihi" /><ValidationMessage For="() => _form.IstenCikisTarihi" /></div>
-            <div class="col-md-6"><label class="form-label">Ayrılma nedeni</label><InputText class="form-control" @bind-Value="_form.IstenAyrilmaNedeni" /></div>
-
-            <div class="col-md-3"><label class="form-label">Şube</label><TanimSecici @bind-Value="_form.SubeId" Secenekler="_subeler" /></div>
-            <div class="col-md-3"><label class="form-label">Bölüm</label><TanimSecici @bind-Value="_form.BolumId" Secenekler="_bolumler" /></div>
-            <div class="col-md-3"><label class="form-label">Görev</label><TanimSecici @bind-Value="_form.GorevId" Secenekler="_gorevler" /></div>
-            <div class="col-md-3"><label class="form-label">Çalışma grubu</label><TanimSecici @bind-Value="_form.CalismaGrubuId" Secenekler="_gruplar" /></div>
-
-            <div class="col-md-3"><label class="form-label">Cep telefonu</label><InputText class="form-control" @bind-Value="_form.CepTelefonu" /></div>
-            <div class="col-md-3"><label class="form-label">E-posta</label><InputText class="form-control" @bind-Value="_form.Eposta" /><ValidationMessage For="() => _form.Eposta" /></div>
-            <div class="col-md-6"><label class="form-label">Adres</label><InputText class="form-control" @bind-Value="_form.Adres" /></div>
+            <h2 class="sicil-baslik">Şirket Bilgileri</h2>
+            <div class="row g-2 align-items-center">
+                <div class="col-lg-5">
+                    <div class="row g-2 align-items-center">
+                        <SicilSatir Etiket="Grup" Zorunlu="true"><TanimSecici @bind-Value="_form.CalismaGrubuId" Secenekler="_gruplar" /></SicilSatir>
+                        <SicilSatir Etiket="Durumu">
+                            <select class="form-select form-select-sm" value="@(_form.IstenCikisTarihi is null ? "aktif" : "pasif")" @onchange="DurumDegisti">
+                                <option value="aktif">Aktif</option><option value="pasif">Pasif (işten ayrıldı)</option>
+                            </select>
+                        </SicilSatir>
+                        <SicilSatir Etiket="İş başlama tarihi" Zorunlu="true"><InputDate class="form-control form-control-sm" @bind-Value="_form.IseGirisTarihi" /><ValidationMessage For="() => _form.IseGirisTarihi" /></SicilSatir>
+                        @if (_form.IstenCikisTarihi is not null)
+                        {
+                            <SicilSatir Etiket="İşten çıkış"><InputDate class="form-control form-control-sm" @bind-Value="_form.IstenCikisTarihi" /><ValidationMessage For="() => _form.IstenCikisTarihi" /></SicilSatir>
+                            <SicilSatir Etiket="Ayrılma nedeni"><InputText class="form-control form-control-sm" @bind-Value="_form.IstenAyrilmaNedeni" /></SicilSatir>
+                        }
+                    </div>
+                </div>
+                <div class="col-lg-7">
+                    <div class="row g-2 align-items-center">
+                        <SicilSatir Etiket="Bölüm"><TanimSecici @bind-Value="_form.BolumId" Secenekler="_bolumler" /></SicilSatir>
+                        <SicilSatir Etiket="Görev"><TanimSecici @bind-Value="_form.GorevId" Secenekler="_gorevler" /></SicilSatir>
+                        <SicilSatir Etiket="Servis"><TanimSecici @bind-Value="e.ServisId" Secenekler="_servisler" /></SicilSatir>
+                        <SicilSatir Etiket="Bölge"><TanimSecici @bind-Value="e.BolgeId" Secenekler="_bolgeler" /></SicilSatir>
+                        <SicilSatir Etiket="Birim"><TanimSecici @bind-Value="e.BirimId" Secenekler="_birimler" /></SicilSatir>
+                        <SicilSatir Etiket="Takım"><TanimSecici @bind-Value="e.TakimId" Secenekler="_takimlar" /></SicilSatir>
+                        <SicilSatir Etiket="Şube"><TanimSecici @bind-Value="_form.SubeId" Secenekler="_subeler" /></SicilSatir>
+                        <SicilSatir Etiket="Meslek"><TanimSecici @bind-Value="e.MeslekId" Secenekler="_meslekler" /></SicilSatir>
+                    </div>
+                </div>
+            </div>
+        }
+        else if (_sekme == "kisisel")
+        {
+            <div class="row g-2">
+                <div class="col-lg-6">
+                    <div class="row g-2 align-items-center">
+                        <SicilSatir Etiket="Ev Tel"><InputText class="form-control form-control-sm" @bind-Value="e.EvTelefonu" /></SicilSatir>
+                        <SicilSatir Etiket="İş Tel"><InputText class="form-control form-control-sm" @bind-Value="e.IsTelefonu" /></SicilSatir>
+                        <SicilSatir Etiket="Cep Tel"><InputText class="form-control form-control-sm" @bind-Value="_form.CepTelefonu" /></SicilSatir>
+                        <SicilSatir Etiket="E-Mail"><InputText class="form-control form-control-sm" @bind-Value="_form.Eposta" /><ValidationMessage For="() => _form.Eposta" /></SicilSatir>
+                        <SicilSatir Etiket="Web Adres"><InputText class="form-control form-control-sm" @bind-Value="e.WebAdresi" /></SicilSatir>
+                        <SicilSatir Etiket="Askerlik Dur."><Secim @bind-Value="e.AskerlikDurumu" Secenekler="Askerlik" /></SicilSatir>
+                        <SicilSatir Etiket="Gözlük"><Secim @bind-Value="e.Gozluk" Secenekler="EvetHayir" /></SicilSatir>
+                        <SicilSatir Etiket="Sabıka"><Secim @bind-Value="e.Sabika" Secenekler="VarYok" /></SicilSatir>
+                        <SicilSatir Etiket="İl"><InputText class="form-control form-control-sm" @bind-Value="e.Il" /></SicilSatir>
+                        <SicilSatir Etiket="İlçe"><InputText class="form-control form-control-sm" @bind-Value="e.Ilce" /></SicilSatir>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="row g-2 align-items-center">
+                        <SicilSatir Etiket="Mezuniyet Durumu"><Secim @bind-Value="e.EgitimDurumu" Secenekler="Egitim" /></SicilSatir>
+                        <SicilSatir Etiket="Mezun Olduğu Okul"><InputText class="form-control form-control-sm" @bind-Value="e.MezunOkul" /></SicilSatir>
+                        <SicilSatir Etiket="Mezun Olduğu Branş"><InputText class="form-control form-control-sm" @bind-Value="e.MezunBrans" /></SicilSatir>
+                        <SicilSatir Etiket="Mezuniyet Tarihi"><InputDate class="form-control form-control-sm" @bind-Value="e.MezuniyetTarihi" /></SicilSatir>
+                        <SicilSatir Etiket="Okul No"><InputText class="form-control form-control-sm" @bind-Value="e.OkulNo" /></SicilSatir>
+                        <SicilSatir Etiket="Yabancı Dil"><InputText class="form-control form-control-sm" @bind-Value="e.YabanciDil" /></SicilSatir>
+                    </div>
+                    <h2 class="sicil-baslik">Vücut Ölçüleri</h2>
+                    <div class="row g-2 align-items-center">
+                        <SicilSatir Etiket="Kilo"><InputNumber class="form-control form-control-sm" style="max-width:7rem" @bind-Value="e.Kilo" /></SicilSatir>
+                        <SicilSatir Etiket="Boy"><InputNumber class="form-control form-control-sm" style="max-width:7rem" @bind-Value="e.Boy" /></SicilSatir>
+                        <SicilSatir Etiket="Ayakkabı No"><InputText class="form-control form-control-sm" style="max-width:7rem" @bind-Value="e.AyakkabiNo" /></SicilSatir>
+                        <SicilSatir Etiket="Elbise Beden No"><InputText class="form-control form-control-sm" style="max-width:7rem" @bind-Value="e.ElbiseBeden" /></SicilSatir>
+                    </div>
+                </div>
+                <div class="col-12"><label class="form-label small mb-0">Adres</label><InputTextArea class="form-control form-control-sm" rows="3" @bind-Value="_form.Adres" /></div>
+                <div class="col-12"><label class="form-label small mb-0">Açıklama (Not)</label><InputTextArea class="form-control form-control-sm" rows="3" @bind-Value="e.Aciklama" /></div>
+            </div>
+        }
+        else if (_sekme == "kimlik")
+        {
+            <div class="row g-2">
+                <div class="col-lg-6">
+                    <div class="row g-2 align-items-center">
+                        <SicilSatir Etiket="Medeni Hali"><Secim @bind-Value="e.MedeniHal" Secenekler="MedeniHaller" /></SicilSatir>
+                        <SicilSatir Etiket="Baba Adı"><InputText class="form-control form-control-sm" @bind-Value="e.BabaAdi" /></SicilSatir>
+                        <SicilSatir Etiket="Anne Adı"><InputText class="form-control form-control-sm" @bind-Value="e.AnneAdi" /></SicilSatir>
+                        <SicilSatir Etiket="Doğ. Yeri"><InputText class="form-control form-control-sm" @bind-Value="e.DogumYeri" /></SicilSatir>
+                        <SicilSatir Etiket="Doğ. Tarihi"><InputDate class="form-control form-control-sm" @bind-Value="_form.DogumTarihi" /></SicilSatir>
+                        <SicilSatir Etiket="Kan Grubu"><Secim @bind-Value="e.KanGrubu" Secenekler="KanGruplari" /></SicilSatir>
+                        <SicilSatir Etiket="Uyruğu"><Secim @bind-Value="e.Uyruk" Secenekler="Uyruklar" /></SicilSatir>
+                        <SicilSatir Etiket="Cinsiyeti">
+                            <InputSelect class="form-select form-select-sm" @bind-Value="_form.Cinsiyet">
+                                <option value="@Cinsiyet.Belirtilmemis">—</option>
+                                <option value="@Cinsiyet.Erkek">Erkek</option>
+                                <option value="@Cinsiyet.Kadin">Kadın</option>
+                            </InputSelect>
+                        </SicilSatir>
+                        <SicilSatir Etiket="Çocuk sayısı"><InputNumber class="form-control form-control-sm" style="max-width:7rem" @bind-Value="e.CocukSayisi" /></SicilSatir>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <h2 class="sicil-baslik mt-0">Nüfusa Kayıtlı Olduğu</h2>
+                    <div class="row g-2 align-items-center">
+                        <SicilSatir Etiket="İl"><InputText class="form-control form-control-sm" @bind-Value="e.NufusIl" /></SicilSatir>
+                        <SicilSatir Etiket="İlçe"><InputText class="form-control form-control-sm" @bind-Value="e.NufusIlce" /></SicilSatir>
+                        <SicilSatir Etiket="Mah-Köy"><InputText class="form-control form-control-sm" @bind-Value="e.NufusMahalleKoy" /></SicilSatir>
+                        <SicilSatir Etiket="Cilt No"><InputText class="form-control form-control-sm" @bind-Value="e.CiltNo" /></SicilSatir>
+                        <SicilSatir Etiket="Aile Sıra No"><InputText class="form-control form-control-sm" @bind-Value="e.AileSiraNo" /></SicilSatir>
+                        <SicilSatir Etiket="Sıra No"><InputText class="form-control form-control-sm" @bind-Value="e.SiraNo" /></SicilSatir>
+                    </div>
+                    <h2 class="sicil-baslik">Cüzdanın</h2>
+                    <div class="row g-2 align-items-center">
+                        <SicilSatir Etiket="Verildiği Yer"><InputText class="form-control form-control-sm" @bind-Value="e.CuzdanVerildigiYer" /></SicilSatir>
+                        <SicilSatir Etiket="Veriliş Nedeni"><InputText class="form-control form-control-sm" @bind-Value="e.CuzdanVerilisNedeni" /></SicilSatir>
+                        <SicilSatir Etiket="Kayıt No"><InputText class="form-control form-control-sm" @bind-Value="e.CuzdanKayitNo" /></SicilSatir>
+                        <SicilSatir Etiket="Veriliş Tarihi"><InputDate class="form-control form-control-sm" @bind-Value="e.CuzdanVerilisTarihi" /></SicilSatir>
+                    </div>
+                </div>
+            </div>
+        }
+        else if (_sekme == "banka")
+        {
+            <h2 class="sicil-baslik mt-0">Banka Bilgileri</h2>
+            <div class="row g-2 align-items-center" style="max-width:820px">
+                <SicilSatir Etiket="Banka-Şube Adı"><InputText class="form-control form-control-sm" @bind-Value="e.BankaAdi" /></SicilSatir>
+                <SicilSatir Etiket="Banka Hesap No / IBAN"><InputText class="form-control form-control-sm" @bind-Value="e.Iban" maxlength="34" /></SicilSatir>
+            </div>
+            <h2 class="sicil-baslik">Ehliyet Bilgileri</h2>
+            <div class="row g-2 align-items-center" style="max-width:820px">
+                <SicilSatir Etiket="Sınıfı"><Secim @bind-Value="e.EhliyetSinifi" Secenekler="EhliyetSiniflari" /></SicilSatir>
+                <SicilSatir Etiket="Verildiği İl/İlçe"><InputText class="form-control form-control-sm" @bind-Value="e.EhliyetVerildigiYer" /></SicilSatir>
+                <SicilSatir Etiket="Belge No"><InputText class="form-control form-control-sm" @bind-Value="e.EhliyetNo" /></SicilSatir>
+                <SicilSatir Etiket="Veriliş Tarihi"><InputDate class="form-control form-control-sm" @bind-Value="e.EhliyetVerilisTarihi" /></SicilSatir>
+                <SicilSatir Etiket="Cihaz / Protez"><InputText class="form-control form-control-sm" @bind-Value="e.CihazProtez" /><small class="text-muted">kullandığı cihaz ve protezler</small></SicilSatir>
+            </div>
+        }
+        else
+        {
+            <div class="row g-2" style="max-width:900px">
+                <UcretKalemi Baslik="Prim Ücreti" Aciklama="Günlük seçilirse → aylık prim = (prim ücreti / 30) × geldiği gün sayısı" @bind-Tutar="e.PrimUcreti" @bind-Gunluk="e.PrimGunluk" />
+                <UcretKalemi Baslik="Yol Ücreti" Aciklama="Günlük seçilirse → yol parası = günlük yol ücreti × geldiği gün sayısı" @bind-Tutar="e.YolUcreti" @bind-Gunluk="e.YolGunluk" />
+                <UcretKalemi Baslik="Yemek Ücreti" Aciklama="Günlük seçilirse → yemek parası = günlük yemek ücreti × geldiği gün sayısı" @bind-Tutar="e.YemekUcreti" @bind-Gunluk="e.YemekGunluk" />
+                <UcretKalemi Baslik="Özel Ücret" Aciklama="Özel amaçlı kullanılacak ücret. Günlük seçilirse → günlük özel ücret × geldiği gün sayısı" @bind-Tutar="e.OzelUcret" @bind-Gunluk="e.OzelGunluk" />
+                <div class="col-12"><label class="form-check"><InputCheckbox class="form-check-input" @bind-Value="e.WcKesintisiUygula" /> WC kesintisi uygula</label></div>
+                <p class="text-muted small mb-0">Tutar boş bırakılan kalem bordroya eklenmez. (AGİ 2022'de kaldırıldığı için bu sekmede yer almaz.)</p>
+            </div>
+        }
         </div>
 
-        <div class="mt-4 d-flex gap-2">
-            <button class="btn btn-primary" type="submit" disabled="@_kaydediliyor">Kaydet</button>
-            <a class="btn btn-outline-secondary" href="personeller">Listeye dön</a>
+        <div class="sicil-alt">
+            @if (Id is null)
+            {
+                <label class="form-check m-0 small"><input class="form-check-input" type="checkbox" @bind="_seriKayit" /> Seri kayıt yap (kaydettikten sonra yeni boş kart aç)</label>
+            }
+            <button class="btn btn-primary ms-auto px-4" type="submit" disabled="@_kaydediliyor">Kaydet</button>
+            <a class="btn btn-outline-danger px-4" href="@(Id is int i ? $"?personel={i}" : "")">Kapat</a>
         </div>
     </EditForm>
 }
@@ -62,10 +222,24 @@ else
 @code {
     [Parameter] public int? Id { get; set; }
 
+    private static readonly (string Kod, string Ad)[] Sekmeler =
+        { ("genel", "Genel Bilgiler"), ("kisisel", "Kişisel Bilgiler"), ("kimlik", "Kimlik Bilgileri"), ("banka", "Banka - Ehliyet Bilgileri"), ("ucret", "Kazanç-Kesinti Bilgileri") };
+
+    private static readonly string[] Askerlik = { "Yapıldı", "Muaf", "Tecilli", "Yapılmadı" };
+    private static readonly string[] EvetHayir = { "Evet", "Hayır" };
+    private static readonly string[] VarYok = { "Yok", "Var" };
+    private static readonly string[] Egitim = { "İlkokul", "Ortaokul", "Lise", "Meslek Lisesi", "Ön Lisans", "Lisans", "Yüksek Lisans", "Doktora" };
+    private static readonly string[] MedeniHaller = { "Bekar", "Evli", "Dul", "Boşanmış" };
+    private static readonly string[] KanGruplari = { "0 Rh+", "0 Rh-", "A Rh+", "A Rh-", "B Rh+", "B Rh-", "AB Rh+", "AB Rh-" };
+    private static readonly string[] Uyruklar = { "T.C.", "Yabancı" };
+    private static readonly string[] EhliyetSiniflari = { "M", "A1", "A2", "A", "B1", "B", "BE", "C1", "C1E", "C", "CE", "D1", "D1E", "D", "DE", "F", "G" };
+
     private PersonelFormu? _form;
-    private bool _bulunamadi, _kaydediliyor;
+    private string _sekme = "genel";
+    private bool _bulunamadi, _kaydediliyor, _seriKayit;
     private string? _hata, _bilgi;
-    private List<TanimSecenek> _subeler = new(), _bolumler = new(), _gorevler = new(), _gruplar = new();
+    private List<TanimSecenek> _subeler = new(), _bolumler = new(), _gorevler = new(), _gruplar = new(),
+        _servisler = new(), _bolgeler = new(), _birimler = new(), _takimlar = new(), _meslekler = new();
 
     protected override async Task OnParametersSetAsync()
     {
@@ -74,10 +248,15 @@ else
         _bolumler = await Secenekler(db.Bolumler);
         _gorevler = await Secenekler(db.Gorevler);
         _gruplar = await Secenekler(db.CalismaGruplari);
+        _servisler = await Secenekler(db.Servisler);
+        _bolgeler = await Secenekler(db.Bolgeler);
+        _birimler = await Secenekler(db.Birimler);
+        _takimlar = await Secenekler(db.Takimlar);
+        _meslekler = await Secenekler(db.Meslekler);
 
         if (Id is null)
         {
-            _form = new PersonelFormu();
+            _form = new PersonelFormu { CalismaGrubuId = _gruplar.Count == 1 ? _gruplar[0].Id : null };
             return;
         }
 
@@ -89,6 +268,13 @@ else
     private static Task<List<TanimSecenek>> Secenekler<T>(IQueryable<T> q) where T : TanimEntity =>
         q.AsNoTracking().Where(t => t.Aktif).OrderBy(t => t.Ad)
          .Select(t => new TanimSecenek(t.Id, t.Ad)).ToListAsync();
+
+    private void DurumDegisti(ChangeEventArgs e)
+    {
+        if (_form is null) return;
+        _form.IstenCikisTarihi = e.Value?.ToString() == "pasif" ? (_form.IstenCikisTarihi ?? DateOnly.FromDateTime(DateTime.Today)) : null;
+        if (_form.IstenCikisTarihi is null) _form.IstenAyrilmaNedeni = null;
+    }
 
     private async Task KaydetAsync()
     {
@@ -124,6 +310,20 @@ else
 
             if (Id is null)
             {
+                if (_seriKayit)
+                {
+                    // Seri kayıt: şirket bilgileri korunur, kişiye özel alanlar boşalır.
+                    var onceki = _form;
+                    _form = new PersonelFormu
+                    {
+                        CalismaGrubuId = onceki.CalismaGrubuId, BolumId = onceki.BolumId, GorevId = onceki.GorevId, SubeId = onceki.SubeId,
+                        IseGirisTarihi = onceki.IseGirisTarihi,
+                        Ek = new Personel { ServisId = onceki.Ek.ServisId, BolgeId = onceki.Ek.BolgeId, BirimId = onceki.Ek.BirimId, TakimId = onceki.Ek.TakimId, MeslekId = onceki.Ek.MeslekId },
+                    };
+                    _sekme = "genel";
+                    _bilgi = $"{p.Ad} {p.Soyad} kaydedildi. Sıradaki personeli girebilirsiniz.";
+                    return;
+                }
                 Navigation.NavigateTo($"personeller/{p.Id}");
                 return;
             }

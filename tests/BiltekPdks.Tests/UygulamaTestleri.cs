@@ -135,6 +135,10 @@ public class UygulamaTestleri : IClassFixture<UygulamaFabrikasi>
         Assert.Contains("Eksik hareket", puantaj); // dünkü tek okutma
         Assert.Contains("Deneme Personel", puantaj);
 
+        var kart = WebUtility.HtmlDecode(await c.GetStringAsync($"/personeller/{personelId}"));
+        Assert.Contains("Personel Sicil Kartı", kart);
+        Assert.Contains("Kazanç-Kesinti Bilgileri", kart);
+
         var toplu = WebUtility.HtmlDecode(await c.GetStringAsync("/puantaj/toplu"));
         Assert.Contains("Toplu aylık puantaj", toplu);
         Assert.Contains("Deneme Personel", toplu);

@@ -36,6 +36,28 @@ public class PersonelFormu : IValidatableObject
     public int? GorevId { get; set; }
     public int? CalismaGrubuId { get; set; }
 
+    /// <summary>Sicil kartının diğer sekmelerindeki alanlar (kişisel, kimlik, banka, ücret…). Doğrudan bu nesneye bağlanır.</summary>
+    public Personel Ek { get; set; } = new();
+
+    // Formun kendisinin yönettiği ya da hiç değiştirilmemesi gereken alanlar.
+    private static readonly HashSet<string> EktenKopyalanmaz = new()
+    {
+        nameof(Personel.Id), nameof(Personel.FirmaId), nameof(Personel.EskiId),
+        nameof(KartNo), nameof(SicilNo), nameof(Ad), nameof(Soyad), nameof(TcKimlikNo), nameof(Cinsiyet), nameof(DogumTarihi),
+        nameof(IseGirisTarihi), nameof(IstenCikisTarihi), nameof(IstenAyrilmaNedeni), nameof(CepTelefonu), nameof(Eposta), nameof(Adres),
+        nameof(SubeId), nameof(BolumId), nameof(GorevId), nameof(CalismaGrubuId),
+    };
+
+    private static readonly System.Reflection.PropertyInfo[] EkAlanlari = typeof(Personel).GetProperties()
+        .Where(p => p.CanRead && p.CanWrite && !EktenKopyalanmaz.Contains(p.Name) && BasitTurMu(p.PropertyType))
+        .ToArray();
+
+    private static bool BasitTurMu(Type t)
+    {
+        t = Nullable.GetUnderlyingType(t) ?? t;
+        return t.IsPrimitive || t.IsEnum || t == typeof(string) || t == typeof(decimal) || t == typeof(DateOnly) || t == typeof(DateTime);
+    }
+
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
         if (!string.IsNullOrWhiteSpace(TcKimlikNo) && !TcKimlik.GecerliMi(TcKimlikNo.Trim()))
@@ -43,6 +65,9 @@ public class PersonelFormu : IValidatableObject
 
         if (IstenCikisTarihi is not null && IseGirisTarihi is not null && IstenCikisTarihi < IseGirisTarihi)
             yield return new ValidationResult("Çıkış tarihi işe giriş tarihinden önce olamaz.", new[] { nameof(IstenCikisTarihi) });
+
+        if (Ek.Ucret is < 0 || Ek.PrimUcreti is < 0 || Ek.YolUcreti is < 0 || Ek.YemekUcreti is < 0 || Ek.OzelUcret is < 0)
+            yield return new ValidationResult("Ücret alanları eksi olamaz.");
     }
 
     public static PersonelFormu Kaynak(Personel p) => new()
@@ -52,10 +77,17 @@ public class PersonelFormu : IValidatableObject
         IstenCikisTarihi = p.IstenCikisTarihi, IstenAyrilmaNedeni = p.IstenAyrilmaNedeni,
         CepTelefonu = p.CepTelefonu, Eposta = p.Eposta, Adres = p.Adres,
         SubeId = p.SubeId, BolumId = p.BolumId, GorevId = p.GorevId, CalismaGrubuId = p.CalismaGrubuId,
+        Ek = p,
     };
 
     public void Aktar(Personel p)
     {
+        foreach (var alan in EkAlanlari)
+        {
+            var deger = alan.GetValue(Ek);
+            if (deger is string metin) deger = Bosalt(metin);
+            alan.SetValue(p, deger);
+        }
         p.KartNo = KartNo.Trim();
         p.SicilNo = Bosalt(SicilNo);
         p.Ad = Ad.Trim();

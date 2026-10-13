@@ -1,0 +1,18 @@
+@* Metin alanı için sabit seçenekli açılır liste; listede olmayan eski değer de korunur. *@
+<select class="form-select form-select-sm" value="@(Value ?? "")" @onchange="e => ValueChanged.InvokeAsync(string.IsNullOrEmpty(e.Value?.ToString()) ? null : e.Value!.ToString())">
+    <option value="">—</option>
+    @if (!string.IsNullOrEmpty(Value) && !Secenekler.Contains(Value))
+    {
+        <option value="@Value">@Value</option>
+    }
+    @foreach (var s in Secenekler)
+    {
+        <option value="@s">@s</option>
+    }
+</select>
+
+@code {
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+    [Parameter] public IReadOnlyList<string> Secenekler { get; set; } = Array.Empty<string>();
+}
