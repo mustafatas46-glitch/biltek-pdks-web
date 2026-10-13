@@ -39,8 +39,8 @@ dotnet run --project src/BiltekPdks.Web
 
 ## Yol haritası
 
-1. **Temel** — giriş/yetki, firma, tanımlar, personel kartı ← *şu an*
-2. **Çekirdek PDKS** — giriş-çıkış, vardiya planları, izin, resmi tatil, puantaj motoru (eski sonuçlarla karşılaştırmalı)
+1. **Temel** — giriş/yetki, firma, tanımlar, personel kartı ✅
+2. **Çekirdek PDKS** — giriş-çıkış, vardiya planları, izin, resmi tatil, puantaj motoru ✅ (eski sistemden veri aktarımı ve sonuç karşılaştırması sırada)
 3. **Raporlar** — günlük/aylık/kişisel puantaj, Excel
 4. **Bordro/SGK** ve entegrasyon API'si
 5. **Yan modüller** — WC mola, üye, dershane; yemekhane sonraki güncellemede
