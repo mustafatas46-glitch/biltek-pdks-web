@@ -7,7 +7,13 @@
 }
 else
 {
-    <h1 class="h3 mb-4">@_baslik</h1>
+    <h1 class="h4 mb-3">Personel genel tanımlar</h1>
+    <ul class="nav nav-tabs mb-3">
+        @foreach (var (kod, ad) in Turler)
+        {
+            <li class="nav-item"><a class="nav-link @(kod == Tur ? "active" : "")" href="@($"tanimlar/{kod}")">@ad</a></li>
+        }
+    </ul>
 
     @if (_hata is not null) { <div class="alert alert-danger">@_hata</div> }
 
@@ -44,6 +50,13 @@ else
 @code {
     [Parameter] public string Tur { get; set; } = "";
 
+    private static readonly (string Kod, string Ad)[] Turler =
+    {
+        ("bolum", "Bölümler"), ("gorev", "Görevler"), ("servis", "Servisler"), ("bolge", "Bölgeler"),
+        ("birim", "Birimler"), ("takim", "Takımlar"), ("meslek", "Meslekler"), ("sube", "Şubeler"),
+        ("grup", "Çalışma grupları"), ("izin", "İzin türleri"),
+    };
+
     private string? _baslik, _hata, _yeniKod, _yeniAd;
     private List<Satir>? _liste;
 
@@ -59,15 +72,7 @@ else
     {
         _hata = null;
         _liste = null;
-        _baslik = Tur switch
-        {
-            "sube" => "Şubeler",
-            "bolum" => "Bölümler",
-            "gorev" => "Görevler",
-            "grup" => "Çalışma grupları",
-            "izin" => "İzin türleri",
-            _ => null,
-        };
+        _baslik = Turler.Where(t => t.Kod == Tur).Select(t => t.Ad).FirstOrDefault();
         if (_baslik is not null) await YukleAsync();
     }
 
@@ -78,6 +83,11 @@ else
         "gorev" => db.Gorevler,
         "grup" => db.CalismaGruplari,
         "izin" => db.IzinTurleri,
+        "servis" => db.Servisler,
+        "bolge" => db.Bolgeler,
+        "birim" => db.Birimler,
+        "takim" => db.Takimlar,
+        "meslek" => db.Meslekler,
         _ => throw new InvalidOperationException("Bilinmeyen tanım türü."),
     };
 
@@ -88,6 +98,11 @@ else
         "gorev" => new Gorev(),
         "grup" => new CalismaGrubu(),
         "izin" => new IzinTuru(),
+        "servis" => new Servis(),
+        "bolge" => new Bolge(),
+        "birim" => new Birim(),
+        "takim" => new Takim(),
+        "meslek" => new Meslek(),
         _ => throw new InvalidOperationException("Bilinmeyen tanım türü."),
     };
 

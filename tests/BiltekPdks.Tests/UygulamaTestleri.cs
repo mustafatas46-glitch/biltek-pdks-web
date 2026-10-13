@@ -113,7 +113,8 @@ public class UygulamaTestleri : IClassFixture<UygulamaFabrikasi>
             "/", $"/?personel={personelId}", "/ozet", "/personeller", "/personeller/yeni", $"/personeller/{personelId}",
             "/tanimlar/sube", "/tanimlar/bolum", "/tanimlar/gorev", "/tanimlar/grup", "/tanimlar/izin",
             "/vardiyalar", "/calisma-plani", "/resmi-tatiller", "/izinler", "/hareketler",
-            "/puantaj", $"/puantaj?personel={personelId}", "/puantaj/toplu", "/hesap/sifre",
+            "/puantaj", $"/puantaj?personel={personelId}", "/puantaj/toplu", "/hesap/sifre", "/toplu/giris-cikis", "/hakkinda",
+            "/tanimlar/servis", "/tanimlar/bolge", "/tanimlar/birim", "/tanimlar/takim", "/tanimlar/meslek",
         };
 
         foreach (var s in sayfalar)
@@ -149,6 +150,17 @@ public class UygulamaTestleri : IClassFixture<UygulamaFabrikasi>
         Assert.Equal("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", excel.Content.Headers.ContentType?.MediaType);
         using var kitap = new ClosedXML.Excel.XLWorkbook(await excel.Content.ReadAsStreamAsync());
         Assert.Contains(kitap.Worksheet(1).CellsUsed(), x => x.GetString() == "Deneme Personel");
+    }
+
+    [Fact]
+    public async Task Yonetici_veritabani_yedegini_indirebilir()
+    {
+        var c = Istemci();
+        await GirisYapAsync(c, UygulamaFabrikasi.Sifre);
+        var r = await c.GetAsync("/araclar/yedek");
+        Assert.Equal(HttpStatusCode.OK, r.StatusCode);
+        var bayt = await r.Content.ReadAsByteArrayAsync();
+        Assert.StartsWith("SQLite format 3", System.Text.Encoding.ASCII.GetString(bayt, 0, 15));
     }
 
     [Fact]

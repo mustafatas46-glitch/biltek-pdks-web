@@ -1,0 +1,61 @@
+@* Eski Windows programındaki gibi sağ tık menüsü. Kullanım:
+   <SagTikMenu @ref="_menu" />
+   <tr @oncontextmenu="e => _menu.Ac(e, Ogeler())" @oncontextmenu:preventDefault="true"> *@
+
+@if (_acik)
+{
+    <div class="sagtik-arka" @onclick="Kapat" @oncontextmenu="Kapat" @oncontextmenu:preventDefault="true"></div>
+    <div class="sagtik-menu" style="left:@(_x)px; top:@(_y)px" role="menu">
+        @foreach (var o in _ogeler)
+        {
+            if (o.Ayirac)
+            {
+                <div class="sagtik-ayirac"></div>
+            }
+            else
+            {
+                <button type="button" class="sagtik-oge" role="menuitem" disabled="@o.Pasif" title="@(o.Pasif ? o.PasifNedeni : null)"
+                        @onclick="() => SecAsync(o)">
+                    <span>@o.Metin</span>
+                    @if (o.Kisayol is not null) { <span class="sagtik-kisayol">@o.Kisayol</span> }
+                </button>
+            }
+        }
+    </div>
+}
+
+@code {
+    public sealed record Oge(string Metin, Func<Task>? Eylem = null, string? Kisayol = null, bool Pasif = false, string? PasifNedeni = null, bool Ayirac = false)
+    {
+        public static Oge Cizgi() => new("", Ayirac: true);
+        public static Oge Yakinda(string metin) => new(metin, Pasif: true, PasifNedeni: "Bu özellik sıradaki adımda gelecek.");
+        public static Oge Eylemli(string metin, Action eylem, string? kisayol = null, bool pasif = false) =>
+            new(metin, () => { eylem(); return Task.CompletedTask; }, kisayol, pasif);
+    }
+
+    private bool _acik;
+    private double _x, _y;
+    private IReadOnlyList<Oge> _ogeler = Array.Empty<Oge>();
+
+    public void Ac(MouseEventArgs e, IReadOnlyList<Oge> ogeler)
+    {
+        _ogeler = ogeler;
+        // Ekranın sağ / alt kenarından taşmasın.
+        _x = e.ClientX;
+        _y = e.ClientY;
+        _acik = true;
+        StateHasChanged();
+    }
+
+    public void Kapat()
+    {
+        _acik = false;
+        StateHasChanged();
+    }
+
+    private async Task SecAsync(Oge o)
+    {
+        _acik = false;
+        if (o.Eylem is not null) await o.Eylem();
+    }
+}

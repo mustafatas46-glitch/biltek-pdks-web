@@ -17,7 +17,7 @@
                     @foreach (var p in Suzulmus)
                     {
                         <tr class="@(p.Id == _seciliId ? "secili" : "")" @onclick="() => SecAsync(p.Id)"
-                            @oncontextmenu="() => TopluAcAsync(p.Id)" @oncontextmenu:preventDefault="true" title="Sağ tık: toplu giriş-çıkış ekle">
+                            @oncontextmenu="e => PersonelMenusuAsync(e, p.Id)" @oncontextmenu:preventDefault="true">
                             <td>@p.KartNo</td><td>@p.Ad</td><td>@p.Soyad</td><td>@p.SicilNo</td>
                             <td>@p.IseGiris.ToString("dd.MM.yyyy")</td><td>@p.Cikis?.ToString("dd.MM.yyyy")</td>
                         </tr>
@@ -32,7 +32,7 @@
                     <input class="form-check-input" type="radio" name="aramaAlani" checked="@(_aramaAlani == deger)" @onchange="() => _aramaAlani = deger" /> @ad
                 </label>
             }
-            <input class="form-control form-control-sm flex-grow-1" style="min-width:120px" placeholder="ara…" @bind="_arama" @bind:event="oninput" />
+            <input class="form-control form-control-sm flex-grow-1" style="min-width:120px" placeholder="ara…" @bind="_arama" @bind:event="oninput" @ref="_aramaKutusu" />
         </div>
         <div class="alt-cubuk">
             <button class="btn btn-sm btn-success" @onclick="Yeni">Yeni [F2]</button>
@@ -77,7 +77,8 @@
                     <tbody>
                         @foreach (var g in GirisCikisSatirlari)
                         {
-                            <tr class="@(g.Tarih == _seciliGun ? "secili" : "")" @onclick="() => GunSec(g.Tarih)">
+                            <tr class="@(g.Tarih == _seciliGun ? "secili" : "")" @onclick="() => GunSec(g.Tarih)"
+                                @oncontextmenu="e => { GunSec(g.Tarih); _menu.Ac(e, HareketMenusu()); }" @oncontextmenu:preventDefault="true">
                                 <td>@TarihMetni(g.Giris!.Value)</td><td>@g.Giris.Value.ToString("HH:mm")</td>
                                 <td>@(g.Cikis is { } c ? TarihMetni(c) : "")</td><td>@g.Cikis?.ToString("HH:mm")</td>
                                 <td>@(ElleMi(g.Giris) ? "E" : "")</td><td>@(ElleMi(g.Cikis) ? "E" : "")</td>
@@ -113,7 +114,7 @@
                     <tbody>
                         @foreach (var i in _izinler)
                         {
-                            <tr><td>@i.Baslangic.ToString("dd.MM.yyyy")</td><td>@i.Bitis.ToString("dd.MM.yyyy")</td>
+                            <tr @oncontextmenu="e => _menu.Ac(e, IzinMenusu())" @oncontextmenu:preventDefault="true"><td>@i.Baslangic.ToString("dd.MM.yyyy")</td><td>@i.Bitis.ToString("dd.MM.yyyy")</td>
                                 <td>@(i.Bitis.DayNumber - i.Baslangic.DayNumber + 1)</td><td>@i.IzinTuru?.Ad</td><td>@i.Aciklama</td></tr>
                         }
                     </tbody>
@@ -138,7 +139,8 @@
                     {
                         @foreach (var g in _puantaj.Gunler)
                         {
-                            <tr class="puantaj-satir @SatirSinifi(g) @(g.Tarih == _seciliGun ? "secili" : "")" @onclick="() => GunSec(g.Tarih)">
+                            <tr class="puantaj-satir @SatirSinifi(g) @(g.Tarih == _seciliGun ? "secili" : "")" @onclick="() => GunSec(g.Tarih)"
+                                @oncontextmenu="e => { GunSec(g.Tarih); _menu.Ac(e, PuantajMenusu()); }" @oncontextmenu:preventDefault="true">
                                 <td>@TarihMetni(g.Tarih.ToDateTime(TimeOnly.MinValue))</td>
                                 <td>@g.Giris?.ToString("HH:mm")</td><td>@g.Cikis?.ToString("HH:mm")</td>
                                 <td>@S(g.NormalCalismaDakika)</td><td>@S(g.FazlaMesaiDakika)</td><td>@S(g.TatilMesaisiDakika)</td>
@@ -169,6 +171,8 @@
         </div>
     </section>
 </div>
+
+<SagTikMenu @ref="_menu" />
 
 @if (_toplu is not null)
 {
@@ -235,6 +239,9 @@
     private string? _mesaj;
     private DotNetObjectReference<AnaEkran>? _ref;
     private TopluForm? _toplu;
+    private SagTikMenu _menu = default!;
+    private ElementReference _aramaKutusu;
+    private string _siralama = "kart";
 
     private sealed class TopluForm
     {
@@ -263,6 +270,14 @@
                 "aktif" => _liste.Where(p => p.Cikis is null || p.Cikis >= bugun),
                 "pasif" => _liste.Where(p => p.Cikis is not null && p.Cikis < bugun),
                 _ => _liste.AsEnumerable(),
+            };
+            q = _siralama switch
+            {
+                "ad" => q.OrderBy(p => p.Ad).ThenBy(p => p.Soyad),
+                "soyad" => q.OrderBy(p => p.Soyad).ThenBy(p => p.Ad),
+                "sicil" => q.OrderBy(p => p.SicilNo),
+                "giris" => q.OrderBy(p => p.IseGiris),
+                _ => q.OrderBy(p => p.KartNo),
             };
             var a = _arama.Trim();
             if (a.Length == 0) return q;
@@ -317,7 +332,9 @@
 
     public async ValueTask DisposeAsync()
     {
-        try { await JS.InvokeVoidAsync("pdksKisayol.birak"); } catch (JSDisconnectedException) { }
+        // Ön işleme (prerender) sırasında JS yoktur; yalnızca bağlandıysak bırak.
+        if (_ref is not null)
+            try { await JS.InvokeVoidAsync("pdksKisayol.birak"); } catch (JSDisconnectedException) { } catch (InvalidOperationException) { }
         _ref?.Dispose();
     }
 
@@ -330,6 +347,7 @@
             case "F3": Degistir(); break;
             case "F4": await SilAsync(); break;
             case "F8": await PuantajYukleAsync(); break;
+            case "F5": Degistir(); break;
             case "F9": KisiselPuantajAc(); break;
             case "F10": RaporAl(); break;
             case "Escape": _toplu = null; break;
@@ -389,6 +407,62 @@
     }
 
     private void Yeni() => Navigation.NavigateTo("personeller/yeni");
+
+    // ---------- Sağ tık menüleri (eski programdaki sırayla) ----------
+    private async Task PersonelMenusuAsync(MouseEventArgs e, int personelId)
+    {
+        if (personelId != _seciliId) await SecAsync(personelId);
+        var o = new List<SagTikMenu.Oge>
+        {
+            SagTikMenu.Oge.Eylemli("Sırala: Kart No", () => _siralama = "kart"),
+            SagTikMenu.Oge.Eylemli("Sırala: Adı", () => _siralama = "ad"),
+            SagTikMenu.Oge.Eylemli("Sırala: Soyadı", () => _siralama = "soyad"),
+            SagTikMenu.Oge.Eylemli("Sırala: Sicil No", () => _siralama = "sicil"),
+            SagTikMenu.Oge.Eylemli("Sırala: İşe giriş tarihi", () => _siralama = "giris"),
+            new("Personel Filtrele", async () => await _aramaKutusu.FocusAsync()),
+            SagTikMenu.Oge.Cizgi(),
+            new("Seçili Personele Toplu Giriş-Çıkış Ekle", () => TopluAcAsync(personelId)),
+            new("Puantaj Hesapla", PuantajYukleAsync, "F8"),
+            SagTikMenu.Oge.Eylemli("Kişisel Puantaj", KisiselPuantajAc, "F9"),
+            SagTikMenu.Oge.Eylemli("Puantaj Raporu (Excel)", RaporAl, "F10"),
+            SagTikMenu.Oge.Cizgi(),
+            SagTikMenu.Oge.Eylemli("Personel Bilgi Formu", Degistir, "F5"),
+            SagTikMenu.Oge.Eylemli("Yeni Kayıt", Yeni, "F2"),
+            SagTikMenu.Oge.Eylemli("Kayıt Düzenle", Degistir, "F3"),
+            new("Kayıt Sil", SilAsync, "F4"),
+            SagTikMenu.Oge.Cizgi(),
+            new("Yenile", async () => { await ListeyiYukleAsync(); await PuantajYukleAsync(); }),
+        };
+        _menu.Ac(e, o);
+    }
+
+    private List<SagTikMenu.Oge> HareketMenusu() => new()
+    {
+        SagTikMenu.Oge.Eylemli("Yeni Kayıt", HareketEkle, pasif: _secili is null),
+        SagTikMenu.Oge.Eylemli("Kayıt Düzenle", HareketDegistir, pasif: _seciliGun is null),
+        new("Kayıt Sil", async () => { _hareketSilOnay = true; await HareketSilAsync(); }, Pasif: _seciliGun is null),
+        SagTikMenu.Oge.Cizgi(),
+        new("Toplu Giriş-Çıkış Ekle", () => TopluAcAsync(_seciliId!.Value), Pasif: _seciliId is null),
+        new("Yenile", PuantajYukleAsync),
+    };
+
+    private List<SagTikMenu.Oge> PuantajMenusu() => new()
+    {
+        new("Puantaj Hesapla / Göster", PuantajYukleAsync, "F8"),
+        SagTikMenu.Oge.Eylemli("Kişisel Puantaj", KisiselPuantajAc, "F9"),
+        SagTikMenu.Oge.Eylemli("Puantaj Raporu (Excel)", RaporAl, "F10"),
+        SagTikMenu.Oge.Cizgi(),
+        SagTikMenu.Oge.Eylemli("Bu güne giriş-çıkış ekle", HareketEkle, pasif: _secili is null),
+        new("Toplu Giriş-Çıkış Ekle", () => TopluAcAsync(_seciliId!.Value), Pasif: _seciliId is null),
+        SagTikMenu.Oge.Cizgi(),
+        new("Önceki Ay", () => AyKaydirAsync(-1)),
+        new("Sonraki Ay", () => AyKaydirAsync(1)),
+    };
+
+    private List<SagTikMenu.Oge> IzinMenusu() => new()
+    {
+        SagTikMenu.Oge.Eylemli("İzin Ekle / Düzenle", () => Navigation.NavigateTo(_seciliId is int id ? $"izinler?personel={id}" : "izinler")),
+    };
 
     private void KisiselPuantajAc()
     {

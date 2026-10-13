@@ -1,0 +1,17 @@
+@page "/hakkinda"
+
+<PageTitle>Hakkında</PageTitle>
+<h1 class="h4 mb-3">Biltek PDKS — Personel Devam Kontrol Sistemi</h1>
+<dl class="row" style="max-width:640px">
+    <dt class="col-4">Sürüm</dt><dd class="col-8">@Surum</dd>
+    <dt class="col-4">Derleme tarihi</dt><dd class="col-8">@Derleme.ToString("dd.MM.yyyy HH:mm")</dd>
+    <dt class="col-4">Veritabanı</dt><dd class="col-8">@Saglayici</dd>
+</dl>
+<p class="text-muted small">Eski Biltek PDKS v3 verileri aktarılarak kullanılır. Kısayollar: F2 yeni, F3 düzenle, F4 sil, F5 bilgi formu, F8 puantaj, F9 kişisel puantaj, F10 rapor. Tablolarda sağ tıklayarak işlem menüsünü açabilirsiniz.</p>
+
+@code {
+    [Inject] private IConfiguration Ayarlar { get; set; } = default!;
+    private static readonly string Surum = typeof(Hakkinda).Assembly.GetName().Version?.ToString() ?? "1.0";
+    private static readonly DateTime Derleme = File.GetLastWriteTime(typeof(Hakkinda).Assembly.Location);
+    private string Saglayici => Ayarlar["Veritabani:Saglayici"] ?? "Sqlite";
+}

@@ -1,0 +1,160 @@
+@page "/toplu/giris-cikis"
+@using BiltekPdks.Infrastructure.Puantaj
+@inject FirmaDb FirmaDb
+
+<PageTitle>Toplu giriş-çıkış ekle</PageTitle>
+<h1 class="h4 mb-3">Toplu Giriş-Çıkış Ekle</h1>
+
+<div class="row g-3">
+    <div class="col-lg-5">
+        <div class="d-flex gap-2 mb-2 flex-wrap">
+            <select class="form-select form-select-sm" style="width:auto" @bind="_bolumId">
+                <option value="">Tüm bölümler</option>
+                @foreach (var b in _bolumler) { <option value="@b.Id">@b.Ad</option> }
+            </select>
+            <select class="form-select form-select-sm" style="width:auto" @bind="_grupId">
+                <option value="">Tüm gruplar</option>
+                @foreach (var g in _gruplar) { <option value="@g.Id">@g.Ad</option> }
+            </select>
+            <input class="form-control form-control-sm" style="width:12rem" placeholder="Ad, kart, sicil ara" @bind="_arama" @bind:event="oninput" />
+        </div>
+        <div class="izgara border rounded" style="max-height:calc(100vh - 16rem)">
+            <table class="table table-sm table-hover mb-0">
+                <thead><tr>
+                    <th style="width:2rem"><input class="form-check-input" type="checkbox" checked="@HepsiSecili" @onchange="HepsiniSec" title="Görünenlerin hepsini seç" /></th>
+                    <th>Kart</th><th>Ad Soyad</th><th>Bölüm</th>
+                </tr></thead>
+                <tbody>
+                    @foreach (var p in Gorunen)
+                    {
+                        <tr @onclick="() => Degistir(p.Id)" @oncontextmenu="e => _menu.Ac(e, Menu())" @oncontextmenu:preventDefault="true">
+                            <td><input class="form-check-input" type="checkbox" checked="@_secili.Contains(p.Id)" @onclick:stopPropagation="true" @onchange="() => Degistir(p.Id)" /></td>
+                            <td>@p.KartNo</td><td>@p.Ad</td><td>@p.Bolum</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div class="small text-muted mt-1">Seçili: <b>@_secili.Count</b> personel · Görünen: @Gorunen.Count()</div>
+    </div>
+
+    <div class="col-lg-5">
+        <div class="border rounded p-3 bg-white">
+            <div class="row g-2">
+                <div class="col-6"><label class="form-label small mb-0">Başlangıç tarihi</label><input class="form-control form-control-sm" type="date" @bind="_bas" /></div>
+                <div class="col-6"><label class="form-label small mb-0">Bitiş tarihi</label><input class="form-control form-control-sm" type="date" @bind="_bit" /></div>
+                <div class="col-6"><label class="form-label small mb-0">Giriş saati</label><input class="form-control form-control-sm" type="time" @bind="_giris" /></div>
+                <div class="col-6"><label class="form-label small mb-0">Çıkış saati</label><input class="form-control form-control-sm" type="time" @bind="_cikis" /></div>
+                <div class="col-12 small">
+                    <label class="form-check"><input class="form-check-input" type="checkbox" @bind="_yalnizCalisma" /> Yalnız çalışma günleri (hafta tatillerini atla)</label>
+                    <label class="form-check"><input class="form-check-input" type="checkbox" @bind="_tatilAtla" /> Resmi tatilleri atla</label>
+                    <label class="form-check"><input class="form-check-input" type="checkbox" @bind="_izinAtla" /> İzinli günleri atla</label>
+                    <label class="form-check"><input class="form-check-input" type="checkbox" @bind="_doluAtla" /> Zaten giriş-çıkışı olan günleri atla</label>
+                </div>
+                <div class="col-12"><input class="form-control form-control-sm" placeholder="Açıklama (zorunlu)" @bind="_aciklama" /></div>
+            </div>
+            @if (_mesaj is not null) { <div class="alert @(_hata ? "alert-danger" : "alert-success") py-1 small mt-2 mb-0" style="white-space:pre-line">@_mesaj</div> }
+            <div class="d-flex gap-2 mt-3">
+                <button class="btn btn-sm btn-outline-primary" disabled="@(_calisiyor || _secili.Count == 0)" @onclick="() => CalistirAsync(true)">Önizle</button>
+                <button class="btn btn-sm btn-success" disabled="@(_calisiyor || _secili.Count == 0)" @onclick="() => CalistirAsync(false)">Ekle</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<SagTikMenu @ref="_menu" />
+
+@code {
+    private sealed record Satir(int Id, string KartNo, string Ad, string? SicilNo, string? Bolum, int? BolumId, int? GrupId);
+
+    private SagTikMenu _menu = default!;
+    private List<Satir> _liste = new();
+    private List<(int Id, string Ad)> _bolumler = new(), _gruplar = new();
+    private readonly HashSet<int> _secili = new();
+    private int? _bolumId, _grupId;
+    private string _arama = "";
+    private DateOnly _bas = new(DateTime.Today.Year, DateTime.Today.Month, 1);
+    private DateOnly _bit = DateOnly.FromDateTime(DateTime.Today);
+    private TimeOnly _giris = new(8, 0), _cikis = new(17, 0);
+    private bool _yalnizCalisma = true, _tatilAtla = true, _izinAtla = true, _doluAtla = true, _calisiyor, _hata;
+    private string _aciklama = "Toplu giriş-çıkış";
+    private string? _mesaj;
+
+    private IEnumerable<Satir> Gorunen
+    {
+        get
+        {
+            IEnumerable<Satir> q = _liste;
+            if (_bolumId is int b) q = q.Where(x => x.BolumId == b);
+            if (_grupId is int g) q = q.Where(x => x.GrupId == g);
+            var a = _arama.Trim();
+            if (a.Length > 0)
+                q = q.Where(x => x.Ad.Contains(a, StringComparison.CurrentCultureIgnoreCase) || x.KartNo.Contains(a) || (x.SicilNo?.Contains(a) ?? false));
+            return q;
+        }
+    }
+
+    private bool HepsiSecili => Gorunen.Any() && Gorunen.All(x => _secili.Contains(x.Id));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await FirmaDb.AcAsync();
+        var bugun = DateOnly.FromDateTime(DateTime.Today);
+        _liste = await db.Personeller.AsNoTracking()
+            .Where(p => p.IstenCikisTarihi == null || p.IstenCikisTarihi >= bugun)
+            .OrderBy(p => p.Ad).ThenBy(p => p.Soyad)
+            .Select(p => new Satir(p.Id, p.KartNo, p.Ad + " " + p.Soyad, p.SicilNo, p.Bolum != null ? p.Bolum.Ad : null, p.BolumId, p.CalismaGrubuId))
+            .ToListAsync();
+        _bolumler = (await db.Bolumler.AsNoTracking().OrderBy(x => x.Ad).Select(x => new { x.Id, x.Ad }).ToListAsync()).Select(x => (x.Id, x.Ad)).ToList();
+        _gruplar = (await db.CalismaGruplari.AsNoTracking().OrderBy(x => x.Ad).Select(x => new { x.Id, x.Ad }).ToListAsync()).Select(x => (x.Id, x.Ad)).ToList();
+    }
+
+    private void Degistir(int id)
+    {
+        if (!_secili.Remove(id)) _secili.Add(id);
+    }
+
+    private void HepsiniSec()
+    {
+        if (HepsiSecili) foreach (var x in Gorunen) _secili.Remove(x.Id);
+        else foreach (var x in Gorunen) _secili.Add(x.Id);
+    }
+
+    private List<SagTikMenu.Oge> Menu() => new()
+    {
+        SagTikMenu.Oge.Eylemli("Görünenlerin hepsini seç", () => { foreach (var x in Gorunen) _secili.Add(x.Id); }),
+        SagTikMenu.Oge.Eylemli("Seçimi temizle", () => _secili.Clear()),
+        SagTikMenu.Oge.Cizgi(),
+        new("Seçililere önizle", () => CalistirAsync(true), Pasif: _secili.Count == 0),
+        new("Seçililere ekle", () => CalistirAsync(false), Pasif: _secili.Count == 0),
+    };
+
+    private async Task CalistirAsync(bool deneme)
+    {
+        _mesaj = null;
+        _calisiyor = true;
+        try
+        {
+            await using var db = await FirmaDb.AcAsync();
+            var kullanici = await FirmaDb.KullaniciIdAsync();
+            int gun = 0, kisi = 0, dolu = 0, plansiz = 0, tatil = 0, izin = 0, kapsam = 0;
+            foreach (var id in _secili)
+            {
+                var s = await TopluHareketServisi.EkleAsync(db,
+                    new TopluHareketIstegi(id, _bas, _bit, _giris, _cikis, _aciklama, _yalnizCalisma, _tatilAtla, _doluAtla, _izinAtla),
+                    kullanici, deneme);
+                gun += s.EklenenGun; if (s.EklenenGun > 0) kisi++;
+                dolu += s.HareketiOlan; plansiz += s.CalismaGunuDegil; tatil += s.ResmiTatil; izin += s.Izinli; kapsam += s.KapsamDisi;
+            }
+            _hata = false;
+            _mesaj = (deneme ? $"{kisi} personele toplam {gun} gün giriş-çıkış eklenecek." : $"{kisi} personele toplam {gun} gün giriş-çıkış eklendi.")
+                + $"\nAtlanan: {dolu} dolu, {plansiz} tatil/plansız, {tatil} resmi tatil, {izin} izinli, {kapsam} işe giriş/çıkış dışı gün.";
+        }
+        catch (ArgumentException e)
+        {
+            _hata = true;
+            _mesaj = e.Message;
+        }
+        finally { _calisiyor = false; }
+    }
+}

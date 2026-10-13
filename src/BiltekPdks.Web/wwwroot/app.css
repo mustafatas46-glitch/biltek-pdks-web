@@ -65,3 +65,16 @@ td.geckaldi, span.geckaldi { box-shadow: inset 0 -3px 0 #fd7e14; }
 /* Açılır pencere (toplu giriş-çıkış) */
 .pdks-pencere-arka { position: fixed; inset: 0; background: rgba(15, 23, 42, .35); z-index: 1040; }
 .pdks-pencere { position: fixed; top: 12vh; left: 50%; transform: translateX(-50%); width: min(460px, calc(100vw - 2rem)); background: #fff; border-radius: .5rem; box-shadow: 0 12px 40px rgba(0,0,0,.25); padding: 1rem 1.1rem; z-index: 1050; }
+
+/* Sağ tık menüsü */
+.sagtik-arka { position: fixed; inset: 0; z-index: 1060; }
+.sagtik-menu { position: fixed; z-index: 1070; min-width: 260px; max-height: calc(100vh - 16px); overflow: auto; background: #fff; border: 1px solid #c4cbd3; box-shadow: 0 8px 24px rgba(0,0,0,.18); padding: .25rem 0; border-radius: .25rem; font-size: .875rem; }
+.sagtik-oge { display: flex; width: 100%; justify-content: space-between; gap: 1.5rem; padding: .32rem .9rem; border: 0; background: none; text-align: left; color: #1f2a37; }
+.sagtik-oge:hover:not(:disabled) { background: #0d6efd; color: #fff; }
+.sagtik-oge:disabled { color: #a0a7af; }
+.sagtik-kisayol { color: #6c757d; }
+.sagtik-oge:hover:not(:disabled) .sagtik-kisayol { color: #dbe7ff; }
+.sagtik-ayirac { border-top: 1px solid #e3e7eb; margin: .25rem 0; }
+.menu-alt .yakinda { display: block; padding: .4rem .9rem; color: #a0a7af; cursor: default; }
+.menu-alt .yakinda::after { content: " · yakında"; font-size: .75rem; }
+.menu-alt a { white-space: nowrap; }

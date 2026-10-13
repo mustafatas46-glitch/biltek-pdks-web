@@ -56,6 +56,7 @@ app.UseAntiforgery();
 
 app.MapHesapEndpoints();
 app.MapRaporEndpoints();
+app.MapAracEndpoints();
 app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
 
 app.Run();
