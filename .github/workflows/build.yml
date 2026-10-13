@@ -8,6 +8,17 @@ on:
 jobs:
   build-test:
     runs-on: ubuntu-latest
+    services:
+      eskimysql:
+        image: mysql:5.5
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: data2015
+        ports:
+          - 3307:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=5s --health-timeout=5s --health-retries=30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -24,6 +35,8 @@ jobs:
           echo "::notice title=Derleme::$n derleyici uyarisi"
           grep "warning CS" build.log | sed -E 's#.*/(src|tests)/#\1/#' | sort -u | head -20 | while read -r l; do echo "::warning::$l"; done
       - name: Test
+        env:
+          ESKI_MYSQL_TEST: "Server=127.0.0.1;Port=3307;Database=data2015;User=root;Password=root"
         run: dotnet test BiltekPdks.sln --no-build -c Release --logger "trx;LogFileName=sonuc.trx" --results-directory testsonuc
       - name: Test ozeti
         if: always()

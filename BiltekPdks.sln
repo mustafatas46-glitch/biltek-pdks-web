@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BiltekPdks.Web", "src\Bilte
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BiltekPdks.Tests", "tests\BiltekPdks.Tests\BiltekPdks.Tests.csproj", "{75096378-BED6-596E-B973-29590069B06C}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BiltekPdks.Aktarim", "tools\BiltekPdks.Aktarim\BiltekPdks.Aktarim.csproj", "{74735E7A-C531-5E99-95E7-0CF08BB4F8F0}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -33,5 +35,9 @@ Global
 		{75096378-BED6-596E-B973-29590069B06C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{75096378-BED6-596E-B973-29590069B06C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{75096378-BED6-596E-B973-29590069B06C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{74735E7A-C531-5E99-95E7-0CF08BB4F8F0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{74735E7A-C531-5E99-95E7-0CF08BB4F8F0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{74735E7A-C531-5E99-95E7-0CF08BB4F8F0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{74735E7A-C531-5E99-95E7-0CF08BB4F8F0}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
