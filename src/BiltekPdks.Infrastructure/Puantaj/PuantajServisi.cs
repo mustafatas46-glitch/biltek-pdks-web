@@ -117,7 +117,9 @@ public class PuantajServisi
             var izin = izinler.FirstOrDefault(i => i.Kapsar(t));
             var kapsamDisi = t < personel.IseGirisTarihi
                 || (personel.IstenCikisTarihi is { } c && t > c)
-                || (sonHesapGunu is { } sg && t > sg);
+                || (sonHesapGunu is { } sg && t > sg)
+                // Bugün henüz okutma yoksa gün bitmeden "devamsız" denmez.
+                || (sonHesapGunu is { } bg && t == bg && gunun.Count == 0);
 
             var gunSonucu = PuantajMotoru.Hesapla(new GunGirdisi(
                 t, kural, gunun,

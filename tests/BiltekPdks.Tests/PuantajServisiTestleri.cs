@@ -69,6 +69,20 @@ public class PuantajServisiTestleri
     }
 
     [Fact]
+    public void Bugun_okutma_yoksa_devamsiz_yazilmaz_ama_dun_yazilir()
+    {
+        var gunduz = new Vardiya { Id = 1, Baslangic = new TimeOnly(8, 0), Bitis = new TimeOnly(17, 0) };
+        var personel = new Personel { Id = 1, IseGirisTarihi = new DateOnly(2026, 1, 1) };
+        var bugun = new DateOnly(2026, 10, 13);
+        var gunler = PuantajServisi.Hesapla(personel, bugun.AddDays(-1), bugun,
+            new Dictionary<int, Vardiya> { [1] = gunduz },
+            Enum.GetValues<DayOfWeek>().ToDictionary(g => g, _ => (int?)1),
+            new Dictionary<DateOnly, int?>(), new HashSet<DateOnly>(), Array.Empty<Izin>(), Array.Empty<DateTime>(), bugun);
+        Assert.Equal(PuantajDurumu.Devamsiz, gunler[0].Durum);
+        Assert.Equal(PuantajDurumu.KapsamDisi, gunler[1].Durum);
+    }
+
+    [Fact]
     public void Ay_basina_sarkan_gece_vardiyasi_cikisi_1ine_yazilmaz()
     {
         var gece = new Vardiya { Id = 1, Baslangic = new TimeOnly(22, 0), Bitis = new TimeOnly(6, 0), MolaDakika = 30 };
