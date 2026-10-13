@@ -63,8 +63,8 @@ static async Task VeritabaniniHazirlaAsync(WebApplication app)
 
     await using (var db = await sp.GetRequiredService<IDbContextFactory<PdksDbContext>>().CreateDbContextAsync())
     {
-        // 1. aşama: şema doğrudan oluşturulur. Canlıya geçmeden önce EF migration'a geçilecek.
-        await db.Database.EnsureCreatedAsync();
+        // Veritabanını en son sürüme getirir; mevcut veriler korunur.
+        await VeritabaniGuncelleyici.GuncelleAsync(db);
     }
 
     var cfg = app.Configuration;

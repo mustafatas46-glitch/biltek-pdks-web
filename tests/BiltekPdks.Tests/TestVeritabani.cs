@@ -9,22 +9,22 @@ namespace BiltekPdks.Tests;
 public sealed class TestVeritabani : IDbContextFactory<PdksDbContext>, IDisposable
 {
     private readonly SqliteConnection _baglanti;
-    private readonly DbContextOptions<PdksDbContext> _secenekler;
+    private readonly DbContextOptions<SqlitePdksDbContext> _secenekler;
 
     public TestVeritabani()
     {
         _baglanti = new SqliteConnection("Data Source=:memory:");
         _baglanti.Open();
-        _secenekler = new DbContextOptionsBuilder<PdksDbContext>().UseSqlite(_baglanti).Options;
-        using var db = new PdksDbContext(_secenekler);
-        db.Database.EnsureCreated();
+        _secenekler = new DbContextOptionsBuilder<SqlitePdksDbContext>().UseSqlite(_baglanti).Options;
+        using var db = new SqlitePdksDbContext(_secenekler);
+        VeritabaniGuncelleyici.GuncelleAsync(db).GetAwaiter().GetResult();
     }
 
-    public PdksDbContext CreateDbContext() => new(_secenekler);
+    public PdksDbContext CreateDbContext() => new SqlitePdksDbContext(_secenekler);
 
-    public PdksDbContext Db(int firmaId) => new(_secenekler) { AktifFirmaId = firmaId };
+    public PdksDbContext Db(int firmaId) => new SqlitePdksDbContext(_secenekler) { AktifFirmaId = firmaId };
 
-    public PdksDbContext Sistem() => new(_secenekler) { FirmaFiltresiKapali = true };
+    public PdksDbContext Sistem() => new SqlitePdksDbContext(_secenekler) { FirmaFiltresiKapali = true };
 
     public int FirmaEkle(string kod)
     {

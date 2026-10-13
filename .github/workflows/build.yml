@@ -169,7 +169,6 @@ jobs:
           dotnet tool install --global dotnet-ef --version 8.0.11
           for c in Sqlite MySql; do
             dotnet ef migrations add "$AD" --context ${c}PdksDbContext --output-dir Migrations/$c \
-              --namespace BiltekPdks.Infrastructure.Migrations.$c \
               --project src/BiltekPdks.Infrastructure --startup-project src/BiltekPdks.Infrastructure
           done
       - name: Dala yukle

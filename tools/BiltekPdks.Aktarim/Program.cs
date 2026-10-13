@@ -28,13 +28,15 @@ Console.WriteLine("Eski veritabanı okunuyor (salt okunur)...");
 var eski = await EskiVeritabaniOkuyucu.OkuAsync(a.Eski, a.HareketBaslangic, a.EskiFirmaId);
 Console.WriteLine($"  personel {eski.Personeller.Count}, izin {eski.Izinler.Count}, giriş-çıkış satırı {eski.GirisCikislar.Count}, tatil {eski.Tatiller.Count}");
 
-var secenek = new DbContextOptionsBuilder<PdksDbContext>();
-if (a.Saglayici.Equals("Sqlite", StringComparison.OrdinalIgnoreCase)) secenek.UseSqlite(a.Yeni);
-else secenek.UseMySql(a.Yeni, ServerVersion.Parse("8.0.36-mysql"));
+PdksDbContext YeniBaglam() =>
+    VeritabaniAyarlari.SqliteMi(a.Saglayici)
+        ? new SqlitePdksDbContext(new DbContextOptionsBuilder<SqlitePdksDbContext>().UseSqlite(a.Yeni).Options)
+        : new MySqlPdksDbContext(new DbContextOptionsBuilder<MySqlPdksDbContext>().UseMySql(a.Yeni, VeritabaniAyarlari.VarsayilanMySqlSurumu).Options);
 
-await using (var sistem = new PdksDbContext(secenek.Options) { FirmaFiltresiKapali = true })
+await using (var sistem = YeniBaglam())
 {
-    await sistem.Database.EnsureCreatedAsync();
+    sistem.FirmaFiltresiKapali = true;
+    await VeritabaniGuncelleyici.GuncelleAsync(sistem);
     var kod = a.Firma.Trim().ToUpperInvariant();
     var firma = await sistem.Firmalar.FirstOrDefaultAsync(f => f.Kod == kod);
     if (firma is null)
@@ -43,7 +45,8 @@ await using (var sistem = new PdksDbContext(secenek.Options) { FirmaFiltresiKapa
         return 1;
     }
 
-    await using var db = new PdksDbContext(secenek.Options) { AktifFirmaId = firma.Id };
+    await using var db = YeniBaglam();
+    db.AktifFirmaId = firma.Id;
     await using var islem = await db.Database.BeginTransactionAsync();
     Console.WriteLine($"'{firma.Ad}' firmasına aktarılıyor...");
     var rapor = await EskiSistemAktarimi.AktarAsync(db, firma.Id, eski);
