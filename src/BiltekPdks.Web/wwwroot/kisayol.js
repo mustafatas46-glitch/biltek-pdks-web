@@ -1,4 +1,4 @@
-// Ana ekrandaki F2/F3/F4/F8 kısayolları. Tarayıcının kendi F tuşu davranışı engellenir.
+// Ana ekrandaki F2/F3/F4/F8/F9/F10 ve Esc kısayolları. Tarayıcının kendi F tuşu davranışı engellenir.
 window.pdksKisayol = {
     bagla: function (ref) {
         window.__pdksKisayolRef = ref;
@@ -6,7 +6,7 @@ window.pdksKisayol = {
         window.__pdksKisayolBagli = true;
         document.addEventListener('keydown', function (e) {
             if (!window.__pdksKisayolRef) return;
-            if (['F2', 'F3', 'F4', 'F8'].indexOf(e.key) >= 0) {
+            if (['F2', 'F3', 'F4', 'F8', 'F9', 'F10', 'Escape'].indexOf(e.key) >= 0) {
                 e.preventDefault();
                 window.__pdksKisayolRef.invokeMethodAsync('TusaBasildi', e.key);
             }

@@ -139,6 +139,11 @@ public class UygulamaTestleri : IClassFixture<UygulamaFabrikasi>
         Assert.Contains("Deneme Personel", toplu);
 
         var dun = DateTime.Today.AddDays(-1);
+        var kisisel = await c.GetAsync($"/raporlar/kisisel-puantaj.xlsx?personel={personelId}&yil={dun.Year}&ay={dun.Month}");
+        Assert.Equal(HttpStatusCode.OK, kisisel.StatusCode);
+        Assert.Contains("Kişisel puantaj [F9]", ana);
+        Assert.Contains("Rapor [F10]", ana);
+
         var excel = await c.GetAsync($"/raporlar/toplu-puantaj.xlsx?yil={dun.Year}&ay={dun.Month}");
         Assert.Equal(HttpStatusCode.OK, excel.StatusCode);
         Assert.Equal("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", excel.Content.Headers.ContentType?.MediaType);

@@ -16,7 +16,8 @@
                 <tbody>
                     @foreach (var p in Suzulmus)
                     {
-                        <tr class="@(p.Id == _seciliId ? "secili" : "")" @onclick="() => SecAsync(p.Id)">
+                        <tr class="@(p.Id == _seciliId ? "secili" : "")" @onclick="() => SecAsync(p.Id)"
+                            @oncontextmenu="() => TopluAcAsync(p.Id)" @oncontextmenu:preventDefault="true" title="Sağ tık: toplu giriş-çıkış ekle">
                             <td>@p.KartNo</td><td>@p.Ad</td><td>@p.Soyad</td><td>@p.SicilNo</td>
                             <td>@p.IseGiris.ToString("dd.MM.yyyy")</td><td>@p.Cikis?.ToString("dd.MM.yyyy")</td>
                         </tr>
@@ -100,6 +101,7 @@
                 <button class="btn btn-sm btn-outline-success" disabled="@(_secili is null)" @onclick="HareketEkle">Ekle</button>
                 <button class="btn btn-sm btn-outline-primary" disabled="@(_seciliGun is null)" @onclick="HareketDegistir">Değiştir</button>
                 <button class="btn btn-sm btn-outline-danger" disabled="@(_seciliGun is null)" @onclick="HareketSilAsync">@(_hareketSilOnay ? "Emin misiniz?" : "Sil")</button>
+                <button class="btn btn-sm btn-outline-dark" disabled="@(_secili is null)" @onclick="() => TopluAcAsync(_seciliId!.Value)">Toplu ekle…</button>
                 <span class="small text-muted ms-auto">Elle girilenler "E" ile işaretlenir.</span>
             </div>
         }
@@ -161,10 +163,47 @@
             <input class="form-control form-control-sm" style="width:10rem" type="month" @bind="_ay" @bind:format="yyyy-MM" @bind:after="PuantajYukleAsync" />
             <button class="btn btn-sm btn-outline-secondary" @onclick="() => AyKaydirAsync(1)">›››</button>
             <button class="btn btn-sm btn-primary" @onclick="PuantajYukleAsync">Göster [F8]</button>
+            <button class="btn btn-sm btn-outline-primary" disabled="@(_seciliId is null)" @onclick="KisiselPuantajAc">Kişisel puantaj [F9]</button>
+            <button class="btn btn-sm btn-outline-success" disabled="@(_seciliId is null)" @onclick="RaporAl">Rapor [F10]</button>
             <span class="lejant small ms-auto"><span style="background:#c9cdd2"></span>devamsız<span style="background:#9cc7f2"></span>eksik hareket<span style="background:#fff27a"></span>geç<span style="background:#f5a3e6"></span>erken</span>
         </div>
     </section>
 </div>
+
+@if (_toplu is not null)
+{
+    <div class="pdks-pencere-arka" @onclick="() => _toplu = null"></div>
+    <div class="pdks-pencere" role="dialog" aria-label="Toplu giriş-çıkış">
+        <div class="d-flex align-items-center mb-2">
+            <h2 class="h6 m-0">Toplu giriş-çıkış — @_toplu.PersonelAdi</h2>
+            <button class="btn-close ms-auto" aria-label="Kapat" @onclick="() => _toplu = null"></button>
+        </div>
+        <div class="row g-2">
+            <div class="col-6"><label class="form-label small mb-0">Başlangıç tarihi</label><input class="form-control form-control-sm" type="date" @bind="_toplu.Baslangic" /></div>
+            <div class="col-6"><label class="form-label small mb-0">Bitiş tarihi</label><input class="form-control form-control-sm" type="date" @bind="_toplu.Bitis" /></div>
+            <div class="col-12 d-flex gap-1 flex-wrap">
+                <button class="btn btn-sm btn-outline-secondary" @onclick="() => TopluAralik(0)">Bugün</button>
+                <button class="btn btn-sm btn-outline-secondary" @onclick="() => TopluAralik(7)">Bu hafta</button>
+                <button class="btn btn-sm btn-outline-secondary" @onclick="() => TopluAralik(30)">Seçili ay</button>
+            </div>
+            <div class="col-6"><label class="form-label small mb-0">Giriş saati</label><input class="form-control form-control-sm" type="time" @bind="_toplu.Giris" /></div>
+            <div class="col-6"><label class="form-label small mb-0">Çıkış saati</label><input class="form-control form-control-sm" type="time" @bind="_toplu.Cikis" /></div>
+            <div class="col-12 small">
+                <label class="form-check"><input class="form-check-input" type="checkbox" @bind="_toplu.YalnizCalismaGunleri" /> Yalnız çalışma günleri (hafta tatillerini atla)</label>
+                <label class="form-check"><input class="form-check-input" type="checkbox" @bind="_toplu.ResmiTatilleriAtla" /> Resmi tatilleri atla</label>
+                <label class="form-check"><input class="form-check-input" type="checkbox" @bind="_toplu.IzinliGunleriAtla" /> İzinli günleri atla</label>
+                <label class="form-check"><input class="form-check-input" type="checkbox" @bind="_toplu.HareketiOlanGunleriAtla" /> Zaten giriş-çıkışı olan günleri atla</label>
+            </div>
+            <div class="col-12"><input class="form-control form-control-sm" placeholder="Açıklama (zorunlu)" @bind="_toplu.Aciklama" /></div>
+        </div>
+        @if (_toplu.Mesaj is not null) { <div class="alert @(_toplu.Hata ? "alert-danger" : "alert-success") py-1 small mt-2 mb-0">@_toplu.Mesaj</div> }
+        <div class="d-flex gap-2 mt-3">
+            <button class="btn btn-sm btn-outline-primary" @onclick="() => TopluCalistirAsync(true)">Önizle</button>
+            <button class="btn btn-sm btn-success" @onclick="() => TopluCalistirAsync(false)">Ekle</button>
+            <button class="btn btn-sm btn-outline-secondary ms-auto" @onclick="() => _toplu = null">Kapat</button>
+        </div>
+    </div>
+}
 
 @code {
     private static readonly (string Deger, string Ad)[] AramaAlanlari = { ("kart", "Kart No"), ("ad", "Adı"), ("soyad", "Soyadı"), ("sicil", "Sicil No") };
@@ -195,6 +234,24 @@
     private bool _silOnay, _hareketSilOnay;
     private string? _mesaj;
     private DotNetObjectReference<AnaEkran>? _ref;
+    private TopluForm? _toplu;
+
+    private sealed class TopluForm
+    {
+        public int PersonelId { get; init; }
+        public string PersonelAdi { get; init; } = "";
+        public DateOnly Baslangic { get; set; }
+        public DateOnly Bitis { get; set; }
+        public TimeOnly Giris { get; set; } = new(8, 0);
+        public TimeOnly Cikis { get; set; } = new(17, 0);
+        public bool YalnizCalismaGunleri { get; set; } = true;
+        public bool ResmiTatilleriAtla { get; set; } = true;
+        public bool IzinliGunleriAtla { get; set; } = true;
+        public bool HareketiOlanGunleriAtla { get; set; } = true;
+        public string Aciklama { get; set; } = "Toplu giriş-çıkış";
+        public string? Mesaj { get; set; }
+        public bool Hata { get; set; }
+    }
 
     private IEnumerable<PersonelSatiri> Suzulmus
     {
@@ -273,6 +330,9 @@
             case "F3": Degistir(); break;
             case "F4": await SilAsync(); break;
             case "F8": await PuantajYukleAsync(); break;
+            case "F9": KisiselPuantajAc(); break;
+            case "F10": RaporAl(); break;
+            case "Escape": _toplu = null; break;
         }
         StateHasChanged();
     }
@@ -329,6 +389,90 @@
     }
 
     private void Yeni() => Navigation.NavigateTo("personeller/yeni");
+
+    private void KisiselPuantajAc()
+    {
+        if (_seciliId is int id) Navigation.NavigateTo($"puantaj?personel={id}&ay={_ay:yyyy-MM}");
+    }
+
+    private void RaporAl()
+    {
+        // Dosya indirilir; sayfa yerinde kalır.
+        if (_seciliId is int id) Navigation.NavigateTo($"raporlar/kisisel-puantaj.xlsx?personel={id}&yil={_ay.Year}&ay={_ay.Month}", forceLoad: true);
+    }
+
+    private async Task TopluAcAsync(int personelId)
+    {
+        if (personelId != _seciliId) await SecAsync(personelId);
+        if (_secili is null) return;
+        var ilk = new DateOnly(_ay.Year, _ay.Month, 1);
+        var son = ilk.AddMonths(1).AddDays(-1);
+        var bugun = DateOnly.FromDateTime(DateTime.Today);
+        _toplu = new TopluForm
+        {
+            PersonelId = _secili.Id,
+            PersonelAdi = $"{_secili.Ad} {_secili.Soyad}",
+            Baslangic = ilk,
+            Bitis = son > bugun && ilk <= bugun ? bugun : son,
+        };
+        // Saatler personelin çalışma grubundaki vardiyadan gelir.
+        if (_secili.CalismaGrubuId is int gid)
+        {
+            await using var db = await FirmaDb.AcAsync();
+            var v = await db.CalismaGrubuGunleri.AsNoTracking().Where(x => x.CalismaGrubuId == gid && x.Vardiya != null)
+                .OrderBy(x => x.Gun == DayOfWeek.Sunday ? 7 : (int)x.Gun).Select(x => x.Vardiya).FirstOrDefaultAsync();
+            if (v is not null) { _toplu.Giris = v.Baslangic; _toplu.Cikis = v.Bitis; }
+        }
+    }
+
+    private void TopluAralik(int gun)
+    {
+        if (_toplu is null) return;
+        var bugun = DateOnly.FromDateTime(DateTime.Today);
+        switch (gun)
+        {
+            case 0: _toplu.Baslangic = _toplu.Bitis = bugun; break;
+            case 7:
+                _toplu.Baslangic = bugun.AddDays(-(((int)bugun.DayOfWeek + 6) % 7));
+                _toplu.Bitis = _toplu.Baslangic.AddDays(6);
+                break;
+            default:
+                _toplu.Baslangic = new DateOnly(_ay.Year, _ay.Month, 1);
+                _toplu.Bitis = _toplu.Baslangic.AddMonths(1).AddDays(-1);
+                break;
+        }
+    }
+
+    private async Task TopluCalistirAsync(bool deneme)
+    {
+        if (_toplu is null) return;
+        var f = _toplu;
+        try
+        {
+            await using var db = await FirmaDb.AcAsync();
+            var sonuc = await TopluHareketServisi.EkleAsync(db,
+                new TopluHareketIstegi(f.PersonelId, f.Baslangic, f.Bitis, f.Giris, f.Cikis, f.Aciklama,
+                    f.YalnizCalismaGunleri, f.ResmiTatilleriAtla, f.HareketiOlanGunleriAtla, f.IzinliGunleriAtla),
+                await FirmaDb.KullaniciIdAsync(), deneme);
+            var atlanan = new List<string>();
+            if (sonuc.HareketiOlan > 0) atlanan.Add($"{sonuc.HareketiOlan} gün zaten hareketli");
+            if (sonuc.CalismaGunuDegil > 0) atlanan.Add($"{sonuc.CalismaGunuDegil} gün tatil/plansız");
+            if (sonuc.ResmiTatil > 0) atlanan.Add($"{sonuc.ResmiTatil} gün resmi tatil");
+            if (sonuc.Izinli > 0) atlanan.Add($"{sonuc.Izinli} gün izinli");
+            if (sonuc.KapsamDisi > 0) atlanan.Add($"{sonuc.KapsamDisi} gün işe giriş/çıkış dışında");
+            var ek = atlanan.Count > 0 ? $" Atlanan: {string.Join(", ", atlanan)}." : "";
+            f.Hata = false;
+            f.Mesaj = deneme
+                ? $"{sonuc.EklenenGun} güne giriş-çıkış eklenecek.{ek}"
+                : $"{sonuc.EklenenGun} güne giriş-çıkış eklendi.{ek}";
+            if (!deneme) await PuantajYukleAsync();
+        }
+        catch (ArgumentException e)
+        {
+            f.Hata = true;
+            f.Mesaj = e.Message;
+        }
+    }
 
     private void Degistir()
     {

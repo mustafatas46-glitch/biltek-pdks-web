@@ -9,6 +9,10 @@
 <div class="d-flex gap-2 align-items-end mb-4 flex-wrap">
     <div style="min-width:260px"><label class="form-label">Personel</label><PersonelSecici @bind-Value="_personelId" @bind-Value:after="HesaplaAsync" Liste="_personeller" /></div>
     <div><label class="form-label">Ay</label><input class="form-control" type="month" @bind="_ay" @bind:format="yyyy-MM" @bind:after="HesaplaAsync" /></div>
+    @if (_personelId is int pid)
+    {
+        <a class="btn btn-success ms-auto" href="@($"raporlar/kisisel-puantaj.xlsx?personel={pid}&yil={_ay.Year}&ay={_ay.Month}")" target="_blank">Excel'e aktar</a>
+    }
 </div>
 
 @if (_sonuc is not null)
@@ -58,6 +62,7 @@ else if (_personelId is null)
 
 @code {
     [SupplyParameterFromQuery(Name = "personel")] public int? PersonelParametresi { get; set; }
+    [SupplyParameterFromQuery(Name = "ay")] public string? AyParametresi { get; set; }
 
     private int? _personelId;
     private DateTime _ay = new(DateTime.Today.Year, DateTime.Today.Month, 1);
@@ -92,6 +97,7 @@ else if (_personelId is null)
         await using var db = await FirmaDb.AcAsync();
         _personeller = await PersonelOgesi.ListeleAsync(db, ayrilanlarDahil: true);
         _personelId = PersonelParametresi;
+        if (DateTime.TryParseExact(AyParametresi, "yyyy-MM", null, System.Globalization.DateTimeStyles.None, out var a)) _ay = a;
         await HesaplaAsync();
     }
 
