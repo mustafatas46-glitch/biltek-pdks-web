@@ -30,6 +30,13 @@ public class PdksDbContext : DbContext
     public DbSet<Gorev> Gorevler => Set<Gorev>();
     public DbSet<CalismaGrubu> CalismaGruplari => Set<CalismaGrubu>();
     public DbSet<Personel> Personeller => Set<Personel>();
+    public DbSet<Vardiya> Vardiyalar => Set<Vardiya>();
+    public DbSet<CalismaGrubuGunu> CalismaGrubuGunleri => Set<CalismaGrubuGunu>();
+    public DbSet<PersonelVardiya> PersonelVardiyalari => Set<PersonelVardiya>();
+    public DbSet<ResmiTatil> ResmiTatiller => Set<ResmiTatil>();
+    public DbSet<IzinTuru> IzinTurleri => Set<IzinTuru>();
+    public DbSet<Izin> Izinler => Set<Izin>();
+    public DbSet<Hareket> Hareketler => Set<Hareket>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -41,6 +48,13 @@ public class PdksDbContext : DbContext
         FirmaKurallari<Gorev>(modelBuilder);
         FirmaKurallari<CalismaGrubu>(modelBuilder);
         FirmaKurallari<Personel>(modelBuilder);
+        FirmaKurallari<Vardiya>(modelBuilder);
+        FirmaKurallari<CalismaGrubuGunu>(modelBuilder);
+        FirmaKurallari<PersonelVardiya>(modelBuilder);
+        FirmaKurallari<ResmiTatil>(modelBuilder);
+        FirmaKurallari<IzinTuru>(modelBuilder);
+        FirmaKurallari<Izin>(modelBuilder);
+        FirmaKurallari<Hareket>(modelBuilder);
     }
 
     private void FirmaKurallari<T>(ModelBuilder modelBuilder) where T : FirmaEntity

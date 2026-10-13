@@ -47,7 +47,39 @@ public class KurulumServisi
         db.Kullanicilar.Add(yonetici);
         await db.SaveChangesAsync(ct);
 
+        await VarsayilanTanimlariEkleAsync(db, firma.Id, ct);
+
         return new KurulumSonucu(true, firma.Kod, yonetici.KullaniciAdi, uretilen);
+    }
+
+    /// <summary>Yeni firmaya başlangıç vardiyası, haftalık plan ve izin türleri ekler.</summary>
+    private static async Task VarsayilanTanimlariEkleAsync(PdksDbContext db, int firmaId, CancellationToken ct)
+    {
+        var normal = new Vardiya
+        {
+            FirmaId = firmaId, Kod = "N", Ad = "Normal mesai 08:00-17:00",
+            Baslangic = new TimeOnly(8, 0), Bitis = new TimeOnly(17, 0), MolaDakika = 60,
+            GecKalmaToleransDakika = 5, ErkenCikmaToleransDakika = 0, FazlaMesaiEsikDakika = 30,
+        };
+        var grup = new CalismaGrubu { FirmaId = firmaId, Ad = "Genel", GunlukCalismaDakika = 480, DonemlikCalismaDakika = 2700 };
+        db.AddRange(normal, grup);
+        await db.SaveChangesAsync(ct);
+
+        foreach (var gun in Enum.GetValues<DayOfWeek>())
+        {
+            var haftaici = gun is not (DayOfWeek.Saturday or DayOfWeek.Sunday);
+            db.CalismaGrubuGunleri.Add(new CalismaGrubuGunu
+            {
+                FirmaId = firmaId, CalismaGrubuId = grup.Id, Gun = gun, VardiyaId = haftaici ? normal.Id : null,
+            });
+        }
+
+        db.IzinTurleri.AddRange(
+            new IzinTuru { FirmaId = firmaId, Kod = "YI", Ad = "Yıllık izin", Ucretli = true, YillikIzindenDuser = true },
+            new IzinTuru { FirmaId = firmaId, Kod = "MI", Ad = "Mazeret izni", Ucretli = true },
+            new IzinTuru { FirmaId = firmaId, Kod = "RP", Ad = "Rapor", Ucretli = false },
+            new IzinTuru { FirmaId = firmaId, Kod = "UI", Ad = "Ücretsiz izin", Ucretli = false });
+        await db.SaveChangesAsync(ct);
     }
 
     private static string RastgeleSifre()
