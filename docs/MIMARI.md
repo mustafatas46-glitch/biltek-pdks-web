@@ -69,7 +69,7 @@ GitHub → Actions → *build* → *Run workflow* → `migration` alanına ad ya
 - Şifreler PBKDF2 (ASP.NET Identity) ile saklanır; 5 hatalı denemede 15 dk kilit.
 - Çerez tabanlı oturum, tüm formlarda antiforgery, yalnızca site içi yönlendirme.
 - Roller: Yönetici, İnsan Kaynakları, Bölüm Sorumlusu, Personel. (Ekran bazlı yetki: 1. dalga.)
-- İşlem kaydı (kim, ne zaman, neyi değiştirdi): 1. dalga.
+- İşlem kaydı: ekranlardan yapılan her ekleme/değişiklik/silme `islem_kaydi` tablosuna (kullanıcı, zaman, eski→yeni değer) yazılır; şifre gibi gizli alanlar maskelenir. Toplu aktarım kayıt düşmez.
 - Elle girilen hareketler silinmez, iptal edilir; açıklama ve kaydeden kullanıcı saklanır.
 
 ## 6. Puantaj hesabı
