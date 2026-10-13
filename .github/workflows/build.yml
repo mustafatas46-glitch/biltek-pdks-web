@@ -129,10 +129,18 @@ jobs:
           tail -5 /tmp/web.log
       - name: Ekran goruntulerini al
         run: |
-          pip install playwright==1.47.0 >/dev/null
-          python -m playwright install --with-deps chromium >/dev/null
+          set +e
+          pip install playwright==1.47.0 > /tmp/pip.log 2>&1 || { echo "::error title=pip::$(tail -3 /tmp/pip.log | tr '\n' ' ')"; exit 1; }
+          python -m playwright install --with-deps chromium > /tmp/pw.log 2>&1 || { echo "::error title=playwright::$(tail -3 /tmp/pw.log | tr '\n' ' ')"; exit 1; }
           mkdir -p ekran
-          python tools/ekran/ekran_goruntusu.py http://localhost:5180 Demo12345 ekran
+          python tools/ekran/ekran_goruntusu.py http://localhost:5180 Demo12345 ekran > /tmp/py.log 2>&1
+          kod=$?
+          echo "::notice title=Ekran::$(ls ekran | tr '\n' ' ')"
+          if [ $kod -ne 0 ]; then
+            echo "::error title=Ekran betigi::$(tail -15 /tmp/py.log | tr '\n' ' ' | cut -c1-1500)"
+            echo "::error title=Web log::$(tail -15 /tmp/web.log | tr '\n' ' ' | cut -c1-1500)"
+          fi
+          exit 0
       - name: ekran-goruntuleri dalina yukle
         run: |
           cd ekran
