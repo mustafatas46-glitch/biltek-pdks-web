@@ -112,7 +112,7 @@ public class UygulamaTestleri : IClassFixture<UygulamaFabrikasi>
         {
             "/", $"/?personel={personelId}", "/ozet", "/personeller", "/personeller/yeni", $"/personeller/{personelId}",
             "/tanimlar/sube", "/tanimlar/bolum", "/tanimlar/gorev", "/tanimlar/grup", "/tanimlar/izin",
-            "/vardiyalar", "/calisma-plani", "/resmi-tatiller", "/izinler", "/hareketler",
+            "/vardiyalar", "/grup-tanimlama", "/calisma-plani", "/resmi-tatiller", "/izinler", "/hareketler",
             "/puantaj", $"/puantaj?personel={personelId}", "/puantaj/toplu", "/hesap/sifre", "/toplu/giris-cikis", "/hakkinda",
             "/tanimlar/servis", "/tanimlar/bolge", "/tanimlar/birim", "/tanimlar/takim", "/tanimlar/meslek",
         };

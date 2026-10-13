@@ -1,0 +1,22 @@
+@* Dakika cinsinden süreyi "saat:dakika" olarak gösterip düzenleyen kutu (ör. 240:00). *@
+<input class="form-control form-control-sm" style="max-width:8rem" value="@Metin" placeholder="ss:dd" @onchange="Degisti" />
+
+@code {
+    [Parameter] public int Dakika { get; set; }
+    [Parameter] public EventCallback<int> DakikaChanged { get; set; }
+
+    private string Metin => $"{Dakika / 60}:{Dakika % 60:00}";
+
+    private Task Degisti(ChangeEventArgs e)
+    {
+        var s = e.Value?.ToString()?.Trim() ?? "";
+        var parca = s.Split(':', '.');
+        if (parca.Length is 1 or 2 && int.TryParse(parca[0], out var saat) && saat >= 0
+            && (parca.Length == 1 || (int.TryParse(parca[1], out var dk) && dk is >= 0 and < 60)))
+        {
+            var dakika = saat * 60 + (parca.Length == 2 ? int.Parse(parca[1]) : 0);
+            return DakikaChanged.InvokeAsync(dakika);
+        }
+        return DakikaChanged.InvokeAsync(Dakika); // geçersiz giriş: eski değere dön
+    }
+}

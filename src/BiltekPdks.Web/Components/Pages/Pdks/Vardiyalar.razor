@@ -1,8 +1,9 @@
 @page "/vardiyalar"
 @inject FirmaDb FirmaDb
 
-<h1 class="h3 mb-2">Vardiyalar</h1>
-<p class="text-muted mb-4">Bitiş saati başlangıçtan küçükse vardiya ertesi güne taşar (gece vardiyası). Süreler dakikadır.</p>
+<h1 class="h5 mb-1">Günlük Çalışma Saati (Puantaj Hesaplama) Parametreleri</h1>
+<p class="text-muted small mb-3">Her satır bir günlük çalışma planıdır (ör. HAFTAİÇİ 08:00-18:00, CUMARTESİ, PAZAR, VD1/VD2/VD3 vardiyaları); <a href="grup-tanimlama">Grup Tanımlama</a> ekranında günlere atanır.
+İ.G.S: içeri giriş saati · D.Ç.S: dışarı çıkış saati (girişten küçükse ertesi gün, gece vardiyası) · G.G.T / E.Ç.T: geç gelme / erken çıkma toleransı · Minimum FM: bu süreden az fazla mesai yazılmaz. Süreler dakikadır.</p>
 
 @if (_hata is not null) { <div class="alert alert-danger">@_hata</div> }
 @if (_bilgi is not null) { <div class="alert alert-success">@_bilgi</div> }
@@ -17,9 +18,9 @@ else
     <table class="table align-middle">
         <thead>
             <tr>
-                <th style="width:80px">Kod</th><th>Ad</th><th style="width:120px">Başlangıç</th><th style="width:120px">Bitiş</th>
-                <th style="width:90px">Mola</th><th style="width:90px">Geç tol.</th><th style="width:90px">Erken tol.</th>
-                <th style="width:90px">FM eşiği</th><th style="width:70px">Aktif</th><th style="width:90px"></th>
+                <th style="width:80px">Kod</th><th>Plan adı</th><th style="width:120px">İ.G.S</th><th style="width:120px">D.Ç.S</th>
+                <th style="width:90px">Mola</th><th style="width:90px">G.G.T</th><th style="width:90px">E.Ç.T</th>
+                <th style="width:90px">Minimum FM</th><th style="width:70px">Aktif</th><th style="width:90px"></th>
             </tr>
         </thead>
         <tbody>
@@ -41,7 +42,7 @@ else
         </tbody>
     </table>
     </div>
-    <button class="btn btn-primary" @onclick="YeniAsync">Yeni vardiya</button>
+    <button class="btn btn-primary" @onclick="YeniAsync">Yeni plan</button>
 }
 
 @code {
@@ -59,7 +60,7 @@ else
     private async Task YeniAsync()
     {
         await using var db = await FirmaDb.AcAsync();
-        db.Vardiyalar.Add(new Vardiya { Ad = "Yeni vardiya" });
+        db.Vardiyalar.Add(new Vardiya { Ad = "Yeni plan" });
         await db.SaveChangesAsync();
         await YukleAsync();
     }
