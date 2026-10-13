@@ -10,6 +10,7 @@ SAYFALAR = [
     ("04-personel-karti", "/personeller/1"),
     ("05-aylik-puantaj", "/puantaj?personel=1"),
     ("06-aylik-puantaj-2", "/puantaj?personel=3"),
+    ("06b-toplu-puantaj", "/puantaj/toplu"),
     ("07-hareketler", "/hareketler"),
     ("08-izinler", "/izinler"),
     ("09-vardiyalar", "/vardiyalar"),
