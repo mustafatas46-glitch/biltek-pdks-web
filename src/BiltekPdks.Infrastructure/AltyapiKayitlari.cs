@@ -37,6 +37,7 @@ public static class AltyapiKayitlari
         services.AddSingleton<SifreServisi>();
         services.AddScoped<GirisServisi>();
         services.AddScoped<KurulumServisi>();
+        services.AddScoped<DemoVeriServisi>();
         services.AddSingleton<Puantaj.PuantajServisi>();
         return services;
     }

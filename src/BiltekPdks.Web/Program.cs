@@ -73,6 +73,9 @@ static async Task VeritabaniniHazirlaAsync(WebApplication app)
         cfg["Kurulum:FirmaAdi"] ?? "Firmam",
         cfg["Kurulum:YoneticiSifresi"]);
 
+    if (cfg.GetValue<bool>("Kurulum:DemoVeri") && await sp.GetRequiredService<DemoVeriServisi>().OlusturAsync())
+        log.LogWarning("Tanıtım amaçlı hayali personel ve hareketler eklendi (Kurulum:DemoVeri).");
+
     if (sonuc.IlkKurulum)
     {
         log.LogWarning("İlk kurulum yapıldı. Firma kodu: {Firma}, kullanıcı: {Kullanici}", sonuc.FirmaKodu, sonuc.YoneticiKullaniciAdi);
