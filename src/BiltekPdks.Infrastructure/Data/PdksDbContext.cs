@@ -14,6 +14,9 @@ public class PdksDbContext : DbContext
 {
     public PdksDbContext(DbContextOptions<PdksDbContext> options) : base(options) { }
 
+    /// <summary>Sağlayıcıya özel alt sınıflar (SQLite / MySQL) için; her birinin kendi migration'ları vardır.</summary>
+    protected PdksDbContext(DbContextOptions options) : base(options) { }
+
     /// <summary>Oturumdaki kullanıcının firması. Null ise firma kayıtları görünmez.</summary>
     public int? AktifFirmaId { get; set; }
 

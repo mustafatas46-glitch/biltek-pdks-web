@@ -20,18 +20,19 @@ public static class AltyapiKayitlari
         var baglanti = config.GetConnectionString("Pdks")
             ?? throw new InvalidOperationException("ConnectionStrings:Pdks tanımlı değil.");
 
-        services.AddDbContextFactory<PdksDbContext>(o =>
+        if (VeritabaniAyarlari.SqliteMi(saglayici))
         {
-            if (saglayici.Equals("Sqlite", StringComparison.OrdinalIgnoreCase))
-            {
-                o.UseSqlite(baglanti);
-            }
-            else
-            {
-                var surum = ServerVersion.Parse(config["Veritabani:SunucuSurumu"] ?? "8.0.36-mysql");
-                o.UseMySql(baglanti, surum, m => m.EnableRetryOnFailure());
-            }
-        });
+            services.AddDbContextFactory<SqlitePdksDbContext>(o => VeritabaniAyarlari.SqliteAyarla(o, baglanti));
+            services.AddSingleton<IDbContextFactory<PdksDbContext>>(sp =>
+                new FabrikaAdaptoru<SqlitePdksDbContext>(sp.GetRequiredService<IDbContextFactory<SqlitePdksDbContext>>()));
+        }
+        else
+        {
+            var surum = ServerVersion.Parse(config["Veritabani:SunucuSurumu"] ?? "8.0.36-mysql");
+            services.AddDbContextFactory<MySqlPdksDbContext>(o => VeritabaniAyarlari.MySqlAyarla(o, baglanti, surum));
+            services.AddSingleton<IDbContextFactory<PdksDbContext>>(sp =>
+                new FabrikaAdaptoru<MySqlPdksDbContext>(sp.GetRequiredService<IDbContextFactory<MySqlPdksDbContext>>()));
+        }
 
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<SifreServisi>();

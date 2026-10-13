@@ -4,6 +4,11 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+    inputs:
+      migration:
+        description: "Oluşturulacak migration adı (boşsa yalnızca derle/test et)"
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -148,3 +153,32 @@ jobs:
           git -c user.name="ci" -c user.email="ci@localhost" add .
           git -c user.name="ci" -c user.email="ci@localhost" commit -qm "Ekran goruntuleri ${GITHUB_SHA::7}"
           git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" ekran-goruntuleri
+
+  migration-olustur:
+    if: github.event_name == 'workflow_dispatch' && inputs.migration != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Migration uret (SQLite + MySQL)
+        env:
+          AD: ${{ inputs.migration }}
+        run: |
+          dotnet tool install --global dotnet-ef --version 8.0.11
+          for c in Sqlite MySql; do
+            dotnet ef migrations add "$AD" --context ${c}PdksDbContext --output-dir Migrations/$c \
+              --namespace BiltekPdks.Infrastructure.Migrations.$c \
+              --project src/BiltekPdks.Infrastructure --startup-project src/BiltekPdks.Infrastructure
+          done
+      - name: Dala yukle
+        env:
+          AD: ${{ inputs.migration }}
+        run: |
+          git config user.name "ci"
+          git config user.email "ci@localhost"
+          git checkout -b "migration/$AD"
+          git add src/BiltekPdks.Infrastructure/Migrations
+          git commit -m "Migration: $AD"
+          git push -f origin "migration/$AD"
