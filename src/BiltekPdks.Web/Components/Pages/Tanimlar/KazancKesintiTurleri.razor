@@ -1,0 +1,70 @@
+@page "/tanimlar/kazanc-kesinti"
+@inject FirmaDb FirmaDb
+
+<PageTitle>Kazanç-kesinti türleri</PageTitle>
+<h1 class="h5 mb-1">Bordro Alan Türleri — Kazanç / Kesinti / Avans</h1>
+<p class="small text-muted">İzin türleri için <a href="tanimlar/izin">İzin türleri</a> ekranını kullanın.</p>
+@if (_hata is not null) { <div class="alert alert-danger py-1">@_hata</div> }
+
+<div class="d-flex gap-2 mb-3" style="max-width:640px">
+    <input class="form-control form-control-sm" style="max-width:110px" placeholder="Kod" @bind="_yeni.Kod" />
+    <input class="form-control form-control-sm" placeholder="Ad" @bind="_yeni.Ad" />
+    <select class="form-select form-select-sm" style="max-width:130px" @bind="_yeni.Tip">
+        <option value="@KazancKesintiTipi.Kazanc">Kazanç</option><option value="@KazancKesintiTipi.Kesinti">Kesinti</option><option value="@KazancKesintiTipi.Avans">Avans</option>
+    </select>
+    <button class="btn btn-sm btn-primary" @onclick="EkleAsync">Ekle</button>
+</div>
+<table class="table table-sm align-middle" style="max-width:760px">
+    <thead><tr><th style="width:120px">Kod</th><th>Ad</th><th style="width:140px">Tip</th><th style="width:70px">Aktif</th><th style="width:90px"></th></tr></thead>
+    <tbody>
+        @foreach (var t in _liste)
+        {
+            <tr>
+                <td><input class="form-control form-control-sm" @bind="t.Kod" /></td>
+                <td><input class="form-control form-control-sm" @bind="t.Ad" /></td>
+                <td><select class="form-select form-select-sm" @bind="t.Tip"><option value="@KazancKesintiTipi.Kazanc">Kazanç</option><option value="@KazancKesintiTipi.Kesinti">Kesinti</option><option value="@KazancKesintiTipi.Avans">Avans</option></select></td>
+                <td><input class="form-check-input" type="checkbox" @bind="t.Aktif" /></td>
+                <td><button class="btn btn-sm btn-outline-primary" @onclick="() => KaydetAsync(t)">Kaydet</button></td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@code {
+    private List<KazancKesintiTuru> _liste = new();
+    private KazancKesintiTuru _yeni = new();
+    private string? _hata;
+
+    protected override Task OnInitializedAsync() => YukleAsync();
+
+    private async Task YukleAsync()
+    {
+        await using var db = await FirmaDb.AcAsync();
+        _liste = await db.KazancKesintiTurleri.AsNoTracking().OrderBy(t => t.Tip).ThenBy(t => t.Ad).ToListAsync();
+    }
+
+    private async Task EkleAsync()
+    {
+        _hata = null;
+        if (string.IsNullOrWhiteSpace(_yeni.Ad)) { _hata = "Ad boş olamaz."; return; }
+        await using var db = await FirmaDb.AcAsync();
+        db.KazancKesintiTurleri.Add(new KazancKesintiTuru { Kod = string.IsNullOrWhiteSpace(_yeni.Kod) ? null : _yeni.Kod.Trim(), Ad = _yeni.Ad.Trim(), Tip = _yeni.Tip });
+        await db.SaveChangesAsync();
+        _yeni = new();
+        await YukleAsync();
+    }
+
+    private async Task KaydetAsync(KazancKesintiTuru s)
+    {
+        _hata = null;
+        if (string.IsNullOrWhiteSpace(s.Ad)) { _hata = "Ad boş olamaz."; return; }
+        await using var db = await FirmaDb.AcAsync();
+        var t = await db.KazancKesintiTurleri.FirstAsync(x => x.Id == s.Id);
+        t.Kod = string.IsNullOrWhiteSpace(s.Kod) ? null : s.Kod.Trim();
+        t.Ad = s.Ad.Trim();
+        t.Tip = s.Tip;
+        t.Aktif = s.Aktif;
+        await db.SaveChangesAsync();
+        await YukleAsync();
+    }
+}

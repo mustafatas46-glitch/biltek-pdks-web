@@ -1,0 +1,57 @@
+@page "/toplu/izin"
+@using BiltekPdks.Infrastructure.Puantaj
+@inject FirmaDb FirmaDb
+
+<PageTitle>Toplu izin ekleme</PageTitle>
+<h1 class="h4 mb-3">Toplu İzin Ekleme</h1>
+
+<div class="row g-3">
+    <div class="col-lg-5"><PersonelCokluSecici Secili="_secili" SecimDegisti="StateHasChanged" EkMenu="Menu" /></div>
+    <div class="col-lg-5">
+        <div class="border rounded p-3 bg-white">
+            <div class="row g-2">
+                <div class="col-12">
+                    <label class="form-label small mb-0">İzin türü</label>
+                    <select class="form-select form-select-sm" @bind="_turId">
+                        <option value="0">— seçin —</option>
+                        @foreach (var t in _turler) { <option value="@t.Id">@t.Ad</option> }
+                    </select>
+                </div>
+                <div class="col-6"><label class="form-label small mb-0">Başlangıç</label><input class="form-control form-control-sm" type="date" @bind="_bas" /></div>
+                <div class="col-6"><label class="form-label small mb-0">Bitiş</label><input class="form-control form-control-sm" type="date" @bind="_bit" /></div>
+                <div class="col-12"><input class="form-control form-control-sm" placeholder="Açıklama (ör. şirket genel izni)" @bind="_aciklama" /></div>
+            </div>
+            @if (_mesaj is not null) { <div class="alert @(_hata ? "alert-danger" : "alert-success") py-1 small mt-2 mb-0" style="white-space:pre-line">@_mesaj</div> }
+            <button class="btn btn-sm btn-success mt-3" disabled="@(_secili.Count == 0)" @onclick="EkleAsync">Seçililere izin ekle (@_secili.Count)</button>
+        </div>
+    </div>
+</div>
+
+@code {
+    private readonly HashSet<int> _secili = new();
+    private List<TanimSecenek> _turler = new();
+    private int _turId;
+    private DateOnly _bas = DateOnly.FromDateTime(DateTime.Today), _bit = DateOnly.FromDateTime(DateTime.Today);
+    private string? _aciklama, _mesaj;
+    private bool _hata;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await FirmaDb.AcAsync();
+        _turler = await db.IzinTurleri.AsNoTracking().Where(t => t.Aktif).OrderBy(t => t.Ad).Select(t => new TanimSecenek(t.Id, t.Ad)).ToListAsync();
+    }
+
+    private List<SagTikMenu.Oge> Menu() => new() { new("Seçililere izin ekle", EkleAsync, Pasif: _secili.Count == 0) };
+
+    private async Task EkleAsync()
+    {
+        try
+        {
+            await using var db = await FirmaDb.AcAsync();
+            var s = await TopluIslemServisi.IzinEkleAsync(db, _secili.ToList(), _turId, _bas, _bit, _aciklama);
+            _hata = false;
+            _mesaj = $"{s.Eklenen} personele izin eklendi." + (s.Atlanan > 0 ? $"\nAtlanan ({s.Atlanan}):\n" + string.Join("\n", s.Atlananlar.Take(20)) : "");
+        }
+        catch (ArgumentException e) { _hata = true; _mesaj = e.Message; }
+    }
+}

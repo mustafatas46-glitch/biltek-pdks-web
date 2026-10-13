@@ -1,0 +1,103 @@
+@* Toplu işlemler için çoklu personel seçimi: bölüm/grup filtresi, arama, hepsini seç, sağ tık menüsü. *@
+@inject FirmaDb FirmaDb
+
+<div class="d-flex gap-2 mb-2 flex-wrap">
+    <select class="form-select form-select-sm" style="width:auto" @bind="_bolumId">
+        <option value="">Tüm bölümler</option>
+        @foreach (var b in _bolumler) { <option value="@b.Id">@b.Ad</option> }
+    </select>
+    <select class="form-select form-select-sm" style="width:auto" @bind="_grupId">
+        <option value="">Tüm gruplar</option>
+        @foreach (var g in _gruplar) { <option value="@g.Id">@g.Ad</option> }
+    </select>
+    <input class="form-control form-control-sm" style="width:12rem" placeholder="Ad, kart, sicil ara" @bind="_arama" @bind:event="oninput" />
+</div>
+<div class="izgara border rounded bg-white" style="max-height:calc(100vh - 16rem)">
+    <table class="table table-sm table-hover mb-0">
+        <thead><tr>
+            <th style="width:2rem"><input class="form-check-input" type="checkbox" checked="@HepsiSecili" @onchange="HepsiniSec" title="Görünenlerin hepsini seç" /></th>
+            <th>Kart</th><th>Ad Soyad</th><th>Bölüm</th>
+        </tr></thead>
+        <tbody>
+            @foreach (var p in Gorunen)
+            {
+                <tr @onclick="() => Degistir(p.Id)" @oncontextmenu="e => _menu.Ac(e, Menu())" @oncontextmenu:preventDefault="true">
+                    <td><input class="form-check-input" type="checkbox" checked="@Secili.Contains(p.Id)" @onclick:stopPropagation="true" @onchange="() => Degistir(p.Id)" /></td>
+                    <td>@p.KartNo</td><td>@p.Ad</td><td>@p.Bolum</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+<div class="small text-muted mt-1">Seçili: <b>@Secili.Count</b> personel · Görünen: @Gorunen.Count()</div>
+<SagTikMenu @ref="_menu" />
+
+@code {
+    [Parameter, EditorRequired] public HashSet<int> Secili { get; set; } = new();
+    [Parameter] public EventCallback SecimDegisti { get; set; }
+    /// <summary>Sağ tık menüsünün altına eklenecek sayfa işlemleri.</summary>
+    [Parameter] public Func<List<SagTikMenu.Oge>>? EkMenu { get; set; }
+
+    private sealed record Satir(int Id, string KartNo, string Ad, string? SicilNo, string? Bolum, int? BolumId, int? GrupId);
+
+    private SagTikMenu _menu = default!;
+    private List<Satir> _liste = new();
+    private List<(int Id, string Ad)> _bolumler = new(), _gruplar = new();
+    private int? _bolumId, _grupId;
+    private string _arama = "";
+
+    public IEnumerable<int> GorunenIdler => Gorunen.Select(x => x.Id);
+
+    private IEnumerable<Satir> Gorunen
+    {
+        get
+        {
+            IEnumerable<Satir> q = _liste;
+            if (_bolumId is int b) q = q.Where(x => x.BolumId == b);
+            if (_grupId is int g) q = q.Where(x => x.GrupId == g);
+            var a = _arama.Trim();
+            if (a.Length > 0)
+                q = q.Where(x => x.Ad.Contains(a, StringComparison.CurrentCultureIgnoreCase) || x.KartNo.Contains(a) || (x.SicilNo?.Contains(a) ?? false));
+            return q;
+        }
+    }
+
+    private bool HepsiSecili => Gorunen.Any() && Gorunen.All(x => Secili.Contains(x.Id));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await FirmaDb.AcAsync();
+        var bugun = DateOnly.FromDateTime(DateTime.Today);
+        _liste = await db.Personeller.AsNoTracking()
+            .Where(p => p.IstenCikisTarihi == null || p.IstenCikisTarihi >= bugun)
+            .OrderBy(p => p.Ad).ThenBy(p => p.Soyad)
+            .Select(p => new Satir(p.Id, p.KartNo, p.Ad + " " + p.Soyad, p.SicilNo, p.Bolum != null ? p.Bolum.Ad : null, p.BolumId, p.CalismaGrubuId))
+            .ToListAsync();
+        _bolumler = (await db.Bolumler.AsNoTracking().OrderBy(x => x.Ad).Select(x => new { x.Id, x.Ad }).ToListAsync()).Select(x => (x.Id, x.Ad)).ToList();
+        _gruplar = (await db.CalismaGruplari.AsNoTracking().OrderBy(x => x.Ad).Select(x => new { x.Id, x.Ad }).ToListAsync()).Select(x => (x.Id, x.Ad)).ToList();
+    }
+
+    private Task Degistir(int id)
+    {
+        if (!Secili.Remove(id)) Secili.Add(id);
+        return SecimDegisti.InvokeAsync();
+    }
+
+    private Task HepsiniSec()
+    {
+        if (HepsiSecili) foreach (var x in Gorunen) Secili.Remove(x.Id);
+        else foreach (var x in Gorunen) Secili.Add(x.Id);
+        return SecimDegisti.InvokeAsync();
+    }
+
+    private List<SagTikMenu.Oge> Menu()
+    {
+        var o = new List<SagTikMenu.Oge>
+        {
+            new("Görünenlerin hepsini seç", async () => { foreach (var x in Gorunen) Secili.Add(x.Id); await SecimDegisti.InvokeAsync(); }),
+            new("Seçimi temizle", async () => { Secili.Clear(); await SecimDegisti.InvokeAsync(); }),
+        };
+        if (EkMenu is not null) { o.Add(SagTikMenu.Oge.Cizgi()); o.AddRange(EkMenu()); }
+        return o;
+    }
+}

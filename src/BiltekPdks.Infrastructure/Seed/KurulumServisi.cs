@@ -26,7 +26,12 @@ public class KurulumServisi
         db.FirmaFiltresiKapali = true;
 
         if (await db.Firmalar.AnyAsync(ct))
+        {
+            // Sonradan eklenen tanım türleri eski kurulumlarda da bulunsun.
+            foreach (var id in await db.Firmalar.Select(f => f.Id).ToListAsync(ct))
+                await KazancKesintiTurleriniEkleAsync(db, id, ct);
             return new KurulumSonucu(false, null, null, null);
+        }
 
         var firma = new Firma { Kod = firmaKodu.Trim().ToUpperInvariant(), Ad = firmaAdi.Trim() };
         db.Firmalar.Add(firma);
@@ -48,6 +53,7 @@ public class KurulumServisi
         await db.SaveChangesAsync(ct);
 
         await VarsayilanTanimlariEkleAsync(db, firma.Id, ct);
+        await KazancKesintiTurleriniEkleAsync(db, firma.Id, ct);
 
         return new KurulumSonucu(true, firma.Kod, yonetici.KullaniciAdi, uretilen);
     }
@@ -79,6 +85,22 @@ public class KurulumServisi
             new IzinTuru { FirmaId = firmaId, Kod = "MI", Ad = "Mazeret izni", Ucretli = true },
             new IzinTuru { FirmaId = firmaId, Kod = "RP", Ad = "Rapor", Ucretli = false },
             new IzinTuru { FirmaId = firmaId, Kod = "UI", Ad = "Ücretsiz izin", Ucretli = false });
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>Firmada hiç kazanç/kesinti türü yoksa eski programdaki temel kalemleri ekler.</summary>
+    private static async Task KazancKesintiTurleriniEkleAsync(PdksDbContext db, int firmaId, CancellationToken ct)
+    {
+        if (await db.KazancKesintiTurleri.AnyAsync(t => t.FirmaId == firmaId, ct)) return;
+        (string Kod, string Ad, KazancKesintiTipi Tip)[] turler =
+        {
+            ("PRIM", "Prim", KazancKesintiTipi.Kazanc), ("YOL", "Yol ücreti", KazancKesintiTipi.Kazanc),
+            ("YEMEK", "Yemek ücreti", KazancKesintiTipi.Kazanc), ("IKR", "İkramiye", KazancKesintiTipi.Kazanc),
+            ("OZEL", "Özel ücret", KazancKesintiTipi.Kazanc), ("AVANS", "Avans", KazancKesintiTipi.Avans),
+            ("KES", "Kesinti", KazancKesintiTipi.Kesinti), ("ICRA", "İcra kesintisi", KazancKesintiTipi.Kesinti),
+        };
+        foreach (var (kod, ad, tip) in turler)
+            db.KazancKesintiTurleri.Add(new KazancKesintiTuru { FirmaId = firmaId, Kod = kod, Ad = ad, Tip = tip });
         await db.SaveChangesAsync(ct);
     }
 

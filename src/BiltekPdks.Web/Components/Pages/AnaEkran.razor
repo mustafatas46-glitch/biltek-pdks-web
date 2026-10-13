@@ -55,8 +55,14 @@
                 <dt class="col-3">Cep Tel</dt><dd class="col-3">@_secili.CepTelefonu</dd>
                 <dt class="col-3">Şube</dt><dd class="col-3">@_secili.Sube?.Ad</dd>
                 <dt class="col-3">Mail</dt><dd class="col-3">@_secili.Eposta</dd>
+                <dt class="col-3">Servis</dt><dd class="col-3">@_secili.Servis?.Ad</dd>
+                <dt class="col-3">Maaş/S.Ücr</dt><dd class="col-3">@(_secili.Ucret is { } u ? u.ToString("N2") + (_secili.UcretTipi == UcretTipi.SaatUcreti ? " /saat" : "") : "")</dd>
+                <dt class="col-3">Bölge</dt><dd class="col-3">@_secili.Bolge?.Ad</dd>
                 <dt class="col-3">Kimlik No</dt><dd class="col-3">@_secili.TcKimlikNo</dd>
+                <dt class="col-3">Birim</dt><dd class="col-3">@_secili.Birim?.Ad</dd>
                 <dt class="col-3">Sicil No</dt><dd class="col-3">@_secili.SicilNo</dd>
+                <dt class="col-3">Takım</dt><dd class="col-3">@_secili.Takim?.Ad</dd>
+                <dt class="col-3">Meslek</dt><dd class="col-3">@_secili.Meslek?.Ad</dd>
             </dl>
         }
     </section>
@@ -125,7 +131,37 @@
         }
         else
         {
-            <div class="p-3 text-muted small">Kazanç/Kesinti (prim, avans, kesinti) bu ekranın bir sonraki adımında gelecek.</div>
+            <div class="izgara">
+                <table class="table table-sm table-hover">
+                    <thead><tr><th>Tarih</th><th>Kalem</th><th>Tip</th><th class="text-end">Tutar</th><th>Açıklama</th></tr></thead>
+                    <tbody>
+                        @foreach (var k in _kk)
+                        {
+                            <tr class="@(k.Id == _seciliKk ? "secili" : "")" @onclick="() => _seciliKk = k.Id"
+                                @oncontextmenu="e => { _seciliKk = k.Id; _menu.Ac(e, KkMenusu()); }" @oncontextmenu:preventDefault="true">
+                                <td>@k.Tarih.ToString("MM.yyyy")</td><td>@k.KazancKesintiTuru?.Ad</td>
+                                <td>@(k.KazancKesintiTuru is { } tur ? Pages.Toplu.TopluKazancKesinti.TipAdi(tur.Tip) : "")</td>
+                                <td class="text-end">@k.Tutar.ToString("N2")</td><td>@k.Aciklama</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                @if (_secili is not null && _kk.Count == 0) { <p class="text-muted small p-2">@_ay.ToString("MM.yyyy") ayı için kayıt yok.</p> }
+                @if (_secili is not null && SabitKalemler().Any())
+                {
+                    <div class="small text-muted px-2">Sicil kartındaki sabit kalemler: @string.Join(" · ", SabitKalemler())</div>
+                }
+            </div>
+            <div class="alt-cubuk">
+                <select class="form-select form-select-sm" style="width:9rem" @bind="_kkTurId">
+                    <option value="0">Kalem…</option>
+                    @foreach (var t in _kkTurleri) { <option value="@t.Id">@t.Ad</option> }
+                </select>
+                <input class="form-control form-control-sm" style="width:6.5rem" type="number" step="0.01" min="0" placeholder="Tutar" @bind="_kkTutar" />
+                <input class="form-control form-control-sm flex-grow-1" style="min-width:6rem" placeholder="Açıklama" @bind="_kkAciklama" />
+                <button class="btn btn-sm btn-outline-success" disabled="@(_secili is null)" @onclick="KkEkleAsync">Ekle</button>
+                <button class="btn btn-sm btn-outline-danger" disabled="@(_seciliKk is null)" @onclick="KkSilAsync">Sil</button>
+            </div>
         }
     </section>
 
@@ -242,6 +278,12 @@
     private SagTikMenu _menu = default!;
     private ElementReference _aramaKutusu;
     private string _siralama = "kart";
+    private List<KazancKesinti> _kk = new();
+    private List<KazancKesintiTuru> _kkTurleri = new();
+    private int? _seciliKk;
+    private int _kkTurId;
+    private decimal? _kkTutar;
+    private string? _kkAciklama;
 
     private sealed class TopluForm
     {
@@ -320,6 +362,8 @@
     protected override async Task OnInitializedAsync()
     {
         await ListeyiYukleAsync();
+        await using (var db = await FirmaDb.AcAsync())
+            _kkTurleri = await db.KazancKesintiTurleri.AsNoTracking().Where(t => t.Aktif).OrderBy(t => t.Ad).ToListAsync();
         if (PersonelParametresi is int id) await SecAsync(id);
     }
 
@@ -374,6 +418,7 @@
         await using var db = await FirmaDb.AcAsync();
         _secili = await db.Personeller.AsNoTracking()
             .Include(p => p.Sube).Include(p => p.Bolum).Include(p => p.Gorev).Include(p => p.CalismaGrubu)
+            .Include(p => p.Servis).Include(p => p.Bolge).Include(p => p.Birim).Include(p => p.Takim).Include(p => p.Meslek)
             .FirstOrDefaultAsync(p => p.Id == id);
         _izinler = await db.Izinler.AsNoTracking().Include(i => i.IzinTuru)
             .Where(i => i.PersonelId == id).OrderByDescending(i => i.Baslangic).Take(200).ToListAsync();
@@ -391,6 +436,11 @@
         var bit = bas.AddMonths(1).AddDays(3);
         _hareketler = await db.Hareketler.AsNoTracking()
             .Where(h => h.PersonelId == id && !h.Iptal && h.Zaman >= bas && h.Zaman < bit).ToListAsync();
+        var ayBas = new DateOnly(_ay.Year, _ay.Month, 1);
+        var aySon = ayBas.AddMonths(1).AddDays(-1);
+        _kk = await db.KazancKesintiler.AsNoTracking().Include(k => k.KazancKesintiTuru)
+            .Where(k => k.PersonelId == id && k.Tarih >= ayBas && k.Tarih <= aySon).OrderBy(k => k.Id).ToListAsync();
+        _seciliKk = null;
     }
 
     private Task AyKaydirAsync(int ay)
@@ -407,6 +457,50 @@
     }
 
     private void Yeni() => Navigation.NavigateTo("personeller/yeni");
+
+    private IEnumerable<string> SabitKalemler()
+    {
+        var p = _secili!;
+        string Y(decimal? t, bool g, string ad) => $"{ad} {t:N2} ₺ ({(g ? "günlük" : "aylık")})";
+        if (p.PrimUcreti is { } a) yield return Y(a, p.PrimGunluk, "Prim");
+        if (p.YolUcreti is { } b) yield return Y(b, p.YolGunluk, "Yol");
+        if (p.YemekUcreti is { } c) yield return Y(c, p.YemekGunluk, "Yemek");
+        if (p.OzelUcret is { } d) yield return Y(d, p.OzelGunluk, "Özel");
+    }
+
+    private List<SagTikMenu.Oge> KkMenusu() => new()
+    {
+        new("Seçili kaydı sil", KkSilAsync, Pasif: _seciliKk is null),
+        SagTikMenu.Oge.Eylemli("Toplu Kazanç-Kesinti Ekle", () => Navigation.NavigateTo("toplu/kazanc-kesinti")),
+        SagTikMenu.Oge.Eylemli("Kalem türlerini düzenle", () => Navigation.NavigateTo("tanimlar/kazanc-kesinti")),
+    };
+
+    private async Task KkEkleAsync()
+    {
+        _mesaj = null;
+        if (_seciliId is not int id) return;
+        if (_kkTurId == 0 || _kkTutar is not > 0) { _mesaj = "Kalem seçin ve sıfırdan büyük tutar girin."; return; }
+        await using var db = await FirmaDb.AcAsync();
+        db.KazancKesintiler.Add(new KazancKesinti
+        {
+            PersonelId = id, KazancKesintiTuruId = _kkTurId, Tarih = new DateOnly(_ay.Year, _ay.Month, 1),
+            Tutar = _kkTutar.Value, Aciklama = string.IsNullOrWhiteSpace(_kkAciklama) ? null : _kkAciklama.Trim(),
+            KaydedenKullaniciId = await FirmaDb.KullaniciIdAsync(),
+        });
+        await db.SaveChangesAsync();
+        _kkTutar = null;
+        _kkAciklama = null;
+        await PuantajYukleAsync();
+    }
+
+    private async Task KkSilAsync()
+    {
+        if (_seciliKk is not int kid) return;
+        await using var db = await FirmaDb.AcAsync();
+        var k = await db.KazancKesintiler.FirstOrDefaultAsync(x => x.Id == kid);
+        if (k is not null) { db.KazancKesintiler.Remove(k); await db.SaveChangesAsync(); }
+        await PuantajYukleAsync();
+    }
 
     // ---------- Sağ tık menüleri (eski programdaki sırayla) ----------
     private async Task PersonelMenusuAsync(MouseEventArgs e, int personelId)

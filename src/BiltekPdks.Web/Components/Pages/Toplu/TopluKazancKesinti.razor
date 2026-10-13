@@ -1,0 +1,61 @@
+@page "/toplu/kazanc-kesinti"
+@using BiltekPdks.Infrastructure.Puantaj
+@inject FirmaDb FirmaDb
+
+<PageTitle>Toplu kazanç-kesinti</PageTitle>
+<h1 class="h4 mb-3">Toplu Kazanç-Kesinti Ekle</h1>
+
+<div class="row g-3">
+    <div class="col-lg-5"><PersonelCokluSecici Secili="_secili" SecimDegisti="StateHasChanged" EkMenu="Menu" /></div>
+    <div class="col-lg-5">
+        <div class="border rounded p-3 bg-white">
+            <div class="row g-2">
+                <div class="col-12">
+                    <label class="form-label small mb-0">Kalem</label>
+                    <select class="form-select form-select-sm" @bind="_turId">
+                        <option value="0">— seçin —</option>
+                        @foreach (var t in _turler) { <option value="@t.Id">@t.Ad (@TipAdi(t.Tip))</option> }
+                    </select>
+                    <a class="small" href="tanimlar/kazanc-kesinti">Kalem türlerini düzenle</a>
+                </div>
+                <div class="col-6"><label class="form-label small mb-0">Ay</label><input class="form-control form-control-sm" type="month" @bind="_ay" @bind:format="yyyy-MM" /></div>
+                <div class="col-6"><label class="form-label small mb-0">Tutar (₺, kişi başı)</label><input class="form-control form-control-sm" type="number" step="0.01" min="0" @bind="_tutar" /></div>
+                <div class="col-12"><input class="form-control form-control-sm" placeholder="Açıklama" @bind="_aciklama" /></div>
+            </div>
+            @if (_mesaj is not null) { <div class="alert @(_hata ? "alert-danger" : "alert-success") py-1 small mt-2 mb-0">@_mesaj</div> }
+            <button class="btn btn-sm btn-success mt-3" disabled="@(_secili.Count == 0)" @onclick="EkleAsync">Seçililere ekle (@_secili.Count)</button>
+        </div>
+    </div>
+</div>
+
+@code {
+    private readonly HashSet<int> _secili = new();
+    private List<KazancKesintiTuru> _turler = new();
+    private int _turId;
+    private DateTime _ay = new(DateTime.Today.Year, DateTime.Today.Month, 1);
+    private decimal _tutar;
+    private string? _aciklama, _mesaj;
+    private bool _hata;
+
+    public static string TipAdi(KazancKesintiTipi t) => t switch { KazancKesintiTipi.Kazanc => "kazanç", KazancKesintiTipi.Kesinti => "kesinti", _ => "avans" };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await FirmaDb.AcAsync();
+        _turler = await db.KazancKesintiTurleri.AsNoTracking().Where(t => t.Aktif).OrderBy(t => t.Tip).ThenBy(t => t.Ad).ToListAsync();
+    }
+
+    private List<SagTikMenu.Oge> Menu() => new() { new("Seçililere ekle", EkleAsync, Pasif: _secili.Count == 0) };
+
+    private async Task EkleAsync()
+    {
+        try
+        {
+            await using var db = await FirmaDb.AcAsync();
+            var s = await TopluIslemServisi.KazancKesintiEkleAsync(db, _secili.ToList(), _turId, DateOnly.FromDateTime(_ay), _tutar, _aciklama, await FirmaDb.KullaniciIdAsync());
+            _hata = false;
+            _mesaj = $"{s.Eklenen} personele {_ay:MM.yyyy} ayı için {_tutar:N2} ₺ eklendi.";
+        }
+        catch (ArgumentException e) { _hata = true; _mesaj = e.Message; }
+    }
+}
