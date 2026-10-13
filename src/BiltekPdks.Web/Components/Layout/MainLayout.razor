@@ -1,41 +1,54 @@
 @inherits LayoutComponentBase
 
-<div class="d-flex min-vh-100">
-    <nav class="kenar bg-dark text-white p-3">
-        <div class="fs-5 fw-semibold mb-4">Biltek PDKS</div>
-        <ul class="nav flex-column gap-1">
-            <li><NavLink class="nav-link" href="" Match="NavLinkMatch.All">Ana sayfa</NavLink></li>
-            <li><NavLink class="nav-link" href="personeller">Personel</NavLink></li>
-            <li class="mt-3 small text-uppercase text-white-50">PDKS</li>
-            <li><NavLink class="nav-link" href="puantaj">Aylık puantaj</NavLink></li>
-            <li><NavLink class="nav-link" href="hareketler">Giriş-çıkış hareketleri</NavLink></li>
-            <li><NavLink class="nav-link" href="izinler">İzinler</NavLink></li>
-            <li><NavLink class="nav-link" href="resmi-tatiller">Resmi tatiller</NavLink></li>
-            <li><NavLink class="nav-link" href="vardiyalar">Vardiyalar</NavLink></li>
-            <li><NavLink class="nav-link" href="calisma-plani">Haftalık çalışma planı</NavLink></li>
-            <li class="mt-3 small text-uppercase text-white-50">Tanımlar</li>
-            <li><NavLink class="nav-link" href="tanimlar/sube">Şubeler</NavLink></li>
-            <li><NavLink class="nav-link" href="tanimlar/bolum">Bölümler</NavLink></li>
-            <li><NavLink class="nav-link" href="tanimlar/gorev">Görevler</NavLink></li>
-            <li><NavLink class="nav-link" href="tanimlar/grup">Çalışma grupları</NavLink></li>
-            <li><NavLink class="nav-link" href="tanimlar/izin">İzin türleri</NavLink></li>
-        </ul>
-    </nav>
-    <div class="flex-grow-1 d-flex flex-column">
-        <header class="border-bottom px-4 py-2 d-flex justify-content-end align-items-center gap-3">
+<div class="d-flex flex-column vh-100">
+    <nav class="ust-menu d-flex align-items-center px-3 gap-1">
+        <a class="marka me-3" href="">Biltek PDKS</a>
+        <NavLink class="menu-ogesi" href="" Match="NavLinkMatch.All">Ana ekran</NavLink>
+        <div class="menu-grubu">
+            <span class="menu-ogesi">Tanımlar ▾</span>
+            <div class="menu-alt">
+                <a href="tanimlar/sube">Şubeler</a>
+                <a href="tanimlar/bolum">Bölümler</a>
+                <a href="tanimlar/gorev">Görevler</a>
+                <a href="tanimlar/grup">Çalışma grupları</a>
+                <a href="tanimlar/izin">İzin türleri</a>
+                <hr />
+                <a href="vardiyalar">Vardiyalar</a>
+                <a href="calisma-plani">Haftalık çalışma planı</a>
+                <a href="resmi-tatiller">Resmi tatiller</a>
+            </div>
+        </div>
+        <div class="menu-grubu">
+            <span class="menu-ogesi">İşlemler ▾</span>
+            <div class="menu-alt">
+                <a href="personeller">Personel listesi</a>
+                <a href="personeller/yeni">Yeni personel</a>
+                <hr />
+                <a href="hareketler">Giriş-çıkış hareketleri</a>
+                <a href="izinler">İzinler</a>
+            </div>
+        </div>
+        <div class="menu-grubu">
+            <span class="menu-ogesi">Raporlar ▾</span>
+            <div class="menu-alt">
+                <a href="puantaj">Kişisel aylık puantaj</a>
+                <a href="ozet">Özet</a>
+            </div>
+        </div>
+        <div class="ms-auto d-flex align-items-center gap-2">
             <AuthorizeView>
-                <span class="text-muted small">@context.User.Identity?.Name</span>
-                <a class="btn btn-sm btn-link" href="hesap/sifre">Şifre değiştir</a>
+                <span class="small text-white-50">@context.User.Identity?.Name</span>
+                <a class="btn btn-sm btn-outline-light" href="hesap/sifre">Şifre</a>
                 <form method="post" action="hesap/cikis">
                     <AntiforgeryToken />
-                    <button class="btn btn-sm btn-outline-secondary" type="submit">Çıkış</button>
+                    <button class="btn btn-sm btn-outline-light" type="submit">Çıkış</button>
                 </form>
             </AuthorizeView>
-        </header>
-        <main class="p-4 flex-grow-1">
-            @Body
-        </main>
-    </div>
+        </div>
+    </nav>
+    <main class="sayfa flex-grow-1">
+        @Body
+    </main>
 </div>
 
 <div id="blazor-error-ui">

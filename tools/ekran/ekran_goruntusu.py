@@ -4,7 +4,8 @@ from playwright.sync_api import sync_playwright
 
 ADRES, SIFRE, KLASOR = sys.argv[1], sys.argv[2], sys.argv[3]
 SAYFALAR = [
-    ("02-ana-sayfa", "/"),
+    ("02-ana-ekran", "/?personel=1"),
+    ("02b-ana-ekran-2", "/?personel=3"),
     ("03-personel-listesi", "/personeller"),
     ("04-personel-karti", "/personeller/1"),
     ("05-aylik-puantaj", "/puantaj?personel=1"),

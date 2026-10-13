@@ -1,0 +1,423 @@
+@page "/"
+@implements IAsyncDisposable
+@using BiltekPdks.Domain.Puantaj
+@using BiltekPdks.Infrastructure.Puantaj
+@inject FirmaDb FirmaDb
+@inject PuantajServisi PuantajServisi
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<div class="ana-ekran">
+    @* ---------- SOL: PERSONEL ---------- *@
+    <section>
+        <div class="izgara">
+            <table class="table table-sm table-hover">
+                <thead><tr><th>Kart No</th><th>Adı</th><th>Soyadı</th><th>Sicil No</th><th>İş Giriş</th><th>İş Çıkış</th></tr></thead>
+                <tbody>
+                    @foreach (var p in Suzulmus)
+                    {
+                        <tr class="@(p.Id == _seciliId ? "secili" : "")" @onclick="() => SecAsync(p.Id)">
+                            <td>@p.KartNo</td><td>@p.Ad</td><td>@p.Soyad</td><td>@p.SicilNo</td>
+                            <td>@p.IseGiris.ToString("dd.MM.yyyy")</td><td>@p.Cikis?.ToString("dd.MM.yyyy")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div class="alt-cubuk">
+            @foreach (var (deger, ad) in AramaAlanlari)
+            {
+                <label class="form-check form-check-inline m-0 small">
+                    <input class="form-check-input" type="radio" name="aramaAlani" checked="@(_aramaAlani == deger)" @onchange="() => _aramaAlani = deger" /> @ad
+                </label>
+            }
+            <input class="form-control form-control-sm flex-grow-1" style="min-width:120px" placeholder="ara…" @bind="_arama" @bind:event="oninput" />
+        </div>
+        <div class="alt-cubuk">
+            <button class="btn btn-sm btn-success" @onclick="Yeni">Yeni [F2]</button>
+            <button class="btn btn-sm btn-primary" disabled="@(_seciliId is null)" @onclick="Degistir">Değiştir [F3]</button>
+            <button class="btn btn-sm btn-outline-danger" disabled="@(_seciliId is null)" @onclick="SilAsync">@(_silOnay ? "Emin misiniz? Tekrar basın" : "Sil [F4]")</button>
+            <select class="form-select form-select-sm ms-auto" style="width:auto" @bind="_durum">
+                <option value="tum">Tümü</option><option value="aktif">Aktif</option><option value="pasif">Pasif</option>
+            </select>
+            <span class="small text-muted">Kayıt: @Suzulmus.Count()</span>
+        </div>
+        @if (_mesaj is not null) { <div class="alert alert-warning m-2 py-1 small">@_mesaj</div> }
+        @if (_secili is not null)
+        {
+            <dl class="kart row m-0">
+                <dt class="col-3">Grup</dt><dd class="col-3">@_secili.CalismaGrubu?.Ad</dd>
+                <dt class="col-3">İş Baş. Tar.</dt><dd class="col-3">@_secili.IseGirisTarihi.ToString("dd.MM.yyyy")</dd>
+                <dt class="col-3">Bölüm</dt><dd class="col-3">@_secili.Bolum?.Ad</dd>
+                <dt class="col-3">İş Çık. Tar.</dt><dd class="col-3">@_secili.IstenCikisTarihi?.ToString("dd.MM.yyyy")</dd>
+                <dt class="col-3">Görev</dt><dd class="col-3">@_secili.Gorev?.Ad</dd>
+                <dt class="col-3">Cep Tel</dt><dd class="col-3">@_secili.CepTelefonu</dd>
+                <dt class="col-3">Şube</dt><dd class="col-3">@_secili.Sube?.Ad</dd>
+                <dt class="col-3">Mail</dt><dd class="col-3">@_secili.Eposta</dd>
+                <dt class="col-3">Kimlik No</dt><dd class="col-3">@_secili.TcKimlikNo</dd>
+                <dt class="col-3">Sicil No</dt><dd class="col-3">@_secili.SicilNo</dd>
+            </dl>
+        }
+    </section>
+
+    @* ---------- ORTA: SEKMELER ---------- *@
+    <section>
+        <ul class="nav nav-tabs small px-1 pt-1">
+            <li class="nav-item"><a class="nav-link @(_sekme == "gc" ? "active" : "")" href="" @onclick:preventDefault @onclick='() => _sekme = "gc"'>Giriş/Çıkış</a></li>
+            <li class="nav-item"><a class="nav-link @(_sekme == "izin" ? "active" : "")" href="" @onclick:preventDefault @onclick='() => _sekme = "izin"'>İzinler</a></li>
+            <li class="nav-item"><a class="nav-link @(_sekme == "kk" ? "active" : "")" href="" @onclick:preventDefault @onclick='() => _sekme = "kk"'>Kazanç/Kesinti</a></li>
+        </ul>
+
+        @if (_sekme == "gc")
+        {
+            <div class="izgara">
+                <table class="table table-sm table-hover">
+                    <thead><tr><th>Giriş Tarihi</th><th>Gir.Saati</th><th>Çıkış Tarihi</th><th>Çık.Saati</th><th title="Giriş elle girildi">Gr.E</th><th title="Çıkış elle girildi">Çk.E</th></tr></thead>
+                    <tbody>
+                        @foreach (var g in GirisCikisSatirlari)
+                        {
+                            <tr class="@(g.Tarih == _seciliGun ? "secili" : "")" @onclick="() => GunSec(g.Tarih)">
+                                <td>@TarihMetni(g.Giris!.Value)</td><td>@g.Giris.Value.ToString("HH:mm")</td>
+                                <td>@(g.Cikis is { } c ? TarihMetni(c) : "")</td><td>@g.Cikis?.ToString("HH:mm")</td>
+                                <td>@(ElleMi(g.Giris) ? "E" : "")</td><td>@(ElleMi(g.Cikis) ? "E" : "")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            @if (_duzenle is not null)
+            {
+                <div class="alt-cubuk bg-light">
+                    <input class="form-control form-control-sm" style="width:9.5rem" type="date" @bind="_duzenle.Tarih" disabled="@(_duzenle.Mevcut)" />
+                    <span class="small">Giriş</span><input class="form-control form-control-sm" style="width:6.5rem" type="time" @bind="_duzenle.Giris" />
+                    <span class="small">Çıkış</span><input class="form-control form-control-sm" style="width:6.5rem" type="time" @bind="_duzenle.Cikis" />
+                    <input class="form-control form-control-sm flex-grow-1" placeholder="Açıklama (zorunlu)" @bind="_duzenle.Aciklama" />
+                    <button class="btn btn-sm btn-primary" @onclick="DuzenlemeyiKaydetAsync">Kaydet</button>
+                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => _duzenle = null">Vazgeç</button>
+                </div>
+            }
+            <div class="alt-cubuk">
+                <button class="btn btn-sm btn-outline-success" disabled="@(_secili is null)" @onclick="HareketEkle">Ekle</button>
+                <button class="btn btn-sm btn-outline-primary" disabled="@(_seciliGun is null)" @onclick="HareketDegistir">Değiştir</button>
+                <button class="btn btn-sm btn-outline-danger" disabled="@(_seciliGun is null)" @onclick="HareketSilAsync">@(_hareketSilOnay ? "Emin misiniz?" : "Sil")</button>
+                <span class="small text-muted ms-auto">Elle girilenler "E" ile işaretlenir.</span>
+            </div>
+        }
+        else if (_sekme == "izin")
+        {
+            <div class="izgara">
+                <table class="table table-sm">
+                    <thead><tr><th>Başlangıç</th><th>Bitiş</th><th>Gün</th><th>Tür</th><th>Açıklama</th></tr></thead>
+                    <tbody>
+                        @foreach (var i in _izinler)
+                        {
+                            <tr><td>@i.Baslangic.ToString("dd.MM.yyyy")</td><td>@i.Bitis.ToString("dd.MM.yyyy")</td>
+                                <td>@(i.Bitis.DayNumber - i.Baslangic.DayNumber + 1)</td><td>@i.IzinTuru?.Ad</td><td>@i.Aciklama</td></tr>
+                        }
+                    </tbody>
+                </table>
+                @if (_secili is not null && _izinler.Count == 0) { <p class="text-muted small p-2">İzin kaydı yok.</p> }
+            </div>
+            <div class="alt-cubuk"><a class="btn btn-sm btn-outline-success" href="izinler">İzin ekle…</a></div>
+        }
+        else
+        {
+            <div class="p-3 text-muted small">Kazanç/Kesinti (prim, avans, kesinti) bu ekranın bir sonraki adımında gelecek.</div>
+        }
+    </section>
+
+    @* ---------- SAĞ: GÜNLÜK PUANTAJ ---------- *@
+    <section>
+        <div class="izgara">
+            <table class="table table-sm">
+                <thead><tr><th>Tarih</th><th>Giriş</th><th>Çıkış</th><th>N.Ç</th><th>%50</th><th>%100</th><th>DVM</th><th>GEÇ</th><th>ERK</th><th>EKS</th></tr></thead>
+                <tbody>
+                    @if (_puantaj is not null)
+                    {
+                        @foreach (var g in _puantaj.Gunler)
+                        {
+                            <tr class="puantaj-satir @SatirSinifi(g) @(g.Tarih == _seciliGun ? "secili" : "")" @onclick="() => GunSec(g.Tarih)">
+                                <td>@TarihMetni(g.Tarih.ToDateTime(TimeOnly.MinValue))</td>
+                                <td>@g.Giris?.ToString("HH:mm")</td><td>@g.Cikis?.ToString("HH:mm")</td>
+                                <td>@S(g.NormalCalismaDakika)</td><td>@S(g.FazlaMesaiDakika)</td><td>@S(g.TatilMesaisiDakika)</td>
+                                <td>@(g.Durum == PuantajDurumu.Devamsiz ? S(g.EksikDakika) : "")</td>
+                                <td>@S(g.GecKalmaDakika)</td><td>@S(g.ErkenCikmaDakika)</td>
+                                <td>@(g.Durum == PuantajDurumu.Devamsiz ? "" : S(g.EksikDakika))</td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+                @if (_puantaj is not null)
+                {
+                    var t = _puantaj.Toplam;
+                    <tfoot><tr class="fw-semibold"><td colspan="3">Toplam</td><td>@S(t.NormalCalismaDakika)</td><td>@S(t.FazlaMesaiDakika)</td><td>@S(t.TatilMesaisiDakika)</td>
+                        <td>@(t.DevamsizGun > 0 ? $"{t.DevamsizGun} gün" : "")</td><td>@S(t.GecKalmaDakika)</td><td>@S(t.ErkenCikmaDakika)</td><td>@S(t.EksikDakika)</td></tr></tfoot>
+                }
+            </table>
+            @if (_secili is null) { <p class="text-muted small p-2">Puantajı görmek için soldan personel seçin.</p> }
+        </div>
+        <div class="alt-cubuk">
+            <button class="btn btn-sm btn-outline-secondary" @onclick="() => AyKaydirAsync(-1)">‹‹‹</button>
+            <input class="form-control form-control-sm" style="width:10rem" type="month" @bind="_ay" @bind:format="yyyy-MM" @bind:after="PuantajYukleAsync" />
+            <button class="btn btn-sm btn-outline-secondary" @onclick="() => AyKaydirAsync(1)">›››</button>
+            <button class="btn btn-sm btn-primary" @onclick="PuantajYukleAsync">Göster [F8]</button>
+            <span class="lejant small ms-auto"><span style="background:#c9cdd2"></span>devamsız<span style="background:#9cc7f2"></span>eksik hareket<span style="background:#fff27a"></span>geç<span style="background:#f5a3e6"></span>erken</span>
+        </div>
+    </section>
+</div>
+
+@code {
+    private static readonly (string Deger, string Ad)[] AramaAlanlari = { ("kart", "Kart No"), ("ad", "Adı"), ("soyad", "Soyadı"), ("sicil", "Sicil No") };
+
+    private sealed record PersonelSatiri(int Id, string KartNo, string Ad, string Soyad, string? SicilNo, DateOnly IseGiris, DateOnly? Cikis);
+
+    private sealed class HareketDuzenleme
+    {
+        public DateOnly? Tarih { get; set; }
+        public TimeOnly? Giris { get; set; }
+        public TimeOnly? Cikis { get; set; }
+        public string? Aciklama { get; set; }
+        public bool Mevcut { get; set; }
+        public DateTime? EskiGiris { get; set; }
+        public DateTime? EskiCikis { get; set; }
+    }
+
+    private List<PersonelSatiri> _liste = new();
+    private string _aramaAlani = "ad", _arama = "", _durum = "aktif", _sekme = "gc";
+    private int? _seciliId;
+    private Personel? _secili;
+    private DateTime _ay = new(DateTime.Today.Year, DateTime.Today.Month, 1);
+    private AylikPuantaj? _puantaj;
+    private List<Hareket> _hareketler = new();
+    private List<Izin> _izinler = new();
+    private DateOnly? _seciliGun;
+    private HareketDuzenleme? _duzenle;
+    private bool _silOnay, _hareketSilOnay;
+    private string? _mesaj;
+    private DotNetObjectReference<AnaEkran>? _ref;
+
+    private IEnumerable<PersonelSatiri> Suzulmus
+    {
+        get
+        {
+            var bugun = DateOnly.FromDateTime(DateTime.Today);
+            var q = _durum switch
+            {
+                "aktif" => _liste.Where(p => p.Cikis is null || p.Cikis >= bugun),
+                "pasif" => _liste.Where(p => p.Cikis is not null && p.Cikis < bugun),
+                _ => _liste.AsEnumerable(),
+            };
+            var a = _arama.Trim();
+            if (a.Length == 0) return q;
+            var tr = System.Globalization.CultureInfo.GetCultureInfo("tr-TR");
+            bool Iceriyor(string? s) => s is not null && tr.CompareInfo.IndexOf(s, a, System.Globalization.CompareOptions.IgnoreCase) >= 0;
+            return _aramaAlani switch
+            {
+                "kart" => q.Where(p => p.KartNo.Contains(a, StringComparison.OrdinalIgnoreCase)),
+                "soyad" => q.Where(p => Iceriyor(p.Soyad)),
+                "sicil" => q.Where(p => Iceriyor(p.SicilNo)),
+                _ => q.Where(p => Iceriyor(p.Ad)),
+            };
+        }
+    }
+
+    private IEnumerable<GunlukPuantaj> GirisCikisSatirlari =>
+        _puantaj?.Gunler.Where(g => g.Giris is not null) ?? Enumerable.Empty<GunlukPuantaj>();
+
+    private static string S(int dk) => PuantajMotoru.SaatDakika(dk);
+
+    private static string TarihMetni(DateTime t) =>
+        t.ToString("dd MMM yyyy ddd", System.Globalization.CultureInfo.GetCultureInfo("tr-TR"));
+
+    private bool ElleMi(DateTime? zaman) =>
+        zaman is { } z && _hareketler.Any(h => h.Zaman == z && h.Kaynak == HareketKaynagi.Elle);
+
+    private static string SatirSinifi(GunlukPuantaj g) => g.Durum switch
+    {
+        PuantajDurumu.Devamsiz => "devamsiz",
+        PuantajDurumu.EksikHareket => "eksik",
+        PuantajDurumu.HaftaTatili or PuantajDurumu.ResmiTatil => "tatil",
+        PuantajDurumu.KapsamDisi => "kapsam",
+        _ when g.ErkenCikmaDakika > 0 => "erken",
+        _ when g.GecKalmaDakika > 0 => "gec",
+        _ => "",
+    };
+
+    [SupplyParameterFromQuery(Name = "personel")] public int? PersonelParametresi { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await ListeyiYukleAsync();
+        if (PersonelParametresi is int id) await SecAsync(id);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool ilk)
+    {
+        if (!ilk) return;
+        _ref = DotNetObjectReference.Create(this);
+        await JS.InvokeVoidAsync("pdksKisayol.bagla", _ref);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try { await JS.InvokeVoidAsync("pdksKisayol.birak"); } catch (JSDisconnectedException) { }
+        _ref?.Dispose();
+    }
+
+    [JSInvokable]
+    public async Task TusaBasildi(string tus)
+    {
+        switch (tus)
+        {
+            case "F2": Yeni(); break;
+            case "F3": Degistir(); break;
+            case "F4": await SilAsync(); break;
+            case "F8": await PuantajYukleAsync(); break;
+        }
+        StateHasChanged();
+    }
+
+    private async Task ListeyiYukleAsync()
+    {
+        await using var db = await FirmaDb.AcAsync();
+        _liste = await db.Personeller.AsNoTracking()
+            .OrderBy(p => p.KartNo)
+            .Select(p => new PersonelSatiri(p.Id, p.KartNo, p.Ad, p.Soyad, p.SicilNo, p.IseGirisTarihi, p.IstenCikisTarihi))
+            .ToListAsync();
+    }
+
+    private async Task SecAsync(int id)
+    {
+        _seciliId = id;
+        _silOnay = false;
+        _mesaj = null;
+        _duzenle = null;
+        _seciliGun = null;
+        await using var db = await FirmaDb.AcAsync();
+        _secili = await db.Personeller.AsNoTracking()
+            .Include(p => p.Sube).Include(p => p.Bolum).Include(p => p.Gorev).Include(p => p.CalismaGrubu)
+            .FirstOrDefaultAsync(p => p.Id == id);
+        _izinler = await db.Izinler.AsNoTracking().Include(i => i.IzinTuru)
+            .Where(i => i.PersonelId == id).OrderByDescending(i => i.Baslangic).Take(200).ToListAsync();
+        await PuantajYukleAsync();
+    }
+
+    private async Task PuantajYukleAsync()
+    {
+        _puantaj = null;
+        _hareketler = new();
+        if (_seciliId is not int id) return;
+        await using var db = await FirmaDb.AcAsync();
+        _puantaj = await PuantajServisi.AylikAsync(db, id, _ay.Year, _ay.Month);
+        var bas = new DateTime(_ay.Year, _ay.Month, 1).AddDays(-1);
+        var bit = bas.AddMonths(1).AddDays(3);
+        _hareketler = await db.Hareketler.AsNoTracking()
+            .Where(h => h.PersonelId == id && !h.Iptal && h.Zaman >= bas && h.Zaman < bit).ToListAsync();
+    }
+
+    private Task AyKaydirAsync(int ay)
+    {
+        _ay = _ay.AddMonths(ay);
+        _seciliGun = null;
+        return PuantajYukleAsync();
+    }
+
+    private void GunSec(DateOnly tarih)
+    {
+        _seciliGun = tarih;
+        _hareketSilOnay = false;
+    }
+
+    private void Yeni() => Navigation.NavigateTo("personeller/yeni");
+
+    private void Degistir()
+    {
+        if (_seciliId is int id) Navigation.NavigateTo($"personeller/{id}");
+    }
+
+    private async Task SilAsync()
+    {
+        if (_seciliId is not int id) return;
+        if (!_silOnay) { _silOnay = true; return; }
+        _silOnay = false;
+        await using var db = await FirmaDb.AcAsync();
+        if (await db.Hareketler.AnyAsync(h => h.PersonelId == id) || await db.Izinler.AnyAsync(i => i.PersonelId == id))
+        {
+            _mesaj = "Hareketi veya izni olan personel silinemez; geçmiş kayıtlar bozulmasın diye işten çıkış tarihi girin.";
+            return;
+        }
+        var p = await db.Personeller.FirstOrDefaultAsync(x => x.Id == id);
+        if (p is not null) { db.Personeller.Remove(p); await db.SaveChangesAsync(); }
+        _seciliId = null;
+        _secili = null;
+        _puantaj = null;
+        await ListeyiYukleAsync();
+    }
+
+    private void HareketEkle()
+    {
+        _duzenle = new HareketDuzenleme { Tarih = _seciliGun ?? DateOnly.FromDateTime(DateTime.Today), Giris = new TimeOnly(8, 0), Cikis = new TimeOnly(17, 0) };
+    }
+
+    private void HareketDegistir()
+    {
+        var g = _puantaj?.Gunler.FirstOrDefault(x => x.Tarih == _seciliGun);
+        if (g is null) return;
+        _duzenle = new HareketDuzenleme
+        {
+            Tarih = g.Tarih, Mevcut = true,
+            Giris = g.Giris is { } gi ? TimeOnly.FromDateTime(gi) : null,
+            Cikis = g.Cikis is { } ci ? TimeOnly.FromDateTime(ci) : null,
+            EskiGiris = g.Giris, EskiCikis = g.Cikis,
+        };
+    }
+
+    private async Task DuzenlemeyiKaydetAsync()
+    {
+        _mesaj = null;
+        if (_duzenle is null || _seciliId is not int id || _duzenle.Tarih is not DateOnly tarih) return;
+        if (string.IsNullOrWhiteSpace(_duzenle.Aciklama)) { _mesaj = "Elle yapılan değişikliğe açıklama yazın."; return; }
+
+        await using var db = await FirmaDb.AcAsync();
+        var kullanici = await FirmaDb.KullaniciIdAsync();
+
+        DateTime? YeniZaman(TimeOnly? saat, bool cikis)
+        {
+            if (saat is not TimeOnly s) return null;
+            var z = tarih.ToDateTime(s);
+            // Çıkış girişten önceyse gece vardiyasıdır: ertesi gün.
+            if (cikis && _duzenle!.Giris is TimeOnly g && s <= g) z = z.AddDays(1);
+            return z;
+        }
+
+        async Task GuncelleAsync(DateTime? eski, DateTime? yeni)
+        {
+            if (eski == yeni) return;
+            if (eski is DateTime e)
+                foreach (var h in await db.Hareketler.Where(x => x.PersonelId == id && x.Zaman == e && !x.Iptal).ToListAsync())
+                    h.Iptal = true;
+            if (yeni is DateTime y)
+                db.Hareketler.Add(new Hareket { PersonelId = id, Zaman = y, Kaynak = HareketKaynagi.Elle, Aciklama = _duzenle!.Aciklama!.Trim(), KaydedenKullaniciId = kullanici });
+        }
+
+        await GuncelleAsync(_duzenle.EskiGiris, YeniZaman(_duzenle.Giris, false));
+        await GuncelleAsync(_duzenle.EskiCikis, YeniZaman(_duzenle.Cikis, true));
+        await db.SaveChangesAsync();
+        _duzenle = null;
+        await PuantajYukleAsync();
+    }
+
+    private async Task HareketSilAsync()
+    {
+        var g = _puantaj?.Gunler.FirstOrDefault(x => x.Tarih == _seciliGun);
+        if (g is null || _seciliId is not int id) return;
+        if (!_hareketSilOnay) { _hareketSilOnay = true; return; }
+        _hareketSilOnay = false;
+        await using var db = await FirmaDb.AcAsync();
+        var zamanlar = new[] { g.Giris, g.Cikis }.Where(z => z is not null).Select(z => z!.Value).ToList();
+        foreach (var h in await db.Hareketler.Where(x => x.PersonelId == id && zamanlar.Contains(x.Zaman) && !x.Iptal).ToListAsync())
+            h.Iptal = true;
+        await db.SaveChangesAsync();
+        await PuantajYukleAsync();
+    }
+}

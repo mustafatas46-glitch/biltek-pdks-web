@@ -110,7 +110,7 @@ public class UygulamaTestleri : IClassFixture<UygulamaFabrikasi>
 
         var sayfalar = new[]
         {
-            "/", "/personeller", "/personeller/yeni", $"/personeller/{personelId}",
+            "/", $"/?personel={personelId}", "/ozet", "/personeller", "/personeller/yeni", $"/personeller/{personelId}",
             "/tanimlar/sube", "/tanimlar/bolum", "/tanimlar/gorev", "/tanimlar/grup", "/tanimlar/izin",
             "/vardiyalar", "/calisma-plani", "/resmi-tatiller", "/izinler", "/hareketler",
             "/puantaj", $"/puantaj?personel={personelId}", "/hesap/sifre",
@@ -122,6 +122,11 @@ public class UygulamaTestleri : IClassFixture<UygulamaFabrikasi>
             var govde = await r.Content.ReadAsStringAsync();
             Assert.True(r.StatusCode == HttpStatusCode.OK, $"{s} -> {(int)r.StatusCode}\n{govde[..Math.Min(govde.Length, 2000)]}");
         }
+
+        var ana = WebUtility.HtmlDecode(await c.GetStringAsync($"/?personel={personelId}"));
+        Assert.Contains("Giriş/Çıkış", ana);
+        Assert.Contains("Deneme", ana);
+        Assert.Contains("Göster [F8]", ana);
 
         var puantaj = WebUtility.HtmlDecode(await c.GetStringAsync($"/puantaj?personel={personelId}"));
         Assert.Contains("Aylık puantaj", puantaj);
