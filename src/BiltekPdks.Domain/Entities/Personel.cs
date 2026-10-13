@@ -33,6 +33,62 @@ public class Personel : FirmaEntity
     public int? CalismaGrubuId { get; set; }
     public CalismaGrubu? CalismaGrubu { get; set; }
 
+    // --- Genel / SGK ---
+    public string? KartId { get; set; }
+    public string? IlkSoyad { get; set; }
+    public string? VergiNo { get; set; }
+    public string? SgkSicilNo { get; set; }
+    public DateOnly? SgkGirisTarihi { get; set; }
+    /// <summary>Yıllık izin, kıdem ve ihbar hesabında esas alınan ilk işe başlama tarihi.</summary>
+    public DateOnly? IlkIseBaslamaTarihi { get; set; }
+
+    // --- Ücret ---
+    public UcretTipi UcretTipi { get; set; } = UcretTipi.Maas;
+    /// <summary>Aylık maaş ya da saat ücreti (<see cref="UcretTipi"/>'ne göre).</summary>
+    public decimal? Ucret { get; set; }
+    public decimal? EskiUcret { get; set; }
+    /// <summary>Boşsa fazla mesai ücreti grup kuralından hesaplanır.</summary>
+    public decimal? MesaiSaatUcreti { get; set; }
+    public bool FazlaMesaiAlir { get; set; } = true;
+    /// <summary>Devamsız gün için kesinti katsayısı (örn. 1,5 ya da 2). Boşsa 1.</summary>
+    public decimal? DevamsizlikCezaKatsayisi { get; set; }
+
+    // --- Ek gruplamalar ---
+    public int? ServisId { get; set; }
+    public Servis? Servis { get; set; }
+    public int? BolgeId { get; set; }
+    public Bolge? Bolge { get; set; }
+    public int? BirimId { get; set; }
+    public Birim? Birim { get; set; }
+    public int? TakimId { get; set; }
+    public Takim? Takim { get; set; }
+    public int? MeslekId { get; set; }
+    public Meslek? Meslek { get; set; }
+
+    // --- Kişisel ---
+    public string? MedeniHal { get; set; }
+    public int? CocukSayisi { get; set; }
+    public string? KanGrubu { get; set; }
+    public string? EgitimDurumu { get; set; }
+    public string? AskerlikDurumu { get; set; }
+    public string? EvTelefonu { get; set; }
+    public string? Il { get; set; }
+    public string? Ilce { get; set; }
+
+    // --- Kimlik ---
+    public string? BabaAdi { get; set; }
+    public string? AnneAdi { get; set; }
+    public string? DogumYeri { get; set; }
+    public string? Uyruk { get; set; }
+    public string? NufusIl { get; set; }
+    public string? NufusIlce { get; set; }
+
+    // --- Banka / ehliyet ---
+    public string? BankaAdi { get; set; }
+    public string? Iban { get; set; }
+    public string? EhliyetSinifi { get; set; }
+    public string? EhliyetNo { get; set; }
+
     public int? EskiId { get; set; }
 
     public string AdSoyad => $"{Ad} {Soyad}".Trim();

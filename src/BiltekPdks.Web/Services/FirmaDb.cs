@@ -21,6 +21,7 @@ public class FirmaDb
         var durum = await _auth.GetAuthenticationStateAsync();
         var db = await _factory.CreateDbContextAsync();
         db.AktifFirmaId = int.TryParse(durum.User.FindFirst(Talepler.FirmaId)?.Value, out var id) ? id : null;
+        db.IslemYapanKullaniciId = int.TryParse(durum.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var k) ? k : null;
         return db;
     }
 

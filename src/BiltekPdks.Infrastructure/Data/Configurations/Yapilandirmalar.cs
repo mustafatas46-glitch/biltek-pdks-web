@@ -55,13 +55,38 @@ internal sealed class PersonelYapilandirma : IEntityTypeConfiguration<Personel>
         b.Property(x => x.Eposta).HasMaxLength(150);
         b.Property(x => x.Adres).HasMaxLength(500);
 
-        b.HasIndex(x => new { x.FirmaId, x.KartNo }).IsUnique();
+        // Kart numarası işten ayrılan personelden yeni gelene verilebilir; aktif personelde tekillik uygulamada kontrol edilir.
+        b.HasIndex(x => new { x.FirmaId, x.KartNo });
         b.HasIndex(x => new { x.FirmaId, x.Soyad, x.Ad });
 
         b.HasOne(x => x.Sube).WithMany().HasForeignKey(x => x.SubeId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.Bolum).WithMany().HasForeignKey(x => x.BolumId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.Gorev).WithMany().HasForeignKey(x => x.GorevId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.CalismaGrubu).WithMany().HasForeignKey(x => x.CalismaGrubuId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.Servis).WithMany().HasForeignKey(x => x.ServisId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.Bolge).WithMany().HasForeignKey(x => x.BolgeId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.Birim).WithMany().HasForeignKey(x => x.BirimId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.Takim).WithMany().HasForeignKey(x => x.TakimId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.Meslek).WithMany().HasForeignKey(x => x.MeslekId).OnDelete(DeleteBehavior.Restrict);
+
+        b.Property(x => x.UcretTipi).HasConversion<int>();
+        b.Property(x => x.Ucret).HasPrecision(18, 2);
+        b.Property(x => x.EskiUcret).HasPrecision(18, 2);
+        b.Property(x => x.MesaiSaatUcreti).HasPrecision(18, 2);
+        b.Property(x => x.DevamsizlikCezaKatsayisi).HasPrecision(5, 2);
+        b.Property(x => x.KartId).HasMaxLength(20);
+        b.Property(x => x.IlkSoyad).HasMaxLength(60);
+        b.Property(x => x.VergiNo).HasMaxLength(20);
+        b.Property(x => x.SgkSicilNo).HasMaxLength(40);
+        foreach (var alan in new[] { nameof(Personel.MedeniHal), nameof(Personel.KanGrubu), nameof(Personel.EgitimDurumu),
+                     nameof(Personel.AskerlikDurumu), nameof(Personel.EhliyetSinifi) })
+            b.Property(alan).HasMaxLength(30);
+        foreach (var alan in new[] { nameof(Personel.EvTelefonu), nameof(Personel.EhliyetNo) })
+            b.Property(alan).HasMaxLength(30);
+        foreach (var alan in new[] { nameof(Personel.Il), nameof(Personel.Ilce), nameof(Personel.BabaAdi), nameof(Personel.AnneAdi),
+                     nameof(Personel.DogumYeri), nameof(Personel.Uyruk), nameof(Personel.NufusIl), nameof(Personel.NufusIlce), nameof(Personel.BankaAdi) })
+            b.Property(alan).HasMaxLength(60);
+        b.Property(x => x.Iban).HasMaxLength(34);
     }
 }
 
@@ -81,4 +106,57 @@ internal abstract class TanimYapilandirma<T> : IEntityTypeConfiguration<T> where
 internal sealed class SubeYapilandirma : TanimYapilandirma<Sube> { protected override string Tablo => "sube"; }
 internal sealed class BolumYapilandirma : TanimYapilandirma<Bolum> { protected override string Tablo => "bolum"; }
 internal sealed class GorevYapilandirma : TanimYapilandirma<Gorev> { protected override string Tablo => "gorev"; }
-internal sealed class CalismaGrubuYapilandirma : TanimYapilandirma<CalismaGrubu> { protected override string Tablo => "calisma_grubu"; }
+
+internal sealed class ServisYapilandirma : TanimYapilandirma<Servis> { protected override string Tablo => "servis"; }
+internal sealed class BolgeYapilandirma : TanimYapilandirma<Bolge> { protected override string Tablo => "bolge"; }
+internal sealed class BirimYapilandirma : TanimYapilandirma<Birim> { protected override string Tablo => "birim"; }
+internal sealed class TakimYapilandirma : TanimYapilandirma<Takim> { protected override string Tablo => "takim"; }
+internal sealed class MeslekYapilandirma : TanimYapilandirma<Meslek> { protected override string Tablo => "meslek"; }
+
+internal sealed class CalismaGrubuUcretYapilandirma : TanimYapilandirma<CalismaGrubu>
+{
+    protected override string Tablo => "calisma_grubu";
+
+    public override void Configure(EntityTypeBuilder<CalismaGrubu> b)
+    {
+        base.Configure(b);
+        b.Property(x => x.FazlaMesaiCarpani).HasPrecision(5, 2);
+        b.Property(x => x.TatilMesaisiCarpani).HasPrecision(5, 2);
+    }
+}
+
+internal sealed class KazancKesintiTuruYapilandirma : TanimYapilandirma<KazancKesintiTuru>
+{
+    protected override string Tablo => "kazanc_kesinti_turu";
+
+    public override void Configure(EntityTypeBuilder<KazancKesintiTuru> b)
+    {
+        base.Configure(b);
+        b.Property(x => x.Tip).HasConversion<int>();
+    }
+}
+
+internal sealed class KazancKesintiYapilandirma : IEntityTypeConfiguration<KazancKesinti>
+{
+    public void Configure(EntityTypeBuilder<KazancKesinti> b)
+    {
+        b.ToTable("kazanc_kesinti");
+        b.Property(x => x.Tutar).HasPrecision(18, 2);
+        b.Property(x => x.Aciklama).HasMaxLength(250);
+        b.HasIndex(x => new { x.PersonelId, x.Tarih });
+        b.HasOne(x => x.Personel).WithMany().HasForeignKey(x => x.PersonelId).OnDelete(DeleteBehavior.Cascade);
+        b.HasOne(x => x.KazancKesintiTuru).WithMany().HasForeignKey(x => x.KazancKesintiTuruId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+internal sealed class IslemKaydiYapilandirma : IEntityTypeConfiguration<IslemKaydi>
+{
+    public void Configure(EntityTypeBuilder<IslemKaydi> b)
+    {
+        b.ToTable("islem_kaydi");
+        b.Property(x => x.Tablo).HasMaxLength(60).IsRequired();
+        b.Property(x => x.Islem).HasMaxLength(20).IsRequired();
+        b.HasIndex(x => new { x.FirmaId, x.Zaman });
+        b.HasIndex(x => new { x.Tablo, x.KayitId });
+    }
+}

@@ -26,6 +26,14 @@ public class PdksDbContext : DbContext
     /// </summary>
     public bool FirmaFiltresiKapali { get; set; }
 
+    /// <summary>
+    /// Doluysa yapılan her ekleme/değişiklik/silme <see cref="IslemKaydi"/> tablosuna yazılır.
+    /// Ekranlar (FirmaDb) doldurur; toplu aktarım gibi sistem işleri doldurmaz.
+    /// </summary>
+    public int? IslemYapanKullaniciId { get; set; }
+
+    private static readonly HashSet<string> GizliAlanlar = new() { nameof(Kullanici.SifreHash) };
+
     public DbSet<Firma> Firmalar => Set<Firma>();
     public DbSet<Kullanici> Kullanicilar => Set<Kullanici>();
     public DbSet<Sube> Subeler => Set<Sube>();
@@ -40,6 +48,14 @@ public class PdksDbContext : DbContext
     public DbSet<IzinTuru> IzinTurleri => Set<IzinTuru>();
     public DbSet<Izin> Izinler => Set<Izin>();
     public DbSet<Hareket> Hareketler => Set<Hareket>();
+    public DbSet<Servis> Servisler => Set<Servis>();
+    public DbSet<Bolge> Bolgeler => Set<Bolge>();
+    public DbSet<Birim> Birimler => Set<Birim>();
+    public DbSet<Takim> Takimlar => Set<Takim>();
+    public DbSet<Meslek> Meslekler => Set<Meslek>();
+    public DbSet<KazancKesintiTuru> KazancKesintiTurleri => Set<KazancKesintiTuru>();
+    public DbSet<KazancKesinti> KazancKesintiler => Set<KazancKesinti>();
+    public DbSet<IslemKaydi> IslemKayitlari => Set<IslemKaydi>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -58,6 +74,14 @@ public class PdksDbContext : DbContext
         FirmaKurallari<IzinTuru>(modelBuilder);
         FirmaKurallari<Izin>(modelBuilder);
         FirmaKurallari<Hareket>(modelBuilder);
+        FirmaKurallari<Servis>(modelBuilder);
+        FirmaKurallari<Bolge>(modelBuilder);
+        FirmaKurallari<Birim>(modelBuilder);
+        FirmaKurallari<Takim>(modelBuilder);
+        FirmaKurallari<Meslek>(modelBuilder);
+        FirmaKurallari<KazancKesintiTuru>(modelBuilder);
+        FirmaKurallari<KazancKesinti>(modelBuilder);
+        FirmaKurallari<IslemKaydi>(modelBuilder);
     }
 
     private void FirmaKurallari<T>(ModelBuilder modelBuilder) where T : FirmaEntity
@@ -77,13 +101,82 @@ public class PdksDbContext : DbContext
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
         KurallariUygula();
-        return base.SaveChanges(acceptAllChangesOnSuccess);
+        var kayitlar = IslemleriTopla();
+        var sonuc = base.SaveChanges(acceptAllChangesOnSuccess);
+        if (kayitlar.Count > 0)
+        {
+            IslemKayitlari.AddRange(kayitlar.Select(k => k.Olustur()));
+            base.SaveChanges(acceptAllChangesOnSuccess);
+        }
+        return sonuc;
     }
 
-    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
         KurallariUygula();
-        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        var kayitlar = IslemleriTopla();
+        var sonuc = await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        if (kayitlar.Count > 0)
+        {
+            IslemKayitlari.AddRange(kayitlar.Select(k => k.Olustur()));
+            await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        }
+        return sonuc;
+    }
+
+    private sealed record BekleyenIslem(FirmaEntity Varlik, string Tablo, string Islem, string? Degisiklikler, int? KullaniciId)
+    {
+        // Id, kayıt veritabanına yazıldıktan sonra okunur (eklemelerde o ana kadar 0'dır).
+        public IslemKaydi Olustur() => new()
+        {
+            FirmaId = Varlik.FirmaId,
+            Zaman = DateTime.UtcNow,
+            KullaniciId = KullaniciId,
+            Tablo = Tablo,
+            KayitId = Varlik.Id,
+            Islem = Islem,
+            Degisiklikler = Degisiklikler,
+        };
+    }
+
+    private List<BekleyenIslem> IslemleriTopla()
+    {
+        var sonuc = new List<BekleyenIslem>();
+        if (IslemYapanKullaniciId is null) return sonuc;
+
+        foreach (var e in ChangeTracker.Entries<FirmaEntity>())
+        {
+            if (e.Entity is IslemKaydi) continue;
+            string islem;
+            string? degisiklikler = null;
+            switch (e.State)
+            {
+                case EntityState.Added:
+                    islem = "Ekle";
+                    break;
+                case EntityState.Deleted:
+                    islem = "Sil";
+                    break;
+                case EntityState.Modified:
+                    islem = "Değiştir";
+                    var farklar = e.Properties
+                        .Where(p => p.IsModified && !Equals(p.OriginalValue, p.CurrentValue)
+                                    && p.Metadata.Name != nameof(BaseEntity.GuncellemeTarihi))
+                        .ToDictionary(
+                            p => p.Metadata.Name,
+                            p => GizliAlanlar.Contains(p.Metadata.Name)
+                                ? new[] { "***", "***" }
+                                : new[] { p.OriginalValue?.ToString(), p.CurrentValue?.ToString() });
+                    if (farklar.Count == 0) continue;
+                    degisiklikler = System.Text.Json.JsonSerializer.Serialize(farklar,
+                        new System.Text.Json.JsonSerializerOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping });
+                    break;
+                default:
+                    continue;
+            }
+            sonuc.Add(new BekleyenIslem(e.Entity, e.Metadata.GetTableName() ?? e.Entity.GetType().Name, islem, degisiklikler, IslemYapanKullaniciId));
+        }
+        return sonuc;
     }
 
     private void KurallariUygula()

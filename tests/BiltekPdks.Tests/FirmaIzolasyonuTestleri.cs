@@ -84,3 +84,40 @@ public class FirmaIzolasyonuTestleri
         Assert.Throws<DbUpdateException>(() => db2.SaveChanges());
     }
 }
+
+public class IslemKaydiTestleri
+{
+    [Fact]
+    public void Kullanici_islemleri_kaydedilir_sistem_islemleri_kaydedilmez()
+    {
+        using var tv = new TestVeritabani();
+        var a = tv.FirmaEkle("A");
+
+        using (var db = tv.Db(a))
+        {
+            db.IslemYapanKullaniciId = 7;
+            var p = new Personel { KartNo = "1", Ad = "Ali", Soyad = "Can", IseGirisTarihi = new DateOnly(2024, 1, 1) };
+            db.Personeller.Add(p);
+            db.SaveChanges();
+            p.Ad = "Veli";
+            db.SaveChanges();
+        }
+        using (var db = tv.Db(a))
+        {
+            // Kullanıcı yoksa (aktarım vb.) kayıt düşülmez.
+            db.Bolumler.Add(new Bolum { Ad = "Depo" });
+            db.SaveChanges();
+        }
+
+        using var oku = tv.Db(a);
+        var kayitlar = oku.IslemKayitlari.OrderBy(k => k.Id).ToList();
+        Assert.Equal(2, kayitlar.Count);
+        Assert.All(kayitlar, k => Assert.Equal("personel", k.Tablo));
+        Assert.Equal("Ekle", kayitlar[0].Islem);
+        Assert.True(kayitlar[0].KayitId > 0);
+        Assert.Equal("Değiştir", kayitlar[1].Islem);
+        Assert.Contains("Veli", kayitlar[1].Degisiklikler);
+        Assert.Contains("Ali", kayitlar[1].Degisiklikler);
+        Assert.All(kayitlar, k => Assert.Equal(7, k.KullaniciId));
+    }
+}
