@@ -124,7 +124,7 @@ jobs:
           Kurulum__DemoVeri: "true"
           TZ: Europe/Istanbul
         run: |
-          dotnet run --project src/BiltekPdks.Web -c Release > /tmp/web.log 2>&1 &
+          ASPNETCORE_ENVIRONMENT=Development dotnet run --no-launch-profile --project src/BiltekPdks.Web -c Release > /tmp/web.log 2>&1 &
           for i in $(seq 1 90); do curl -sf http://localhost:5180/hesap/giris >/dev/null && break; sleep 2; done
           tail -5 /tmp/web.log
       - name: Ekran goruntulerini al

@@ -19,7 +19,7 @@ SAYFALAR = [
 
 with sync_playwright() as p:
     b = p.chromium.launch()
-    s = b.new_page(viewport={"width": 1440, "height": 900}, locale="tr-TR")
+    s = b.new_page(viewport={"width": 1440, "height": 900}, locale="tr-TR", ignore_https_errors=True)
     s.goto(ADRES + "/hesap/giris")
     s.wait_for_load_state("networkidle")
     s.screenshot(path=f"{KLASOR}/01-giris.png")
