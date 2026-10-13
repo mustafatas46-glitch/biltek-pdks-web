@@ -16,6 +16,22 @@ jobs:
       - name: Restore
         run: dotnet restore BiltekPdks.sln
       - name: Build
-        run: dotnet build BiltekPdks.sln --no-restore -c Release
+        run: dotnet build BiltekPdks.sln --no-restore -c Release -warnaserror:nullable- 2>&1 | tee build.log
+      - name: Derleme uyarilari
+        if: always()
+        run: |
+          n=$(grep -c "warning CS" build.log || true)
+          echo "::notice title=Derleme::$n derleyici uyarisi"
+          grep "warning CS" build.log | sed -E 's#.*/(src|tests)/#\1/#' | sort -u | head -20 | while read -r l; do echo "::warning::$l"; done
       - name: Test
-        run: dotnet test BiltekPdks.sln --no-build -c Release --logger "console;verbosity=normal"
+        run: dotnet test BiltekPdks.sln --no-build -c Release --logger "trx;LogFileName=sonuc.trx" --results-directory testsonuc
+      - name: Test ozeti
+        if: always()
+        run: |
+          f=$(find testsonuc -name '*.trx' | head -1)
+          if [ -z "$f" ]; then echo "::error title=Test::Sonuc dosyasi yok"; exit 1; fi
+          ozet=$(grep -o '<Counters [^>]*>' "$f")
+          echo "::notice title=Test ozeti::$ozet"
+          total=$(echo "$ozet" | grep -o 'total="[0-9]*"' | grep -o '[0-9]*')
+          if [ "${total:-0}" -eq 0 ]; then echo "::error title=Test::Hic test calismadi"; exit 1; fi
+          grep -o 'testName="[^"]*" [^>]*outcome="Failed"' "$f" | head -20 | while read -r l; do echo "::error title=Basarisiz test::$l"; done
