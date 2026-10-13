@@ -113,7 +113,7 @@ public class UygulamaTestleri : IClassFixture<UygulamaFabrikasi>
             "/", $"/?personel={personelId}", "/ozet", "/personeller", "/personeller/yeni", $"/personeller/{personelId}",
             "/tanimlar/sube", "/tanimlar/bolum", "/tanimlar/gorev", "/tanimlar/grup", "/tanimlar/izin",
             "/vardiyalar", "/calisma-plani", "/resmi-tatiller", "/izinler", "/hareketler",
-            "/puantaj", $"/puantaj?personel={personelId}", "/hesap/sifre",
+            "/puantaj", $"/puantaj?personel={personelId}", "/puantaj/toplu", "/hesap/sifre",
         };
 
         foreach (var s in sayfalar)
@@ -133,5 +133,23 @@ public class UygulamaTestleri : IClassFixture<UygulamaFabrikasi>
         Assert.Contains("Çalışılan gün", puantaj);
         Assert.Contains("Eksik hareket", puantaj); // dünkü tek okutma
         Assert.Contains("Deneme Personel", puantaj);
+
+        var toplu = WebUtility.HtmlDecode(await c.GetStringAsync("/puantaj/toplu"));
+        Assert.Contains("Toplu aylık puantaj", toplu);
+        Assert.Contains("Deneme Personel", toplu);
+
+        var dun = DateTime.Today.AddDays(-1);
+        var excel = await c.GetAsync($"/raporlar/toplu-puantaj.xlsx?yil={dun.Year}&ay={dun.Month}");
+        Assert.Equal(HttpStatusCode.OK, excel.StatusCode);
+        Assert.Equal("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", excel.Content.Headers.ContentType?.MediaType);
+        using var kitap = new ClosedXML.Excel.XLWorkbook(await excel.Content.ReadAsStreamAsync());
+        Assert.Contains(kitap.Worksheet(1).CellsUsed(), x => x.GetString() == "Deneme Personel");
+    }
+
+    [Fact]
+    public async Task Excel_raporu_oturumsuz_indirilemez()
+    {
+        var r = await Istemci().GetAsync("/raporlar/toplu-puantaj.xlsx?yil=2026&ay=10");
+        Assert.NotEqual(HttpStatusCode.OK, r.StatusCode);
     }
 }

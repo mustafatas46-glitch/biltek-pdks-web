@@ -1,0 +1,192 @@
+@page "/puantaj/toplu"
+@using BiltekPdks.Domain.Puantaj
+@using BiltekPdks.Infrastructure.Puantaj
+@using BiltekPdks.Infrastructure.Raporlar
+@inject FirmaDb FirmaDb
+@inject PuantajServisi PuantajServisi
+@inject NavigationManager Nav
+
+<PageTitle>Toplu aylık puantaj</PageTitle>
+
+<div class="d-flex gap-2 align-items-end mb-3 flex-wrap">
+    <h1 class="h4 me-3 mb-1">Toplu aylık puantaj</h1>
+    <div><label class="form-label small mb-0">Ay</label><input class="form-control form-control-sm" type="month" @bind="_ay" @bind:format="yyyy-MM" @bind:after="HesaplaAsync" /></div>
+    <div>
+        <label class="form-label small mb-0">Bölüm</label>
+        <select class="form-select form-select-sm" @bind="_bolumId" @bind:after="HesaplaAsync">
+            <option value="">Tümü</option>
+            @foreach (var b in _bolumler) { <option value="@b.Id">@b.Ad</option> }
+        </select>
+    </div>
+    <div>
+        <label class="form-label small mb-0">Çalışma grubu</label>
+        <select class="form-select form-select-sm" @bind="_grupId" @bind:after="HesaplaAsync">
+            <option value="">Tümü</option>
+            @foreach (var g in _gruplar) { <option value="@g.Id">@g.Ad</option> }
+        </select>
+    </div>
+    <div><label class="form-label small mb-0">Ara</label><input class="form-control form-control-sm" placeholder="Ad, sicil, kart" @bind="_arama" @bind:event="oninput" /></div>
+    <div class="form-check mb-1 ms-1">
+        <input class="form-check-input" type="checkbox" id="sorunlu" @bind="_yalnizSorunlu" />
+        <label class="form-check-label small" for="sorunlu">Yalnız devamsız / eksik hareketi olanlar</label>
+    </div>
+    <a class="btn btn-sm btn-success ms-auto" href="@ExcelAdresi" target="_blank">Excel'e aktar</a>
+</div>
+
+@if (_yukleniyor)
+{
+    <p class="text-muted">Hesaplanıyor…</p>
+}
+else if (_satirlar.Count == 0)
+{
+    <p class="text-muted">Bu ay için personel bulunamadı.</p>
+}
+else
+{
+    var gorunen = Gorunen().ToList();
+    var gunSayisi = DateTime.DaysInMonth(_ay.Year, _ay.Month);
+    <div class="toplu-puantaj">
+        <table class="table table-sm table-bordered mb-0">
+            <thead>
+                <tr>
+                    <th class="sabit s1">Sicil</th>
+                    <th class="sabit s2">Ad Soyad</th>
+                    @for (var d = 1; d <= gunSayisi; d++)
+                    {
+                        var t = new DateOnly(_ay.Year, _ay.Month, d);
+                        <th class="gun @(t.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday ? "hs" : "")">@d<br /><small>@GunKisa[(int)t.DayOfWeek]</small></th>
+                    }
+                    <th title="30 gün hesabı: ücret ve SGK gün sayısı">Gün<br /><small>(30)</small></th>
+                    <th>Çal.<br /><small>gün</small></th>
+                    <th>Dvm</th>
+                    <th>İzin</th>
+                    <th>Ü.izin</th>
+                    <th>Eks.<br /><small>hrk</small></th>
+                    <th>N.Ç</th>
+                    <th>%50</th>
+                    <th>%100</th>
+                    <th>Geç</th>
+                    <th>Erken</th>
+                    <th>Eksik</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var s in gorunen)
+                {
+                    var t = s.Toplam;
+                    <tr @key="s.Personel.Id" @onclick="() => Ac(s.Personel.Id)" title="Kişisel puantajı aç">
+                        <td class="sabit s1">@(s.Personel.SicilNo ?? s.Personel.KartNo)</td>
+                        <td class="sabit s2">@s.Personel.Ad @s.Personel.Soyad</td>
+                        @foreach (var g in s.Gunler)
+                        {
+                            var kod = PuantajKodlari.Kod(g);
+                            <td class="gun k-@Sinif(kod) @(g.GecKalmaDakika > 0 ? "geckaldi" : "")" title="@PuantajKodlari.Aciklama(g)">@kod</td>
+                        }
+                        <td class="fw-semibold text-end">@s.OdenecekGun</td>
+                        <td class="text-end">@t.CalisilanGun</td>
+                        <td class="text-end @(t.DevamsizGun > 0 ? "text-danger fw-semibold" : "")">@Sifirsiz(t.DevamsizGun)</td>
+                        <td class="text-end">@Sifirsiz(t.IzinliGun)</td>
+                        <td class="text-end">@Sifirsiz(t.UcretsizIzinGun)</td>
+                        <td class="text-end @(t.EksikHareketGun > 0 ? "text-warning-emphasis fw-semibold" : "")">@Sifirsiz(t.EksikHareketGun)</td>
+                        <td class="text-end">@S(t.NormalCalismaDakika)</td>
+                        <td class="text-end">@S(t.FazlaMesaiDakika)</td>
+                        <td class="text-end">@S(t.TatilMesaisiDakika)</td>
+                        <td class="text-end">@S(t.GecKalmaDakika)</td>
+                        <td class="text-end">@S(t.ErkenCikmaDakika)</td>
+                        <td class="text-end">@S(t.EksikDakika)</td>
+                    </tr>
+                }
+            </tbody>
+            <tfoot>
+                <tr class="fw-semibold">
+                    <td class="sabit s1"></td>
+                    <td class="sabit s2">Toplam (@gorunen.Count kişi)</td>
+                    <td colspan="@gunSayisi"></td>
+                    <td class="text-end">@gorunen.Sum(x => x.OdenecekGun)</td>
+                    <td class="text-end">@gorunen.Sum(x => x.Toplam.CalisilanGun)</td>
+                    <td class="text-end">@gorunen.Sum(x => x.Toplam.DevamsizGun)</td>
+                    <td class="text-end">@gorunen.Sum(x => x.Toplam.IzinliGun)</td>
+                    <td class="text-end">@gorunen.Sum(x => x.Toplam.UcretsizIzinGun)</td>
+                    <td class="text-end">@gorunen.Sum(x => x.Toplam.EksikHareketGun)</td>
+                    <td class="text-end">@S(gorunen.Sum(x => x.Toplam.NormalCalismaDakika))</td>
+                    <td class="text-end">@S(gorunen.Sum(x => x.Toplam.FazlaMesaiDakika))</td>
+                    <td class="text-end">@S(gorunen.Sum(x => x.Toplam.TatilMesaisiDakika))</td>
+                    <td class="text-end">@S(gorunen.Sum(x => x.Toplam.GecKalmaDakika))</td>
+                    <td class="text-end">@S(gorunen.Sum(x => x.Toplam.ErkenCikmaDakika))</td>
+                    <td class="text-end">@S(gorunen.Sum(x => x.Toplam.EksikDakika))</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+    <div class="small text-muted mt-2 toplu-lejant">
+        @foreach (var (kod, anlam) in PuantajKodlari.Lejant)
+        {
+            <span class="k-@Sinif(kod)">@kod</span> @anlam
+        }
+        <span class="geckaldi">Ç</span> Geç kaldı ·
+        Gün (30): her ay 30 gün sayılır; devamsız ve ücretsiz izinli günler düşülür. Hücrenin üzerine gelince günün ayrıntısı görünür.
+    </div>
+}
+
+@code {
+    private static readonly string[] GunKisa = { "Pz", "Pt", "Sa", "Ça", "Pe", "Cu", "Ct" };
+
+    [SupplyParameterFromQuery(Name = "ay")] public string? AyParametresi { get; set; }
+
+    private DateTime _ay = new(DateTime.Today.Year, DateTime.Today.Month, 1);
+    private int? _bolumId;
+    private int? _grupId;
+    private string _arama = "";
+    private bool _yalnizSorunlu;
+    private bool _yukleniyor = true;
+    private List<(int Id, string Ad)> _bolumler = new();
+    private List<(int Id, string Ad)> _gruplar = new();
+    private List<AylikPuantaj> _satirlar = new();
+
+    private string ExcelAdresi =>
+        $"raporlar/toplu-puantaj.xlsx?yil={_ay.Year}&ay={_ay.Month}"
+        + (_bolumId is int b ? $"&bolum={b}" : "") + (_grupId is int g ? $"&grup={g}" : "");
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (DateTime.TryParseExact(AyParametresi, "yyyy-MM", null, System.Globalization.DateTimeStyles.None, out var a))
+            _ay = a;
+        await using var db = await FirmaDb.AcAsync();
+        _bolumler = (await db.Bolumler.AsNoTracking().OrderBy(x => x.Ad).Select(x => new { x.Id, x.Ad }).ToListAsync())
+            .Select(x => (x.Id, x.Ad)).ToList();
+        _gruplar = (await db.CalismaGruplari.AsNoTracking().OrderBy(x => x.Ad).Select(x => new { x.Id, x.Ad }).ToListAsync())
+            .Select(x => (x.Id, x.Ad)).ToList();
+        await HesaplaAsync();
+    }
+
+    private async Task HesaplaAsync()
+    {
+        _yukleniyor = true;
+        await using var db = await FirmaDb.AcAsync();
+        _satirlar = await PuantajServisi.TopluAsync(db, _ay.Year, _ay.Month, _bolumId, _grupId);
+        _yukleniyor = false;
+    }
+
+    private IEnumerable<AylikPuantaj> Gorunen()
+    {
+        IEnumerable<AylikPuantaj> q = _satirlar;
+        if (_yalnizSorunlu) q = q.Where(x => x.Toplam.DevamsizGun > 0 || x.Toplam.EksikHareketGun > 0);
+        var a = _arama.Trim();
+        if (a.Length > 0)
+            q = q.Where(x => $"{x.Personel.Ad} {x.Personel.Soyad}".Contains(a, StringComparison.CurrentCultureIgnoreCase)
+                || (x.Personel.SicilNo?.Contains(a, StringComparison.CurrentCultureIgnoreCase) ?? false)
+                || x.Personel.KartNo.Contains(a, StringComparison.CurrentCultureIgnoreCase));
+        return q;
+    }
+
+    private void Ac(int personelId) => Nav.NavigateTo($"puantaj?personel={personelId}");
+
+    private static string S(int dakika) => PuantajMotoru.SaatDakika(dakika);
+    private static string Sifirsiz(int n) => n == 0 ? "" : n.ToString();
+
+    private static string Sinif(string kod) => kod switch
+    {
+        "Ç" => "c", "D" => "d", "İ" => "i", "Üİ" => "ui", "HT" => "ht", "RT" => "rt",
+        "HÇ" or "RÇ" => "tc", "E" => "e", _ => "bos",
+    };
+}

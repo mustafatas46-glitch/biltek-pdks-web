@@ -32,7 +32,35 @@ public sealed record PuantajToplamlari(
         g.Sum(x => x.TatilMesaisiDakika));
 }
 
-public sealed record AylikPuantaj(Personel Personel, int Yil, int Ay, IReadOnlyList<GunlukPuantaj> Gunler, PuantajToplamlari Toplam);
+public sealed record AylikPuantaj(Personel Personel, int Yil, int Ay, IReadOnlyList<GunlukPuantaj> Gunler, PuantajToplamlari Toplam)
+{
+    /// <summary>Ücret ve SGK için ayın gün sayısı (30 gün hesabı). Bkz. <see cref="OtuzGunHesabi"/>.</summary>
+    public int OdenecekGun => OtuzGunHesabi(Personel.IseGirisTarihi, Personel.IstenCikisTarihi, Yil, Ay,
+        Toplam.DevamsizGun + Toplam.UcretsizIzinGun);
+
+    /// <summary>
+    /// Her ay 30 gün sayılır (ay 28, 29 ya da 31 çekse de).
+    /// <list type="bullet">
+    /// <item>Ayın tamamında çalışan: 30 − eksik gün.</item>
+    /// <item>Ay içinde işe giren ya da ayrılan: fiilen çalışılan takvim günü (en çok 30) − eksik gün.</item>
+    /// </list>
+    /// Eksik gün = devamsız + ücretsiz izinli gün. Sonuç 0'ın altına inmez.
+    /// </summary>
+    public static int OtuzGunHesabi(DateOnly iseGiris, DateOnly? istenCikis, int yil, int ay, int eksikGun)
+    {
+        var ilk = new DateOnly(yil, ay, 1);
+        var son = ilk.AddMonths(1).AddDays(-1);
+        if (iseGiris > son || istenCikis is { } c0 && c0 < ilk) return 0;
+
+        var bas = iseGiris > ilk ? iseGiris : ilk;
+        var bit = istenCikis is { } c && c < son ? c : son;
+
+        var gun = bas == ilk && bit == son
+            ? 30                                                  // ayın tamamı: şubat da 31 çeken ay da 30
+            : Math.Min(30, bit.DayNumber - bas.DayNumber + 1);    // ay içinde giriş ya da çıkış
+        return Math.Max(0, gun - eksikGun);
+    }
+}
 
 /// <summary>Veritabanındaki plan, izin, tatil ve hareketleri toplayıp puantaj motoruna verir.</summary>
 public class PuantajServisi
@@ -43,40 +71,79 @@ public class PuantajServisi
 
     public async Task<AylikPuantaj?> AylikAsync(PdksDbContext db, int personelId, int yil, int ay, CancellationToken ct = default)
     {
-        var personel = await db.Personeller.AsNoTracking().FirstOrDefaultAsync(p => p.Id == personelId, ct);
-        if (personel is null) return null;
+        var sonuc = await HesaplaAsync(db, db.Personeller.Where(p => p.Id == personelId), yil, ay, ct);
+        return sonuc.Count == 0 ? null : sonuc[0];
+    }
 
+    /// <summary>
+    /// Ay içinde çalışmış (işe giriş/çıkış tarihi aya değen) bütün personelin puantajı.
+    /// İsteğe bağlı bölüm ve çalışma grubu filtresi uygulanır. Sıra: ad, soyad.
+    /// </summary>
+    public Task<List<AylikPuantaj>> TopluAsync(PdksDbContext db, int yil, int ay, int? bolumId = null, int? calismaGrubuId = null, CancellationToken ct = default)
+    {
+        var ilk = new DateOnly(yil, ay, 1);
+        var son = ilk.AddMonths(1).AddDays(-1);
+        var q = db.Personeller.Where(p => p.IseGirisTarihi <= son && (p.IstenCikisTarihi == null || p.IstenCikisTarihi >= ilk));
+        if (bolumId is int b) q = q.Where(p => p.BolumId == b);
+        if (calismaGrubuId is int g) q = q.Where(p => p.CalismaGrubuId == g);
+        return HesaplaAsync(db, q, yil, ay, ct);
+    }
+
+    /// <summary>Verilen personeller için ayın verisini toplu okur (personel başına sorgu atmaz) ve hesaplar.</summary>
+    private async Task<List<AylikPuantaj>> HesaplaAsync(PdksDbContext db, IQueryable<Personel> personelSorgusu, int yil, int ay, CancellationToken ct)
+    {
         var ilk = new DateOnly(yil, ay, 1);
         var son = ilk.AddMonths(1).AddDays(-1);
 
+        var personeller = await personelSorgusu.AsNoTracking()
+            .Include(p => p.Bolum).Include(p => p.CalismaGrubu)
+            .OrderBy(p => p.Ad).ThenBy(p => p.Soyad).ThenBy(p => p.Id)
+            .ToListAsync(ct);
+        if (personeller.Count == 0) return new();
+
+        var idSorgusu = personelSorgusu.Select(p => p.Id);
+
         var vardiyalar = await db.Vardiyalar.AsNoTracking().ToDictionaryAsync(v => v.Id, ct);
 
-        var grupPlani = personel.CalismaGrubuId is int grupId
-            ? await db.CalismaGrubuGunleri.AsNoTracking().Where(x => x.CalismaGrubuId == grupId)
-                .ToDictionaryAsync(x => x.Gun, x => x.VardiyaId, ct)
-            : new Dictionary<DayOfWeek, int?>();
+        var grupPlanlari = (await db.CalismaGrubuGunleri.AsNoTracking().ToListAsync(ct))
+            .GroupBy(x => x.CalismaGrubuId)
+            .ToDictionary(x => x.Key, x => (IReadOnlyDictionary<DayOfWeek, int?>)x.ToDictionary(y => y.Gun, y => y.VardiyaId));
 
-        var kisisel = await db.PersonelVardiyalari.AsNoTracking()
-            .Where(x => x.PersonelId == personelId && x.Tarih >= ilk && x.Tarih <= son)
-            .ToDictionaryAsync(x => x.Tarih, x => x.VardiyaId, ct);
+        var kisiselPlanlar = (await db.PersonelVardiyalari.AsNoTracking()
+                .Where(x => idSorgusu.Contains(x.PersonelId) && x.Tarih >= ilk && x.Tarih <= son)
+                .ToListAsync(ct))
+            .GroupBy(x => x.PersonelId)
+            .ToDictionary(x => x.Key, x => (IReadOnlyDictionary<DateOnly, int?>)x.ToDictionary(y => y.Tarih, y => y.VardiyaId));
 
         var tatiller = (await db.ResmiTatiller.AsNoTracking()
             .Where(x => x.Tarih >= ilk && x.Tarih <= son).Select(x => x.Tarih).ToListAsync(ct)).ToHashSet();
 
-        var izinler = await db.Izinler.AsNoTracking().Include(x => x.IzinTuru)
-            .Where(x => x.PersonelId == personelId && x.Baslangic <= son && x.Bitis >= ilk)
-            .ToListAsync(ct);
+        var izinler = (await db.Izinler.AsNoTracking().Include(x => x.IzinTuru)
+                .Where(x => idSorgusu.Contains(x.PersonelId) && x.Baslangic <= son && x.Bitis >= ilk)
+                .ToListAsync(ct))
+            .ToLookup(x => x.PersonelId);
 
         var aramaBas = ilk.AddDays(-1).ToDateTime(TimeOnly.MinValue);
         var aramaBit = son.AddDays(2).ToDateTime(TimeOnly.MinValue);
-        var hareketler = await db.Hareketler.AsNoTracking()
-            .Where(x => x.PersonelId == personelId && !x.Iptal && x.Zaman >= aramaBas && x.Zaman < aramaBit)
-            .Select(x => x.Zaman)
-            .ToListAsync(ct);
+        var hareketler = (await db.Hareketler.AsNoTracking()
+                .Where(x => idSorgusu.Contains(x.PersonelId) && !x.Iptal && x.Zaman >= aramaBas && x.Zaman < aramaBit)
+                .Select(x => new { x.PersonelId, x.Zaman })
+                .ToListAsync(ct))
+            .ToLookup(x => x.PersonelId, x => x.Zaman);
 
         var bugun = DateOnly.FromDateTime(_saat.GetLocalNow().DateTime);
-        var gunler = Hesapla(personel, ilk, son, vardiyalar, grupPlani, kisisel, tatiller, izinler, hareketler, bugun);
-        return new AylikPuantaj(personel, yil, ay, gunler, PuantajToplamlari.Hesapla(gunler));
+        var bosPlan = new Dictionary<DayOfWeek, int?>();
+        var bosKisisel = new Dictionary<DateOnly, int?>();
+
+        var sonuc = new List<AylikPuantaj>(personeller.Count);
+        foreach (var p in personeller)
+        {
+            var grupPlani = p.CalismaGrubuId is int gid && grupPlanlari.TryGetValue(gid, out var gp) ? gp : bosPlan;
+            var kisisel = kisiselPlanlar.TryGetValue(p.Id, out var kp) ? kp : bosKisisel;
+            var gunler = Hesapla(p, ilk, son, vardiyalar, grupPlani, kisisel, tatiller, izinler[p.Id].ToList(), hareketler[p.Id], bugun);
+            sonuc.Add(new AylikPuantaj(p, yil, ay, gunler, PuantajToplamlari.Hesapla(gunler)));
+        }
+        return sonuc;
     }
 
     /// <summary>

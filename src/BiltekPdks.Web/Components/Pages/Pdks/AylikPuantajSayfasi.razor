@@ -15,6 +15,7 @@
 {
     var t = _sonuc.Toplam;
     <div class="row g-2 mb-4">
+        <Ozet Baslik="Gün (30 gün hesabı)" Deger="@_sonuc.OdenecekGun.ToString()" />
         <Ozet Baslik="Çalışılan gün" Deger="@t.CalisilanGun.ToString()" />
         <Ozet Baslik="Devamsız gün" Deger="@t.DevamsizGun.ToString()" Uyari="@(t.DevamsizGun > 0)" />
         <Ozet Baslik="İzinli (ücretli/ücretsiz)" Deger="@($"{t.IzinliGun} / {t.UcretsizIzinGun}")" />

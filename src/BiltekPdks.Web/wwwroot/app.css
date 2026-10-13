@@ -37,3 +37,27 @@ a.menu-ogesi { cursor: pointer; }
 .puantaj-satir.tatil td { color: #b35c00; }
 .puantaj-satir.kapsam td { color: #9aa1a8; }
 .lejant span { display: inline-block; width: 28px; height: 12px; vertical-align: middle; margin: 0 .25rem 0 .75rem; border: 1px solid #999; }
+
+/* Toplu puantaj */
+.toplu-puantaj { overflow: auto; max-height: calc(100vh - 44px - 10rem); border: 1px solid #d0d7de; }
+.toplu-puantaj table { font-size: .75rem; border-collapse: separate; border-spacing: 0; }
+.toplu-puantaj th, .toplu-puantaj td { padding: .15rem .3rem; white-space: nowrap; vertical-align: middle; }
+.toplu-puantaj thead th { position: sticky; top: 0; background: #f3f5f8; z-index: 2; text-align: center; font-weight: 600; line-height: 1.1; }
+.toplu-puantaj tfoot td { position: sticky; bottom: 0; background: #f3f5f8; z-index: 2; }
+.toplu-puantaj .sabit { position: sticky; background: #fff; z-index: 1; }
+.toplu-puantaj thead .sabit, .toplu-puantaj tfoot .sabit { z-index: 3; background: #f3f5f8; }
+.toplu-puantaj .s1 { left: 0; min-width: 64px; }
+.toplu-puantaj .s2 { left: 64px; min-width: 170px; border-right: 2px solid #adb5bd; }
+.toplu-puantaj th.gun { min-width: 26px; }
+.toplu-puantaj th.hs { background: #e2e6ea; }
+.toplu-puantaj td.gun { text-align: center; min-width: 26px; }
+.toplu-puantaj tbody tr { cursor: pointer; }
+.toplu-puantaj tbody tr:hover td { filter: brightness(.94); }
+.k-c { color: #146c43; }
+.k-d { background: #f8d7da !important; color: #842029; font-weight: 600; }
+.k-e { background: #fff3cd !important; color: #664d03; font-weight: 600; }
+.k-i, .k-ui { background: #cff4fc !important; color: #055160; }
+.k-ht, .k-rt { background: #e9ecef !important; color: #6c757d; }
+.k-tc { background: #d1e7dd !important; color: #0f5132; font-weight: 600; }
+td.geckaldi, span.geckaldi { box-shadow: inset 0 -3px 0 #fd7e14; }
+.toplu-lejant span { display: inline-block; min-width: 24px; text-align: center; border: 1px solid #ced4da; margin: 0 .2rem 0 .6rem; }
