@@ -24,7 +24,12 @@ public class EskiMySqlTestleri
     [Fact]
     public async Task Latin5_turkce_karakterler_ve_sifir_tarihler_dogru_okunur()
     {
-        if (string.IsNullOrEmpty(Baglanti)) return; // yerelde MySQL yok
+        if (string.IsNullOrEmpty(Baglanti))
+        {
+            // Yerelde MySQL yoksa atlanır; ama CI'da bu testin atlanmasına izin verilmez.
+            Assert.Null(Environment.GetEnvironmentVariable("GITHUB_ACTIONS"));
+            return;
+        }
 
         var sema = await File.ReadAllTextAsync(SemaDosyasi());
         await using (var c = new MySqlConnection(Baglanti))

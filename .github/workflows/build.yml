@@ -59,3 +59,23 @@ jobs:
               text = (msg + "\n" + st)[:3000].replace("%", "%25").replace("\r", "").replace("\n", "%0A")
               print(f"::error title={r.get('testName')}::{text}")
           PY
+
+  windows-paketi:
+    needs: build-test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Yayinla (win-x64, .NET kurulumu gerektirmez)
+        run: |
+          dotnet publish src/BiltekPdks.Web -c Release -r win-x64 --self-contained true -o paket/BiltekPdks/web
+          dotnet publish tools/BiltekPdks.Aktarim -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o paket/BiltekPdks/aktarim
+          cp paket-ek/*.bat paket-ek/*.txt paket/BiltekPdks/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BiltekPdks-Windows
+          path: paket/
+          retention-days: 30

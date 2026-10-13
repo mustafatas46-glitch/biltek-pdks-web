@@ -1,0 +1,23 @@
+BILTEK PDKS - YENI SISTEM (deneme surumu)
+=========================================
+
+Bu klasor kendi bilgisayarinizda calisir; internet veya .NET kurulumu gerekmez.
+Veriler bu klasordeki pdks.db dosyasinda tutulur. Eski Biltek programina ve
+eski veritabanina HICBIR SEKILDE yazilmaz; eski sistem aynen calismaya devam eder.
+
+1) 1-programi-baslat.bat
+   - Programi baslatir ve tarayicida http://localhost:5180 adresini acar.
+   - Ilk calistirmada pencereye "Yonetici icin gecici sifre" yazar. Kullanici adi: admin
+   - Firma kodu alanini bos birakabilirsiniz.
+
+2) 2-eski-veriyi-aktar.bat   (program acikken veya kapaliyken calisabilir)
+   - Eski veritabanindan sube, bolum, gorev, grup, personel, izin turleri,
+     izinler, resmi tatiller ve giris-cikis kayitlarini aktarir.
+   - Once "E" diyerek deneme yapin; rapor aktarim-raporu-*.txt dosyasina yazilir.
+   - Tekrar calistirmak guvenlidir, ayni kayitlar ikinci kez eklenmez.
+
+3) Programda "Haftalik calisma plani" ve "Vardiyalar" ekranlarindan gercek
+   vardiyalarinizi duzenleyin, sonra "Aylik puantaj" ekraninda eski programla
+   ayni ay icin sonuclari karsilastirin.
+
+Not: pdks.db dosyasi personel bilgilerini icerir; yedekleyin ve paylasmayin.
