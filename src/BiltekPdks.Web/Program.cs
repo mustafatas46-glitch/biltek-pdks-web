@@ -10,7 +10,11 @@ using Microsoft.Extensions.WebEncoders;
 using System.Text.Encodings.Web;
 using System.Text.Unicode;
 
-var builder = WebApplication.CreateBuilder(args);
+// Paketlenmiş kurulumda program hangi klasörden başlatılırsa başlatılsın stil dosyaları (wwwroot) bulunsun.
+var paketKlasoru = AppContext.BaseDirectory;
+var builder = Directory.Exists(Path.Combine(paketKlasoru, "wwwroot"))
+    ? WebApplication.CreateBuilder(new WebApplicationOptions { Args = args, ContentRootPath = paketKlasoru })
+    : WebApplication.CreateBuilder(args);
 
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 // Türkçe karakterler HTML'de &#x131; gibi kodlanmadan, olduğu gibi yazılsın.

@@ -90,16 +90,26 @@ jobs:
           $env:ASPNETCORE_URLS = "http://localhost:5180"
           $env:ConnectionStrings__Pdks = "Data Source=$env:RUNNER_TEMP\smoke.db"
           $env:Veritabani__Saglayici = "Sqlite"
-          $p = Start-Process -FilePath "$kok/web/BiltekPdks.Web.exe" -WorkingDirectory "$kok/web" -PassThru -RedirectStandardOutput "$env:RUNNER_TEMP/web.log" -RedirectStandardError "$env:RUNNER_TEMP/web.err"
+          $p = Start-Process -FilePath "$kok/web/BiltekPdks.Web.exe" -WorkingDirectory "$env:RUNNER_TEMP" -PassThru -RedirectStandardOutput "$env:RUNNER_TEMP/web.log" -RedirectStandardError "$env:RUNNER_TEMP/web.err"
           $ok = $false
           for ($i = 0; $i -lt 60 -and -not $ok; $i++) {
             Start-Sleep -Seconds 2
             try { $r = Invoke-WebRequest -Uri "http://localhost:5180/hesap/giris" -UseBasicParsing; $ok = $r.StatusCode -eq 200 -and $r.Content.Contains("Giriş") } catch { }
           }
+          $css = $false
+          if ($ok) {
+            # Programi baska klasorden baslatinca da stil dosyalari gelmeli (kullanici exe'ye cift tiklayabilir).
+            try {
+              $a = Invoke-WebRequest -Uri "http://localhost:5180/app.css" -UseBasicParsing
+              $b = Invoke-WebRequest -Uri "http://localhost:5180/lib/bootstrap.min.css" -UseBasicParsing
+              $css = $a.StatusCode -eq 200 -and $a.Content.Contains(".ust-menu") -and $b.StatusCode -eq 200 -and $b.RawContentLength -gt 100000
+            } catch { }
+          }
           Stop-Process -Id $p.Id -Force
           Get-Content "$env:RUNNER_TEMP/web.log" -Tail 20
           if (-not $ok) { Get-Content "$env:RUNNER_TEMP/web.err" -Tail 40; Write-Output "::error title=Windows::Program acilmadi"; exit 1 }
-          Write-Output "::notice title=Windows::Program Windows'ta acildi, giris sayfasi 200 dondu"
+          if (-not $css) { Write-Output "::error title=Windows::Stil dosyalari (app.css / bootstrap) gelmedi"; exit 1 }
+          Write-Output "::notice title=Windows::Program Windows'ta acildi, giris sayfasi ve stil dosyalari 200 dondu"
           & "$kok/aktarim/pdks-aktarim.exe" | Out-Null
           if ($LASTEXITCODE -ne 2) { Write-Output "::error title=Windows::Aktarim araci beklenmedik cikis kodu $LASTEXITCODE"; exit 1 }
           Write-Output "::notice title=Windows::Aktarim araci calisiyor"
