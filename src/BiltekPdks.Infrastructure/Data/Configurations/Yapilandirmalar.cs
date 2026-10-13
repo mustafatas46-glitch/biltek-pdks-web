@@ -87,6 +87,22 @@ internal sealed class PersonelYapilandirma : IEntityTypeConfiguration<Personel>
                      nameof(Personel.DogumYeri), nameof(Personel.Uyruk), nameof(Personel.NufusIl), nameof(Personel.NufusIlce), nameof(Personel.BankaAdi) })
             b.Property(alan).HasMaxLength(60);
         b.Property(x => x.Iban).HasMaxLength(34);
+
+        foreach (var alan in new[] { nameof(Personel.IsTelefonu), nameof(Personel.Gozluk), nameof(Personel.Sabika), nameof(Personel.OkulNo),
+                     nameof(Personel.AyakkabiNo), nameof(Personel.ElbiseBeden), nameof(Personel.CiltNo), nameof(Personel.AileSiraNo),
+                     nameof(Personel.SiraNo), nameof(Personel.CuzdanKayitNo) })
+            b.Property(alan).HasMaxLength(30);
+        foreach (var alan in new[] { nameof(Personel.MezunOkul), nameof(Personel.MezunBrans), nameof(Personel.YabanciDil),
+                     nameof(Personel.NufusMahalleKoy), nameof(Personel.CuzdanVerildigiYer), nameof(Personel.CuzdanVerilisNedeni),
+                     nameof(Personel.EhliyetVerildigiYer) })
+            b.Property(alan).HasMaxLength(100);
+        b.Property(x => x.WebAdresi).HasMaxLength(150);
+        b.Property(x => x.CihazProtez).HasMaxLength(200);
+        b.Property(x => x.Aciklama).HasMaxLength(2000);
+        b.Property(x => x.PrimUcreti).HasPrecision(18, 2);
+        b.Property(x => x.YolUcreti).HasPrecision(18, 2);
+        b.Property(x => x.YemekUcreti).HasPrecision(18, 2);
+        b.Property(x => x.OzelUcret).HasPrecision(18, 2);
     }
 }
 

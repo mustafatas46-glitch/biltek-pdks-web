@@ -89,6 +89,48 @@ public class Personel : FirmaEntity
     public string? EhliyetSinifi { get; set; }
     public string? EhliyetNo { get; set; }
 
+    // --- Kişisel (sicil kartı 2. sekme) ---
+    public string? IsTelefonu { get; set; }
+    public string? WebAdresi { get; set; }
+    public string? Gozluk { get; set; }
+    public string? Sabika { get; set; }
+    public string? MezunOkul { get; set; }
+    public string? MezunBrans { get; set; }
+    public DateOnly? MezuniyetTarihi { get; set; }
+    public string? OkulNo { get; set; }
+    public string? YabanciDil { get; set; }
+    public int? Kilo { get; set; }
+    public int? Boy { get; set; }
+    public string? AyakkabiNo { get; set; }
+    public string? ElbiseBeden { get; set; }
+    public string? Aciklama { get; set; }
+
+    // --- Kimlik (3. sekme: nüfus cüzdanı) ---
+    public string? NufusMahalleKoy { get; set; }
+    public string? CiltNo { get; set; }
+    public string? AileSiraNo { get; set; }
+    public string? SiraNo { get; set; }
+    public string? CuzdanVerildigiYer { get; set; }
+    public string? CuzdanVerilisNedeni { get; set; }
+    public string? CuzdanKayitNo { get; set; }
+    public DateOnly? CuzdanVerilisTarihi { get; set; }
+
+    // --- Ehliyet (4. sekme) ---
+    public string? EhliyetVerildigiYer { get; set; }
+    public DateOnly? EhliyetVerilisTarihi { get; set; }
+    public string? CihazProtez { get; set; }
+
+    // --- Kazanç-kesinti parametreleri (5. sekme). Günlük seçilirse tutar × geldiği gün; aylıksa sabit. Boşsa eklenmez. ---
+    public decimal? PrimUcreti { get; set; }
+    public bool PrimGunluk { get; set; }
+    public decimal? YolUcreti { get; set; }
+    public bool YolGunluk { get; set; }
+    public decimal? YemekUcreti { get; set; }
+    public bool YemekGunluk { get; set; }
+    public decimal? OzelUcret { get; set; }
+    public bool OzelGunluk { get; set; }
+    public bool WcKesintisiUygula { get; set; }
+
     public int? EskiId { get; set; }
 
     public string AdSoyad => $"{Ad} {Soyad}".Trim();
