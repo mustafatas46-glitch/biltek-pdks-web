@@ -63,17 +63,39 @@ jobs:
   windows-paketi:
     needs: build-test
     if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
       - name: Yayinla (win-x64, .NET kurulumu gerektirmez)
+        shell: pwsh
         run: |
           dotnet publish src/BiltekPdks.Web -c Release -r win-x64 --self-contained true -o paket/BiltekPdks/web
           dotnet publish tools/BiltekPdks.Aktarim -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o paket/BiltekPdks/aktarim
-          cp paket-ek/*.bat paket-ek/*.txt paket/BiltekPdks/
+          Copy-Item paket-ek/*.bat, paket-ek/*.txt paket/BiltekPdks/
+      - name: Windows'ta calistirip dogrula
+        shell: pwsh
+        run: |
+          $kok = Resolve-Path paket/BiltekPdks
+          $env:ASPNETCORE_URLS = "http://localhost:5180"
+          $env:ConnectionStrings__Pdks = "Data Source=$env:RUNNER_TEMP\smoke.db"
+          $env:Veritabani__Saglayici = "Sqlite"
+          $p = Start-Process -FilePath "$kok/web/BiltekPdks.Web.exe" -WorkingDirectory "$kok/web" -PassThru -RedirectStandardOutput "$env:RUNNER_TEMP/web.log" -RedirectStandardError "$env:RUNNER_TEMP/web.err"
+          $ok = $false
+          for ($i = 0; $i -lt 60 -and -not $ok; $i++) {
+            Start-Sleep -Seconds 2
+            try { $r = Invoke-WebRequest -Uri "http://localhost:5180/hesap/giris" -UseBasicParsing; $ok = $r.StatusCode -eq 200 -and $r.Content.Contains("Giriş") } catch { }
+          }
+          Stop-Process -Id $p.Id -Force
+          Get-Content "$env:RUNNER_TEMP/web.log" -Tail 20
+          if (-not $ok) { Get-Content "$env:RUNNER_TEMP/web.err" -Tail 40; Write-Output "::error title=Windows::Program acilmadi"; exit 1 }
+          Write-Output "::notice title=Windows::Program Windows'ta acildi, giris sayfasi 200 dondu"
+          & "$kok/aktarim/pdks-aktarim.exe" | Out-Null
+          if ($LASTEXITCODE -ne 2) { Write-Output "::error title=Windows::Aktarim araci beklenmedik cikis kodu $LASTEXITCODE"; exit 1 }
+          Write-Output "::notice title=Windows::Aktarim araci calisiyor"
+          $global:LASTEXITCODE = 0
       - uses: actions/upload-artifact@v4
         with:
           name: BiltekPdks-Windows
