@@ -109,6 +109,19 @@ jobs:
           name: BiltekPdks-Windows
           path: paket/
           retention-days: 30
+      - name: Son surumu indirme sayfasina koy (GitHub girisi gerektirmez)
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          Compress-Archive -Path paket/BiltekPdks -DestinationPath BiltekPdks-Windows.zip -CompressionLevel Optimal
+          $not = "Son derleme: ${{ github.sha }}`n`nIndir: BiltekPdks-Windows.zip -> sag tik -> Tumunu ayikla."
+          gh release view son-surum *> $null
+          if ($LASTEXITCODE -ne 0) { gh release create son-surum --title "Biltek PDKS - son surum" --notes $not --latest }
+          else { gh release edit son-surum --notes $not }
+          gh release upload son-surum BiltekPdks-Windows.zip --clobber
+          $global:LASTEXITCODE = 0
+          Write-Output "::notice title=Indirme::https://github.com/${{ github.repository }}/releases/download/son-surum/BiltekPdks-Windows.zip"
 
   ekran-goruntuleri:
     needs: build-test
