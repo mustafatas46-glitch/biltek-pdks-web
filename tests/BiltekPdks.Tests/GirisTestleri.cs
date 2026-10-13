@@ -88,4 +88,20 @@ public class GirisTestleri
         var giris = new GirisServisi(tv, sifre, new SabitSaat());
         Assert.True((await giris.DogrulaAsync("DEMO", "admin", sonuc.UretilenSifre!)).Basarili);
     }
+
+    [Fact]
+    public async Task Sifre_degistirilince_eski_sifre_gecersiz_yeni_gecerli_olur()
+    {
+        var (tv, giris, _) = Hazirla();
+        using var _tv = tv;
+        var id = (await giris.DogrulaAsync("DEMO", "admin", Sifre)).Kullanici!.Id;
+
+        Assert.Equal("Mevcut şifre hatalı.", await giris.SifreDegistirAsync(id, "yanlis999", "YeniSifre42", "YeniSifre42"));
+        Assert.Equal("Yeni şifreler birbiriyle aynı değil.", await giris.SifreDegistirAsync(id, Sifre, "YeniSifre42", "YeniSifre43"));
+        Assert.NotNull(await giris.SifreDegistirAsync(id, Sifre, "kisa1", "kisa1"));
+
+        Assert.Null(await giris.SifreDegistirAsync(id, Sifre, "YeniSifre42", "YeniSifre42"));
+        Assert.False((await giris.DogrulaAsync("DEMO", "admin", Sifre)).Basarili);
+        Assert.True((await giris.DogrulaAsync("DEMO", "admin", "YeniSifre42")).Basarili);
+    }
 }

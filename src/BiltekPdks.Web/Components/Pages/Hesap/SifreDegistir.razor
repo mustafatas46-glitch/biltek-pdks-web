@@ -1,0 +1,54 @@
+@page "/hesap/sifre"
+@using BiltekPdks.Infrastructure.Security
+@inject GirisServisi GirisServisi
+@inject FirmaDb FirmaDb
+
+<h1 class="h3 mb-4">Şifre değiştir</h1>
+
+<div style="max-width: 380px">
+    @if (_hata is not null) { <div class="alert alert-danger">@_hata</div> }
+    @if (_tamam) { <div class="alert alert-success">Şifreniz değiştirildi. Bir sonraki girişte yeni şifreyi kullanın.</div> }
+
+    <div class="mb-3">
+        <label class="form-label" for="mevcut">Mevcut şifre</label>
+        <input id="mevcut" class="form-control" type="password" autocomplete="current-password" @bind="_mevcut" />
+    </div>
+    <div class="mb-3">
+        <label class="form-label" for="yeni">Yeni şifre</label>
+        <input id="yeni" class="form-control" type="password" autocomplete="new-password" @bind="_yeni" />
+        <div class="form-text">En az 8 karakter; harf ve rakam içermeli.</div>
+    </div>
+    <div class="mb-4">
+        <label class="form-label" for="tekrar">Yeni şifre (tekrar)</label>
+        <input id="tekrar" class="form-control" type="password" autocomplete="new-password" @bind="_tekrar" />
+    </div>
+    <button class="btn btn-primary" @onclick="DegistirAsync" disabled="@_calisiyor">Şifreyi değiştir</button>
+</div>
+
+@code {
+    private string _mevcut = "", _yeni = "", _tekrar = "";
+    private string? _hata;
+    private bool _tamam, _calisiyor;
+
+    private async Task DegistirAsync()
+    {
+        _hata = null;
+        _tamam = false;
+        _calisiyor = true;
+        try
+        {
+            var id = await FirmaDb.KullaniciIdAsync();
+            if (id is null) { _hata = "Oturum bulunamadı. Yeniden giriş yapın."; return; }
+            _hata = await GirisServisi.SifreDegistirAsync(id.Value, _mevcut, _yeni, _tekrar);
+            if (_hata is null)
+            {
+                _tamam = true;
+                _mevcut = _yeni = _tekrar = "";
+            }
+        }
+        finally
+        {
+            _calisiyor = false;
+        }
+    }
+}

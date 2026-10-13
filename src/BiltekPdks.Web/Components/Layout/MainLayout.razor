@@ -25,6 +25,7 @@
         <header class="border-bottom px-4 py-2 d-flex justify-content-end align-items-center gap-3">
             <AuthorizeView>
                 <span class="text-muted small">@context.User.Identity?.Name</span>
+                <a class="btn btn-sm btn-link" href="hesap/sifre">Şifre değiştir</a>
                 <form method="post" action="hesap/cikis">
                     <AntiforgeryToken />
                     <button class="btn btn-sm btn-outline-secondary" type="submit">Çıkış</button>

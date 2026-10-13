@@ -77,4 +77,22 @@ public class GirisServisi
         await db.SaveChangesAsync(ct);
         return new GirisSonucu(true, kullanici, null);
     }
+
+    /// <summary>Oturumdaki kullanıcının şifresini değiştirir. Başarılıysa null, değilse hata mesajı döner.</summary>
+    public async Task<string?> SifreDegistirAsync(int kullaniciId, string mevcutSifre, string yeniSifre, string yeniSifreTekrar, CancellationToken ct = default)
+    {
+        if (yeniSifre != yeniSifreTekrar) return "Yeni şifreler birbiriyle aynı değil.";
+        if (SifreServisi.KuralHatasi(yeniSifre) is { } kural) return kural;
+        if (yeniSifre == mevcutSifre) return "Yeni şifre eskisiyle aynı olamaz.";
+
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+        db.FirmaFiltresiKapali = true;
+        var k = await db.Kullanicilar.FirstOrDefaultAsync(x => x.Id == kullaniciId && x.Aktif, ct);
+        if (k is null) return "Kullanıcı bulunamadı.";
+        if (!_sifre.Dogrula(k, mevcutSifre)) return "Mevcut şifre hatalı.";
+
+        k.SifreHash = _sifre.Hashle(k, yeniSifre);
+        await db.SaveChangesAsync(ct);
+        return null;
+    }
 }

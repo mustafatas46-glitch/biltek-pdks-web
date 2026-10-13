@@ -113,7 +113,7 @@ public class UygulamaTestleri : IClassFixture<UygulamaFabrikasi>
             "/", "/personeller", "/personeller/yeni", $"/personeller/{personelId}",
             "/tanimlar/sube", "/tanimlar/bolum", "/tanimlar/gorev", "/tanimlar/grup", "/tanimlar/izin",
             "/vardiyalar", "/calisma-plani", "/resmi-tatiller", "/izinler", "/hareketler",
-            "/puantaj", $"/puantaj?personel={personelId}",
+            "/puantaj", $"/puantaj?personel={personelId}", "/hesap/sifre",
         };
 
         foreach (var s in sayfalar)
