@@ -68,7 +68,7 @@ GitHub → Actions → *build* → *Run workflow* → `migration` alanına ad ya
 
 - Şifreler PBKDF2 (ASP.NET Identity) ile saklanır; 5 hatalı denemede 15 dk kilit.
 - Çerez tabanlı oturum, tüm formlarda antiforgery, yalnızca site içi yönlendirme.
-- Roller: Yönetici, İnsan Kaynakları, Bölüm Sorumlusu, Personel. (Ekran bazlı yetki: 1. dalga.)
+- Roller: Yönetici, İnsan Kaynakları, Bölüm Sorumlusu, Personel. (Ekran bazlı yetki: 1b.) Veri yedeği (Araçlar → Data Yedekle) yalnızca yöneticiye açıktır.
 - İşlem kaydı: ekranlardan yapılan her ekleme/değişiklik/silme `islem_kaydi` tablosuna (kullanıcı, zaman, eski→yeni değer) yazılır; şifre gibi gizli alanlar maskelenir. Toplu aktarım kayıt düşmez.
 - Elle girilen hareketler silinmez, iptal edilir; açıklama ve kaydeden kullanıcı saklanır.
 
@@ -85,7 +85,8 @@ dahil) ve motoru çalıştırır. Kurallar şu an vardiya bazlıdır; eski progr
 | Dalga | Modül | Durum |
 |---|---|---|
 | 0 | Giriş, firma, tanımlar, personel, hareket, izin, vardiya, resmi tatil, puantaj motoru, aktarım, ana ekran, migration | ✅ |
-| 1 | Sicil kartı (5 sekme) · ek tanımlar · grup hesap kuralları · toplu giriş-çıkış · günlük/aylık puantaj raporu · kazanç/kesinti/avans · maaş ve kişisel bordro · Excel/PDF · bordro programı aktarımı · yetki · işlem kaydı · yedekleme | sırada |
+| 1 | Sicil kartı (5 sekme) · ek tanımlar · eski menü düzeni ve sağ tık menüleri · toplu giriş-çıkış / izin / kazanç-kesinti · grup tanımlama (plan, dönem, resmi tatil) · toplu ve kişisel puantaj + Excel · 30 gün hesabı · işlem kaydı · yedekleme | ✅ |
+| 1b | Grup hesap kuralları (ceza katsayıları, cumartesi kuralı, yuvarlama) · maaş pusulası ve kişisel bordro · bordro programı aktarımı · kullanıcı ve ekran yetkileri · Windows masaüstü penceresi | sırada |
 | 2 | Personel/yönetici self-servis · izin talep/onay · fazla mesai onayı · duyurular | |
 | 3 | Mobil ekranlar · dinamik QR · konum doğrulaması | |
 | 4 | Cihaz ajanı (ZKTeco vb. SDK) / ADMS · dış API | |
@@ -96,3 +97,11 @@ Her gönderimde GitHub Actions:
 1. Derler (uyarı sayısını raporlar), 2. tüm testleri çalıştırır (gerçek MySQL 5.5 ile eski şema
 okuma testi dahil), 3. Windows paketini üretip gerçek Windows'ta açar, 4. örnek veriyle
 ekran görüntüleri alır (`ekran-goruntuleri` dalı).
+
+## 9. Arayüz kuralları
+
+- Menü ve ekran adları eski Biltek PDKS v3 ile aynıdır; kullanıcı alıştığı yerden bulur.
+- Her tabloda sağ tık menüsü vardır (`SagTikMenu` bileşeni). Yeni tablo eklerken menüsünü de ekleyin.
+- Ana ekran kısayolları: F2 yeni, F3 düzenle, F4 sil, F5 bilgi formu, F8 puantaj, F9 kişisel puantaj, F10 Excel rapor, Esc kapat.
+- Toplu işlem ekranları `PersonelCokluSecici` bileşenini kullanır.
+- Masaüstü (Windows) sürümü aynı Blazor bileşenlerini kendi penceresinde açacaktır; ekran kodu iki sürümde ortaktır.
