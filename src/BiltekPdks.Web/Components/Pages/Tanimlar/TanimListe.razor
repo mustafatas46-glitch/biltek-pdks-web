@@ -1,0 +1,136 @@
+@page "/tanimlar/{Tur}"
+@inject FirmaDb FirmaDb
+
+@if (_baslik is null)
+{
+    <h1 class="h3">Tanım bulunamadı</h1>
+}
+else
+{
+    <h1 class="h3 mb-4">@_baslik</h1>
+
+    @if (_hata is not null) { <div class="alert alert-danger">@_hata</div> }
+
+    <div class="d-flex gap-2 mb-4" style="max-width: 560px">
+        <input class="form-control" style="max-width: 120px" placeholder="Kod" @bind="_yeniKod" />
+        <input class="form-control" placeholder="Ad" @bind="_yeniAd" @bind:event="oninput" @onkeydown="EnterIleEkle" />
+        <button class="btn btn-primary" @onclick="EkleAsync">Ekle</button>
+    </div>
+
+    @if (_liste is null)
+    {
+        <p class="text-muted">Yükleniyor…</p>
+    }
+    else
+    {
+        <table class="table align-middle" style="max-width: 760px">
+            <thead><tr><th style="width:140px">Kod</th><th>Ad</th><th style="width:90px">Aktif</th><th style="width:110px"></th></tr></thead>
+            <tbody>
+                @foreach (var t in _liste)
+                {
+                    <tr>
+                        <td><input class="form-control form-control-sm" @bind="t.Kod" /></td>
+                        <td><input class="form-control form-control-sm" @bind="t.Ad" /></td>
+                        <td><input class="form-check-input" type="checkbox" @bind="t.Aktif" /></td>
+                        <td><button class="btn btn-sm btn-outline-primary" @onclick="() => KaydetAsync(t)">Kaydet</button></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        <p class="text-muted small">Kullanılan bir kaydı silmek yerine pasif yapın; geçmiş raporlar bozulmaz.</p>
+    }
+}
+
+@code {
+    [Parameter] public string Tur { get; set; } = "";
+
+    private string? _baslik, _hata, _yeniKod, _yeniAd;
+    private List<Satir>? _liste;
+
+    private sealed class Satir
+    {
+        public int Id { get; init; }
+        public string? Kod { get; set; }
+        public string Ad { get; set; } = "";
+        public bool Aktif { get; set; }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _hata = null;
+        _liste = null;
+        _baslik = Tur switch
+        {
+            "sube" => "Şubeler",
+            "bolum" => "Bölümler",
+            "gorev" => "Görevler",
+            "grup" => "Çalışma grupları",
+            _ => null,
+        };
+        if (_baslik is not null) await YukleAsync();
+    }
+
+    private IQueryable<TanimEntity> Sorgu(PdksDbContext db) => Tur switch
+    {
+        "sube" => db.Subeler,
+        "bolum" => db.Bolumler,
+        "gorev" => db.Gorevler,
+        "grup" => db.CalismaGruplari,
+        _ => throw new InvalidOperationException("Bilinmeyen tanım türü."),
+    };
+
+    private TanimEntity YeniKayit() => Tur switch
+    {
+        "sube" => new Sube(),
+        "bolum" => new Bolum(),
+        "gorev" => new Gorev(),
+        "grup" => new CalismaGrubu(),
+        _ => throw new InvalidOperationException("Bilinmeyen tanım türü."),
+    };
+
+    private async Task YukleAsync()
+    {
+        await using var db = await FirmaDb.AcAsync();
+        _liste = await Sorgu(db).AsNoTracking()
+            .OrderByDescending(t => t.Aktif).ThenBy(t => t.Ad)
+            .Select(t => new Satir { Id = t.Id, Kod = t.Kod, Ad = t.Ad, Aktif = t.Aktif })
+            .ToListAsync();
+    }
+
+    private async Task EnterIleEkle(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await EkleAsync();
+    }
+
+    private async Task EkleAsync()
+    {
+        _hata = null;
+        if (string.IsNullOrWhiteSpace(_yeniAd)) { _hata = "Ad boş olamaz."; return; }
+
+        await using var db = await FirmaDb.AcAsync();
+        var kayit = YeniKayit();
+        kayit.Kod = string.IsNullOrWhiteSpace(_yeniKod) ? null : _yeniKod.Trim();
+        kayit.Ad = _yeniAd.Trim();
+        db.Add(kayit);
+        await db.SaveChangesAsync();
+
+        _yeniKod = _yeniAd = null;
+        await YukleAsync();
+    }
+
+    private async Task KaydetAsync(Satir s)
+    {
+        _hata = null;
+        if (string.IsNullOrWhiteSpace(s.Ad)) { _hata = "Ad boş olamaz."; return; }
+
+        await using var db = await FirmaDb.AcAsync();
+        var kayit = await Sorgu(db).FirstOrDefaultAsync(t => t.Id == s.Id);
+        if (kayit is null) { _hata = "Kayıt bulunamadı."; return; }
+
+        kayit.Kod = string.IsNullOrWhiteSpace(s.Kod) ? null : s.Kod.Trim();
+        kayit.Ad = s.Ad.Trim();
+        kayit.Aktif = s.Aktif;
+        await db.SaveChangesAsync();
+        await YukleAsync();
+    }
+}

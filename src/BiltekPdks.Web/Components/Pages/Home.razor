@@ -1,0 +1,47 @@
+@page "/"
+@inject FirmaDb FirmaDb
+
+<h1 class="h3 mb-4">Ana sayfa</h1>
+
+@if (_ozet is null)
+{
+    <p class="text-muted">Yükleniyor…</p>
+}
+else
+{
+    <div class="row g-3">
+        <div class="col-sm-4">
+            <div class="card"><div class="card-body">
+                <div class="text-muted small">Aktif personel</div>
+                <div class="fs-2 fw-semibold">@_ozet.AktifPersonel</div>
+            </div></div>
+        </div>
+        <div class="col-sm-4">
+            <div class="card"><div class="card-body">
+                <div class="text-muted small">Bölüm</div>
+                <div class="fs-2 fw-semibold">@_ozet.Bolum</div>
+            </div></div>
+        </div>
+        <div class="col-sm-4">
+            <div class="card"><div class="card-body">
+                <div class="text-muted small">Şube</div>
+                <div class="fs-2 fw-semibold">@_ozet.Sube</div>
+            </div></div>
+        </div>
+    </div>
+}
+
+@code {
+    private sealed record Ozet(int AktifPersonel, int Bolum, int Sube);
+    private Ozet? _ozet;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await FirmaDb.AcAsync();
+        var bugun = DateOnly.FromDateTime(DateTime.Today);
+        _ozet = new Ozet(
+            await db.Personeller.CountAsync(p => p.IseGirisTarihi <= bugun && (p.IstenCikisTarihi == null || p.IstenCikisTarihi >= bugun)),
+            await db.Bolumler.CountAsync(b => b.Aktif),
+            await db.Subeler.CountAsync(s => s.Aktif));
+    }
+}

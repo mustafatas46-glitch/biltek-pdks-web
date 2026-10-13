@@ -1,0 +1,42 @@
+using BiltekPdks.Infrastructure.Data;
+using BiltekPdks.Infrastructure.Security;
+using BiltekPdks.Infrastructure.Seed;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace BiltekPdks.Infrastructure;
+
+public static class AltyapiKayitlari
+{
+    /// <summary>
+    /// Veritabanı ve altyapı servislerini kaydeder.
+    /// appsettings: "Veritabani:Saglayici" = "MySql" (varsayılan) veya "Sqlite";
+    /// "ConnectionStrings:Pdks" bağlantı cümlesi.
+    /// </summary>
+    public static IServiceCollection AddPdksAltyapi(this IServiceCollection services, IConfiguration config)
+    {
+        var saglayici = config["Veritabani:Saglayici"] ?? "MySql";
+        var baglanti = config.GetConnectionString("Pdks")
+            ?? throw new InvalidOperationException("ConnectionStrings:Pdks tanımlı değil.");
+
+        services.AddDbContextFactory<PdksDbContext>(o =>
+        {
+            if (saglayici.Equals("Sqlite", StringComparison.OrdinalIgnoreCase))
+            {
+                o.UseSqlite(baglanti);
+            }
+            else
+            {
+                var surum = ServerVersion.Parse(config["Veritabani:SunucuSurumu"] ?? "8.0.36-mysql");
+                o.UseMySql(baglanti, surum, m => m.EnableRetryOnFailure());
+            }
+        });
+
+        services.AddSingleton(TimeProvider.System);
+        services.AddSingleton<SifreServisi>();
+        services.AddScoped<GirisServisi>();
+        services.AddScoped<KurulumServisi>();
+        return services;
+    }
+}

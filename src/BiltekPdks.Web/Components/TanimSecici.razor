@@ -1,0 +1,17 @@
+@* Şube/bölüm/görev gibi isteğe bağlı tanımlar için açılır liste. Boş seçim null döner. *@
+<select class="form-select" value="@(Value?.ToString() ?? "")" @onchange="DegistiAsync">
+    <option value="">—</option>
+    @foreach (var s in Secenekler)
+    {
+        <option value="@s.Id">@s.Ad</option>
+    }
+</select>
+
+@code {
+    [Parameter] public int? Value { get; set; }
+    [Parameter] public EventCallback<int?> ValueChanged { get; set; }
+    [Parameter] public IReadOnlyList<TanimSecenek> Secenekler { get; set; } = Array.Empty<TanimSecenek>();
+
+    private Task DegistiAsync(ChangeEventArgs e) =>
+        ValueChanged.InvokeAsync(int.TryParse(e.Value?.ToString(), out var id) ? id : null);
+}

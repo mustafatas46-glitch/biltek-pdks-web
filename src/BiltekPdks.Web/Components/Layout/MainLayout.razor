@@ -1,0 +1,36 @@
+@inherits LayoutComponentBase
+
+<div class="d-flex min-vh-100">
+    <nav class="kenar bg-dark text-white p-3">
+        <div class="fs-5 fw-semibold mb-4">Biltek PDKS</div>
+        <ul class="nav flex-column gap-1">
+            <li><NavLink class="nav-link" href="" Match="NavLinkMatch.All">Ana sayfa</NavLink></li>
+            <li><NavLink class="nav-link" href="personeller">Personel</NavLink></li>
+            <li class="mt-3 small text-uppercase text-white-50">Tanımlar</li>
+            <li><NavLink class="nav-link" href="tanimlar/sube">Şubeler</NavLink></li>
+            <li><NavLink class="nav-link" href="tanimlar/bolum">Bölümler</NavLink></li>
+            <li><NavLink class="nav-link" href="tanimlar/gorev">Görevler</NavLink></li>
+            <li><NavLink class="nav-link" href="tanimlar/grup">Çalışma grupları</NavLink></li>
+        </ul>
+    </nav>
+    <div class="flex-grow-1 d-flex flex-column">
+        <header class="border-bottom px-4 py-2 d-flex justify-content-end align-items-center gap-3">
+            <AuthorizeView>
+                <span class="text-muted small">@context.User.Identity?.Name</span>
+                <form method="post" action="hesap/cikis">
+                    <AntiforgeryToken />
+                    <button class="btn btn-sm btn-outline-secondary" type="submit">Çıkış</button>
+                </form>
+            </AuthorizeView>
+        </header>
+        <main class="p-4 flex-grow-1">
+            @Body
+        </main>
+    </div>
+</div>
+
+<div id="blazor-error-ui">
+    Beklenmeyen bir hata oluştu.
+    <a href="" class="reload">Yenile</a>
+    <a class="dismiss">🗙</a>
+</div>

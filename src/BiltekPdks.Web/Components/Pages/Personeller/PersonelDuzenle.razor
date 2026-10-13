@@ -1,0 +1,137 @@
+@page "/personeller/yeni"
+@page "/personeller/{Id:int}"
+@inject FirmaDb FirmaDb
+@inject NavigationManager Navigation
+
+<h1 class="h3 mb-4">@(Id is null ? "Yeni personel" : "Personel kartı")</h1>
+
+@if (_bulunamadi)
+{
+    <div class="alert alert-warning">Personel bulunamadı.</div>
+}
+else if (_form is null)
+{
+    <p class="text-muted">Yükleniyor…</p>
+}
+else
+{
+    <EditForm Model="_form" OnValidSubmit="KaydetAsync" FormName="personel">
+        <DataAnnotationsValidator />
+        @if (_hata is not null) { <div class="alert alert-danger">@_hata</div> }
+        @if (_bilgi is not null) { <div class="alert alert-success">@_bilgi</div> }
+
+        <div class="row g-3">
+            <div class="col-md-3"><label class="form-label">Kart no *</label><InputText class="form-control" @bind-Value="_form.KartNo" /><ValidationMessage For="() => _form.KartNo" /></div>
+            <div class="col-md-3"><label class="form-label">Sicil no</label><InputText class="form-control" @bind-Value="_form.SicilNo" /></div>
+            <div class="col-md-3"><label class="form-label">Ad *</label><InputText class="form-control" @bind-Value="_form.Ad" /><ValidationMessage For="() => _form.Ad" /></div>
+            <div class="col-md-3"><label class="form-label">Soyad *</label><InputText class="form-control" @bind-Value="_form.Soyad" /><ValidationMessage For="() => _form.Soyad" /></div>
+
+            <div class="col-md-3"><label class="form-label">T.C. kimlik no</label><InputText class="form-control" @bind-Value="_form.TcKimlikNo" maxlength="11" /><ValidationMessage For="() => _form.TcKimlikNo" /></div>
+            <div class="col-md-3">
+                <label class="form-label">Cinsiyet</label>
+                <InputSelect class="form-select" @bind-Value="_form.Cinsiyet">
+                    <option value="@Cinsiyet.Belirtilmemis">—</option>
+                    <option value="@Cinsiyet.Erkek">Erkek</option>
+                    <option value="@Cinsiyet.Kadin">Kadın</option>
+                </InputSelect>
+            </div>
+            <div class="col-md-3"><label class="form-label">Doğum tarihi</label><InputDate class="form-control" @bind-Value="_form.DogumTarihi" /></div>
+            <div class="col-md-3"></div>
+
+            <div class="col-md-3"><label class="form-label">İşe giriş *</label><InputDate class="form-control" @bind-Value="_form.IseGirisTarihi" /><ValidationMessage For="() => _form.IseGirisTarihi" /></div>
+            <div class="col-md-3"><label class="form-label">İşten çıkış</label><InputDate class="form-control" @bind-Value="_form.IstenCikisTarihi" /><ValidationMessage For="() => _form.IstenCikisTarihi" /></div>
+            <div class="col-md-6"><label class="form-label">Ayrılma nedeni</label><InputText class="form-control" @bind-Value="_form.IstenAyrilmaNedeni" /></div>
+
+            <div class="col-md-3"><label class="form-label">Şube</label><TanimSecici @bind-Value="_form.SubeId" Secenekler="_subeler" /></div>
+            <div class="col-md-3"><label class="form-label">Bölüm</label><TanimSecici @bind-Value="_form.BolumId" Secenekler="_bolumler" /></div>
+            <div class="col-md-3"><label class="form-label">Görev</label><TanimSecici @bind-Value="_form.GorevId" Secenekler="_gorevler" /></div>
+            <div class="col-md-3"><label class="form-label">Çalışma grubu</label><TanimSecici @bind-Value="_form.CalismaGrubuId" Secenekler="_gruplar" /></div>
+
+            <div class="col-md-3"><label class="form-label">Cep telefonu</label><InputText class="form-control" @bind-Value="_form.CepTelefonu" /></div>
+            <div class="col-md-3"><label class="form-label">E-posta</label><InputText class="form-control" @bind-Value="_form.Eposta" /><ValidationMessage For="() => _form.Eposta" /></div>
+            <div class="col-md-6"><label class="form-label">Adres</label><InputText class="form-control" @bind-Value="_form.Adres" /></div>
+        </div>
+
+        <div class="mt-4 d-flex gap-2">
+            <button class="btn btn-primary" type="submit" disabled="@_kaydediliyor">Kaydet</button>
+            <a class="btn btn-outline-secondary" href="personeller">Listeye dön</a>
+        </div>
+    </EditForm>
+}
+
+@code {
+    [Parameter] public int? Id { get; set; }
+
+    private PersonelFormu? _form;
+    private bool _bulunamadi, _kaydediliyor;
+    private string? _hata, _bilgi;
+    private List<TanimSecenek> _subeler = new(), _bolumler = new(), _gorevler = new(), _gruplar = new();
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await using var db = await FirmaDb.AcAsync();
+        _subeler = await Secenekler(db.Subeler);
+        _bolumler = await Secenekler(db.Bolumler);
+        _gorevler = await Secenekler(db.Gorevler);
+        _gruplar = await Secenekler(db.CalismaGruplari);
+
+        if (Id is null)
+        {
+            _form = new PersonelFormu();
+            return;
+        }
+
+        var p = await db.Personeller.AsNoTracking().FirstOrDefaultAsync(x => x.Id == Id);
+        if (p is null) { _bulunamadi = true; return; }
+        _form = PersonelFormu.Kaynak(p);
+    }
+
+    private static Task<List<TanimSecenek>> Secenekler<T>(IQueryable<T> q) where T : TanimEntity =>
+        q.AsNoTracking().Where(t => t.Aktif).OrderBy(t => t.Ad)
+         .Select(t => new TanimSecenek(t.Id, t.Ad)).ToListAsync();
+
+    private async Task KaydetAsync()
+    {
+        _hata = _bilgi = null;
+        _kaydediliyor = true;
+        try
+        {
+            await using var db = await FirmaDb.AcAsync();
+            var kart = _form!.KartNo.Trim();
+            if (await db.Personeller.AnyAsync(p => p.KartNo == kart && p.Id != (Id ?? 0)))
+            {
+                _hata = $"{kart} kart numarası başka bir personelde kayıtlı.";
+                return;
+            }
+
+            Personel p;
+            if (Id is null)
+            {
+                p = new Personel();
+                db.Personeller.Add(p);
+            }
+            else
+            {
+                p = await db.Personeller.FirstOrDefaultAsync(x => x.Id == Id) ?? throw new InvalidOperationException("Personel bulunamadı.");
+            }
+
+            _form.Aktar(p);
+            await db.SaveChangesAsync();
+
+            if (Id is null)
+            {
+                Navigation.NavigateTo($"personeller/{p.Id}");
+                return;
+            }
+            _bilgi = "Kaydedildi.";
+        }
+        catch (DbUpdateException)
+        {
+            _hata = "Kayıt sırasında bir sorun oluştu. Bilgileri kontrol edip tekrar deneyin.";
+        }
+        finally
+        {
+            _kaydediliyor = false;
+        }
+    }
+}

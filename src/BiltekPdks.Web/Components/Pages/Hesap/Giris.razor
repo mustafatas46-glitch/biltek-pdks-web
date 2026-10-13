@@ -1,0 +1,39 @@
+@page "/hesap/giris"
+@attribute [AllowAnonymous]
+@layout BosLayout
+
+<div class="card shadow-sm" style="width: 360px">
+    <div class="card-body p-4">
+        <h1 class="h4 mb-4">Biltek PDKS — Giriş</h1>
+
+        @if (!string.IsNullOrEmpty(Hata))
+        {
+            <div class="alert alert-danger py-2">@Hata</div>
+        }
+
+        <form method="post" action="hesap/giris">
+            <AntiforgeryToken />
+            <input type="hidden" name="donus" value="@Donus" />
+            <div class="mb-3">
+                <label class="form-label" for="firmaKodu">Firma kodu</label>
+                <input class="form-control" id="firmaKodu" name="firmaKodu" value="@Firma" autocomplete="organization" />
+                <div class="form-text">Tek firmalı kurulumda boş bırakabilirsiniz.</div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label" for="kullaniciAdi">Kullanıcı adı</label>
+                <input class="form-control" id="kullaniciAdi" name="kullaniciAdi" required autocomplete="username" />
+            </div>
+            <div class="mb-4">
+                <label class="form-label" for="sifre">Şifre</label>
+                <input class="form-control" id="sifre" name="sifre" type="password" required autocomplete="current-password" />
+            </div>
+            <button class="btn btn-primary w-100" type="submit">Giriş yap</button>
+        </form>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery(Name = "hata")] public string? Hata { get; set; }
+    [SupplyParameterFromQuery(Name = "firma")] public string? Firma { get; set; }
+    [SupplyParameterFromQuery(Name = "donus")] public string? Donus { get; set; }
+}

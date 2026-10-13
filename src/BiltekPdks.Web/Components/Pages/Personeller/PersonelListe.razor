@@ -1,0 +1,83 @@
+@page "/personeller"
+@inject FirmaDb FirmaDb
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3 m-0">Personel</h1>
+    <a class="btn btn-primary" href="personeller/yeni">Yeni personel</a>
+</div>
+
+<div class="d-flex gap-2 mb-3">
+    <input class="form-control" style="max-width: 320px" placeholder="Ad, soyad, kart veya sicil no"
+           @bind="_arama" @bind:event="oninput" @bind:after="YukleAsync" />
+    <select class="form-select" style="max-width: 180px" @bind="_durum" @bind:after="YukleAsync">
+        <option value="aktif">Çalışanlar</option>
+        <option value="pasif">Ayrılanlar</option>
+        <option value="tumu">Tümü</option>
+    </select>
+</div>
+
+@if (_liste is null)
+{
+    <p class="text-muted">Yükleniyor…</p>
+}
+else if (_liste.Count == 0)
+{
+    <p class="text-muted">Kayıt bulunamadı.</p>
+}
+else
+{
+    <table class="table table-hover align-middle">
+        <thead>
+            <tr><th>Kart no</th><th>Sicil</th><th>Ad soyad</th><th>Bölüm</th><th>Görev</th><th>İşe giriş</th><th>Çıkış</th></tr>
+        </thead>
+        <tbody>
+            @foreach (var p in _liste)
+            {
+                <tr role="button" @onclick="@(() => Navigation.NavigateTo($"personeller/{p.Id}"))">
+                    <td>@p.KartNo</td>
+                    <td>@p.SicilNo</td>
+                    <td>@p.Ad @p.Soyad</td>
+                    <td>@p.Bolum?.Ad</td>
+                    <td>@p.Gorev?.Ad</td>
+                    <td>@p.IseGirisTarihi.ToString("dd.MM.yyyy")</td>
+                    <td>@p.IstenCikisTarihi?.ToString("dd.MM.yyyy")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    @if (_liste.Count == SayfaBoyutu)
+    {
+        <p class="text-muted small">İlk @SayfaBoyutu kayıt gösteriliyor; aramayı daraltın.</p>
+    }
+}
+
+@code {
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    private const int SayfaBoyutu = 200;
+    private string _arama = "";
+    private string _durum = "aktif";
+    private List<Personel>? _liste;
+
+    protected override Task OnInitializedAsync() => YukleAsync();
+
+    private async Task YukleAsync()
+    {
+        await using var db = await FirmaDb.AcAsync();
+        var bugun = DateOnly.FromDateTime(DateTime.Today);
+        var q = db.Personeller.AsNoTracking().Include(p => p.Bolum).Include(p => p.Gorev).AsQueryable();
+
+        q = _durum switch
+        {
+            "aktif" => q.Where(p => p.IstenCikisTarihi == null || p.IstenCikisTarihi >= bugun),
+            "pasif" => q.Where(p => p.IstenCikisTarihi != null && p.IstenCikisTarihi < bugun),
+            _ => q,
+        };
+
+        var a = _arama.Trim();
+        if (a.Length > 0)
+            q = q.Where(p => p.Ad.Contains(a) || p.Soyad.Contains(a) || p.KartNo.Contains(a) || (p.SicilNo != null && p.SicilNo.Contains(a)));
+
+        _liste = await q.OrderBy(p => p.Ad).ThenBy(p => p.Soyad).Take(SayfaBoyutu).ToListAsync();
+    }
+}

@@ -1,0 +1,80 @@
+using BiltekPdks.Domain.Entities;
+using BiltekPdks.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
+
+namespace BiltekPdks.Infrastructure.Security;
+
+public sealed record GirisSonucu(bool Basarili, Kullanici? Kullanici, string? Hata)
+{
+    public static GirisSonucu Hatali(string hata) => new(false, null, hata);
+}
+
+/// <summary>Kullanıcı adı/şifre doğrulama; 5 hatalı denemede hesabı 15 dakika kilitler.</summary>
+public class GirisServisi
+{
+    public const int AzamiHataliDeneme = 5;
+    public static readonly TimeSpan KilitSuresi = TimeSpan.FromMinutes(15);
+
+    private readonly IDbContextFactory<PdksDbContext> _dbFactory;
+    private readonly SifreServisi _sifre;
+    private readonly TimeProvider _saat;
+
+    public GirisServisi(IDbContextFactory<PdksDbContext> dbFactory, SifreServisi sifre, TimeProvider saat)
+    {
+        _dbFactory = dbFactory;
+        _sifre = sifre;
+        _saat = saat;
+    }
+
+    public async Task<GirisSonucu> DogrulaAsync(string? firmaKodu, string kullaniciAdi, string sifre, CancellationToken ct = default)
+    {
+        const string genelHata = "Kullanıcı adı veya şifre hatalı.";
+        if (string.IsNullOrWhiteSpace(kullaniciAdi) || string.IsNullOrEmpty(sifre))
+            return GirisSonucu.Hatali(genelHata);
+
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+        db.FirmaFiltresiKapali = true;
+
+        Firma? firma;
+        if (string.IsNullOrWhiteSpace(firmaKodu))
+        {
+            // Tek firmalı kurulumda firma kodu sorulmaz.
+            var aktifler = await db.Firmalar.Where(f => f.Aktif).Take(2).ToListAsync(ct);
+            if (aktifler.Count != 1) return GirisSonucu.Hatali("Firma kodunu girin.");
+            firma = aktifler[0];
+        }
+        else
+        {
+            var kod = firmaKodu.Trim().ToUpperInvariant();
+            firma = await db.Firmalar.FirstOrDefaultAsync(f => f.Kod == kod && f.Aktif, ct);
+            if (firma is null) return GirisSonucu.Hatali(genelHata);
+        }
+
+        var ad = kullaniciAdi.Trim().ToLowerInvariant();
+        var kullanici = await db.Kullanicilar
+            .FirstOrDefaultAsync(k => k.FirmaId == firma.Id && k.KullaniciAdi == ad, ct);
+        if (kullanici is null || !kullanici.Aktif) return GirisSonucu.Hatali(genelHata);
+
+        var simdi = _saat.GetUtcNow().UtcDateTime;
+        if (kullanici.KilitBitis is { } bitis && bitis > simdi)
+            return GirisSonucu.Hatali("Çok sayıda hatalı deneme. Hesap geçici olarak kilitlendi.");
+
+        if (!_sifre.Dogrula(kullanici, sifre))
+        {
+            kullanici.BasarisizGirisSayisi++;
+            if (kullanici.BasarisizGirisSayisi >= AzamiHataliDeneme)
+            {
+                kullanici.KilitBitis = simdi.Add(KilitSuresi);
+                kullanici.BasarisizGirisSayisi = 0;
+            }
+            await db.SaveChangesAsync(ct);
+            return GirisSonucu.Hatali(genelHata);
+        }
+
+        kullanici.BasarisizGirisSayisi = 0;
+        kullanici.KilitBitis = null;
+        kullanici.SonGirisTarihi = simdi;
+        await db.SaveChangesAsync(ct);
+        return new GirisSonucu(true, kullanici, null);
+    }
+}
