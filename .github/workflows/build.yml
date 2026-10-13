@@ -178,7 +178,9 @@ jobs:
         run: |
           git config user.name "ci"
           git config user.email "ci@localhost"
+          git status --porcelain
+          echo "::notice title=Uretilen dosyalar::$(git status --porcelain | tr '\n' ' ')"
           git checkout -b "migration/$AD"
-          git add src/BiltekPdks.Infrastructure/Migrations
+          git add -A src
           git commit -m "Migration: $AD"
           git push -f origin "migration/$AD"
