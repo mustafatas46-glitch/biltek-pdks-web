@@ -6,10 +6,15 @@ using BiltekPdks.Web.Endpoints;
 using BiltekPdks.Web.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.WebEncoders;
+using System.Text.Encodings.Web;
+using System.Text.Unicode;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();
+// Türkçe karakterler HTML'de &#x131; gibi kodlanmadan, olduğu gibi yazılsın.
+builder.Services.Configure<WebEncoderOptions>(o => o.TextEncoderSettings = new TextEncoderSettings(UnicodeRanges.All));
 builder.Services.AddPdksAltyapi(builder.Configuration);
 builder.Services.AddScoped<FirmaDb>();
 

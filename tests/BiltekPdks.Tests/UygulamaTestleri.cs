@@ -123,8 +123,10 @@ public class UygulamaTestleri : IClassFixture<UygulamaFabrikasi>
             Assert.True(r.StatusCode == HttpStatusCode.OK, $"{s} -> {(int)r.StatusCode}\n{govde[..Math.Min(govde.Length, 2000)]}");
         }
 
-        var puantaj = await c.GetStringAsync($"/puantaj?personel={personelId}");
+        var puantaj = WebUtility.HtmlDecode(await c.GetStringAsync($"/puantaj?personel={personelId}"));
         Assert.Contains("Aylık puantaj", puantaj);
         Assert.Contains("Çalışılan gün", puantaj);
+        Assert.Contains("Eksik hareket", puantaj); // dünkü tek okutma
+        Assert.Contains("Deneme Personel", puantaj);
     }
 }
