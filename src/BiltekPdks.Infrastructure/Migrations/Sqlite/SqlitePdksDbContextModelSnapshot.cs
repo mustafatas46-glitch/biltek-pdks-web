@@ -714,6 +714,10 @@ namespace BiltekPdks.Infrastructure.Migrations.Sqlite
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("Aciklama")
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Ad")
                         .IsRequired()
                         .HasMaxLength(60)
@@ -723,11 +727,19 @@ namespace BiltekPdks.Infrastructure.Migrations.Sqlite
                         .HasMaxLength(500)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("AileSiraNo")
+                        .HasMaxLength(30)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("AnneAdi")
                         .HasMaxLength(60)
                         .HasColumnType("TEXT");
 
                     b.Property<string>("AskerlikDurumu")
+                        .HasMaxLength(30)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AyakkabiNo")
                         .HasMaxLength(30)
                         .HasColumnType("TEXT");
 
@@ -748,10 +760,21 @@ namespace BiltekPdks.Infrastructure.Migrations.Sqlite
                     b.Property<int?>("BolumId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<int?>("Boy")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int?>("CalismaGrubuId")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("CepTelefonu")
+                        .HasMaxLength(30)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CihazProtez")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CiltNo")
                         .HasMaxLength(30)
                         .HasColumnType("TEXT");
 
@@ -760,6 +783,21 @@ namespace BiltekPdks.Infrastructure.Migrations.Sqlite
 
                     b.Property<int?>("CocukSayisi")
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("CuzdanKayitNo")
+                        .HasMaxLength(30)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CuzdanVerildigiYer")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CuzdanVerilisNedeni")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly?>("CuzdanVerilisTarihi")
+                        .HasColumnType("TEXT");
 
                     b.Property<decimal?>("DevamsizlikCezaKatsayisi")
                         .HasPrecision(5, 2)
@@ -781,6 +819,17 @@ namespace BiltekPdks.Infrastructure.Migrations.Sqlite
                         .HasColumnType("TEXT");
 
                     b.Property<string>("EhliyetSinifi")
+                        .HasMaxLength(30)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("EhliyetVerildigiYer")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly?>("EhliyetVerilisTarihi")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ElbiseBeden")
                         .HasMaxLength(30)
                         .HasColumnType("TEXT");
 
@@ -808,6 +857,10 @@ namespace BiltekPdks.Infrastructure.Migrations.Sqlite
                     b.Property<int?>("GorevId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("Gozluk")
+                        .HasMaxLength(30)
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTime?>("GuncellemeTarihi")
                         .HasColumnType("TEXT");
 
@@ -828,6 +881,10 @@ namespace BiltekPdks.Infrastructure.Migrations.Sqlite
 
                     b.Property<string>("IlkSoyad")
                         .HasMaxLength(60)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("IsTelefonu")
+                        .HasMaxLength(30)
                         .HasColumnType("TEXT");
 
                     b.Property<DateOnly>("IseGirisTarihi")
@@ -853,6 +910,9 @@ namespace BiltekPdks.Infrastructure.Migrations.Sqlite
                         .HasMaxLength(20)
                         .HasColumnType("TEXT");
 
+                    b.Property<int?>("Kilo")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("MedeniHal")
                         .HasMaxLength(30)
                         .HasColumnType("TEXT");
@@ -864,6 +924,17 @@ namespace BiltekPdks.Infrastructure.Migrations.Sqlite
                     b.Property<int?>("MeslekId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("MezunBrans")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("MezunOkul")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly?>("MezuniyetTarihi")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("NufusIl")
                         .HasMaxLength(60)
                         .HasColumnType("TEXT");
@@ -872,7 +943,33 @@ namespace BiltekPdks.Infrastructure.Migrations.Sqlite
                         .HasMaxLength(60)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("NufusMahalleKoy")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("OkulNo")
+                        .HasMaxLength(30)
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTime>("OlusturmaTarihi")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("OzelGunluk")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<decimal?>("OzelUcret")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("PrimGunluk")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<decimal?>("PrimUcreti")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Sabika")
+                        .HasMaxLength(30)
                         .HasColumnType("TEXT");
 
                     b.Property<int?>("ServisId")
@@ -886,6 +983,10 @@ namespace BiltekPdks.Infrastructure.Migrations.Sqlite
                         .HasColumnType("TEXT");
 
                     b.Property<string>("SicilNo")
+                        .HasMaxLength(30)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SiraNo")
                         .HasMaxLength(30)
                         .HasColumnType("TEXT");
 
@@ -917,6 +1018,31 @@ namespace BiltekPdks.Infrastructure.Migrations.Sqlite
 
                     b.Property<string>("VergiNo")
                         .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("WcKesintisiUygula")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("WebAdresi")
+                        .HasMaxLength(150)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("YabanciDil")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("YemekGunluk")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<decimal?>("YemekUcreti")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("YolGunluk")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<decimal?>("YolUcreti")
+                        .HasPrecision(18, 2)
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");

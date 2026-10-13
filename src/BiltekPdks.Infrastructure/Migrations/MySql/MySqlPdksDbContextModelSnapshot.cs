@@ -751,6 +751,10 @@ namespace BiltekPdks.Infrastructure.Migrations.MySql
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("Aciklama")
+                        .HasMaxLength(2000)
+                        .HasColumnType("varchar(2000)");
+
                     b.Property<string>("Ad")
                         .IsRequired()
                         .HasMaxLength(60)
@@ -760,11 +764,19 @@ namespace BiltekPdks.Infrastructure.Migrations.MySql
                         .HasMaxLength(500)
                         .HasColumnType("varchar(500)");
 
+                    b.Property<string>("AileSiraNo")
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
                     b.Property<string>("AnneAdi")
                         .HasMaxLength(60)
                         .HasColumnType("varchar(60)");
 
                     b.Property<string>("AskerlikDurumu")
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<string>("AyakkabiNo")
                         .HasMaxLength(30)
                         .HasColumnType("varchar(30)");
 
@@ -785,10 +797,21 @@ namespace BiltekPdks.Infrastructure.Migrations.MySql
                     b.Property<int?>("BolumId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("Boy")
+                        .HasColumnType("int");
+
                     b.Property<int?>("CalismaGrubuId")
                         .HasColumnType("int");
 
                     b.Property<string>("CepTelefonu")
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<string>("CihazProtez")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("CiltNo")
                         .HasMaxLength(30)
                         .HasColumnType("varchar(30)");
 
@@ -797,6 +820,21 @@ namespace BiltekPdks.Infrastructure.Migrations.MySql
 
                     b.Property<int?>("CocukSayisi")
                         .HasColumnType("int");
+
+                    b.Property<string>("CuzdanKayitNo")
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<string>("CuzdanVerildigiYer")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("CuzdanVerilisNedeni")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<DateOnly?>("CuzdanVerilisTarihi")
+                        .HasColumnType("date");
 
                     b.Property<decimal?>("DevamsizlikCezaKatsayisi")
                         .HasPrecision(5, 2)
@@ -818,6 +856,17 @@ namespace BiltekPdks.Infrastructure.Migrations.MySql
                         .HasColumnType("varchar(30)");
 
                     b.Property<string>("EhliyetSinifi")
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<string>("EhliyetVerildigiYer")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<DateOnly?>("EhliyetVerilisTarihi")
+                        .HasColumnType("date");
+
+                    b.Property<string>("ElbiseBeden")
                         .HasMaxLength(30)
                         .HasColumnType("varchar(30)");
 
@@ -845,6 +894,10 @@ namespace BiltekPdks.Infrastructure.Migrations.MySql
                     b.Property<int?>("GorevId")
                         .HasColumnType("int");
 
+                    b.Property<string>("Gozluk")
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
                     b.Property<DateTime?>("GuncellemeTarihi")
                         .HasColumnType("datetime(6)");
 
@@ -866,6 +919,10 @@ namespace BiltekPdks.Infrastructure.Migrations.MySql
                     b.Property<string>("IlkSoyad")
                         .HasMaxLength(60)
                         .HasColumnType("varchar(60)");
+
+                    b.Property<string>("IsTelefonu")
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
 
                     b.Property<DateOnly>("IseGirisTarihi")
                         .HasColumnType("date");
@@ -890,6 +947,9 @@ namespace BiltekPdks.Infrastructure.Migrations.MySql
                         .HasMaxLength(20)
                         .HasColumnType("varchar(20)");
 
+                    b.Property<int?>("Kilo")
+                        .HasColumnType("int");
+
                     b.Property<string>("MedeniHal")
                         .HasMaxLength(30)
                         .HasColumnType("varchar(30)");
@@ -901,6 +961,17 @@ namespace BiltekPdks.Infrastructure.Migrations.MySql
                     b.Property<int?>("MeslekId")
                         .HasColumnType("int");
 
+                    b.Property<string>("MezunBrans")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("MezunOkul")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<DateOnly?>("MezuniyetTarihi")
+                        .HasColumnType("date");
+
                     b.Property<string>("NufusIl")
                         .HasMaxLength(60)
                         .HasColumnType("varchar(60)");
@@ -909,8 +980,34 @@ namespace BiltekPdks.Infrastructure.Migrations.MySql
                         .HasMaxLength(60)
                         .HasColumnType("varchar(60)");
 
+                    b.Property<string>("NufusMahalleKoy")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("OkulNo")
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
                     b.Property<DateTime>("OlusturmaTarihi")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<bool>("OzelGunluk")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<decimal?>("OzelUcret")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<bool>("PrimGunluk")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<decimal?>("PrimUcreti")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Sabika")
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
 
                     b.Property<int?>("ServisId")
                         .HasColumnType("int");
@@ -923,6 +1020,10 @@ namespace BiltekPdks.Infrastructure.Migrations.MySql
                         .HasColumnType("varchar(40)");
 
                     b.Property<string>("SicilNo")
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<string>("SiraNo")
                         .HasMaxLength(30)
                         .HasColumnType("varchar(30)");
 
@@ -955,6 +1056,31 @@ namespace BiltekPdks.Infrastructure.Migrations.MySql
                     b.Property<string>("VergiNo")
                         .HasMaxLength(20)
                         .HasColumnType("varchar(20)");
+
+                    b.Property<bool>("WcKesintisiUygula")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("WebAdresi")
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
+                    b.Property<string>("YabanciDil")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<bool>("YemekGunluk")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<decimal?>("YemekUcreti")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<bool>("YolGunluk")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<decimal?>("YolUcreti")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
 
                     b.HasKey("Id");
 
