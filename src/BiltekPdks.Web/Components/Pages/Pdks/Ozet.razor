@@ -1,0 +1,14 @@
+<div class="col-6 col-md-3">
+    <div class="card h-100 @(Uyari ? "border-warning" : "")">
+        <div class="card-body py-2">
+            <div class="text-muted small">@Baslik</div>
+            <div class="fs-5 fw-semibold">@(string.IsNullOrEmpty(Deger) ? "0" : Deger)</div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Baslik { get; set; } = "";
+    [Parameter] public string? Deger { get; set; }
+    [Parameter] public bool Uyari { get; set; }
+}

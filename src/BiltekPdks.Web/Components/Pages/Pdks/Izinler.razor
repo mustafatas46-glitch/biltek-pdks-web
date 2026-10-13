@@ -1,0 +1,119 @@
+@page "/izinler"
+@inject FirmaDb FirmaDb
+
+<h1 class="h3 mb-4">İzinler</h1>
+
+<div class="card mb-4" style="max-width: 980px">
+    <div class="card-body">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-3"><label class="form-label">Personel</label><PersonelSecici @bind-Value="_yeni.PersonelId" Liste="_personeller" /></div>
+            <div class="col-md-2"><label class="form-label">İzin türü</label><TanimSecici @bind-Value="_yeni.IzinTuruId" Secenekler="_turler" /></div>
+            <div class="col-md-2"><label class="form-label">Başlangıç</label><input class="form-control" type="date" @bind="_yeni.Baslangic" /></div>
+            <div class="col-md-2"><label class="form-label">Bitiş</label><input class="form-control" type="date" @bind="_yeni.Bitis" /></div>
+            <div class="col-md-2"><label class="form-label">Açıklama</label><input class="form-control" @bind="_yeni.Aciklama" /></div>
+            <div class="col-md-1"><button class="btn btn-primary w-100" @onclick="EkleAsync">Ekle</button></div>
+        </div>
+        @if (_hata is not null) { <div class="alert alert-danger mt-3 mb-0">@_hata</div> }
+    </div>
+</div>
+
+<div class="d-flex gap-2 align-items-end mb-3">
+    <div><label class="form-label">Ay</label><input class="form-control" type="month" @bind="_ay" @bind:format="yyyy-MM" @bind:after="YukleAsync" /></div>
+</div>
+
+@if (_liste is not null)
+{
+    <table class="table">
+        <thead><tr><th>Personel</th><th>Tür</th><th>Başlangıç</th><th>Bitiş</th><th>Gün</th><th>Açıklama</th><th></th></tr></thead>
+        <tbody>
+            @foreach (var i in _liste)
+            {
+                <tr>
+                    <td>@i.Personel?.Ad @i.Personel?.Soyad</td>
+                    <td>@i.IzinTuru?.Ad @(i.IzinTuru?.Ucretli == false ? "(ücretsiz)" : "")</td>
+                    <td>@i.Baslangic.ToString("dd.MM.yyyy")</td>
+                    <td>@i.Bitis.ToString("dd.MM.yyyy")</td>
+                    <td>@(i.Bitis.DayNumber - i.Baslangic.DayNumber + 1)</td>
+                    <td>@i.Aciklama</td>
+                    <td class="text-end"><button class="btn btn-sm btn-outline-danger" @onclick="() => SilAsync(i.Id)">Sil</button></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    @if (_liste.Count == 0) { <p class="text-muted">Bu ay izin kaydı yok.</p> }
+}
+
+@code {
+    private sealed class YeniIzin
+    {
+        public int? PersonelId { get; set; }
+        public int? IzinTuruId { get; set; }
+        public DateOnly? Baslangic { get; set; } = DateOnly.FromDateTime(DateTime.Today);
+        public DateOnly? Bitis { get; set; } = DateOnly.FromDateTime(DateTime.Today);
+        public string? Aciklama { get; set; }
+    }
+
+    private YeniIzin _yeni = new();
+    private DateTime _ay = new(DateTime.Today.Year, DateTime.Today.Month, 1);
+    private List<PersonelOgesi> _personeller = new();
+    private List<TanimSecenek> _turler = new();
+    private List<Izin>? _liste;
+    private string? _hata;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await FirmaDb.AcAsync();
+        _personeller = await PersonelOgesi.ListeleAsync(db);
+        _turler = await db.IzinTurleri.AsNoTracking().Where(t => t.Aktif).OrderBy(t => t.Ad)
+            .Select(t => new TanimSecenek(t.Id, t.Ad)).ToListAsync();
+        await YukleAsync();
+    }
+
+    private async Task YukleAsync()
+    {
+        var ilk = DateOnly.FromDateTime(_ay);
+        ilk = new DateOnly(ilk.Year, ilk.Month, 1);
+        var son = ilk.AddMonths(1).AddDays(-1);
+        await using var db = await FirmaDb.AcAsync();
+        _liste = await db.Izinler.AsNoTracking().Include(i => i.Personel).Include(i => i.IzinTuru)
+            .Where(i => i.Baslangic <= son && i.Bitis >= ilk)
+            .OrderBy(i => i.Baslangic).ToListAsync();
+    }
+
+    private async Task EkleAsync()
+    {
+        _hata = null;
+        if (_yeni.PersonelId is null || _yeni.IzinTuruId is null || _yeni.Baslangic is null || _yeni.Bitis is null)
+        { _hata = "Personel, izin türü ve tarihleri seçin."; return; }
+        if (_yeni.Bitis < _yeni.Baslangic) { _hata = "Bitiş, başlangıçtan önce olamaz."; return; }
+
+        await using var db = await FirmaDb.AcAsync();
+        var cakisan = await db.Izinler.AnyAsync(i => i.PersonelId == _yeni.PersonelId
+            && i.Baslangic <= _yeni.Bitis && i.Bitis >= _yeni.Baslangic);
+        if (cakisan) { _hata = "Bu tarihlerde personelin başka bir izni var."; return; }
+
+        db.Izinler.Add(new Izin
+        {
+            PersonelId = _yeni.PersonelId.Value,
+            IzinTuruId = _yeni.IzinTuruId.Value,
+            Baslangic = _yeni.Baslangic.Value,
+            Bitis = _yeni.Bitis.Value,
+            Aciklama = string.IsNullOrWhiteSpace(_yeni.Aciklama) ? null : _yeni.Aciklama.Trim(),
+        });
+        await db.SaveChangesAsync();
+        _yeni = new YeniIzin { IzinTuruId = _yeni.IzinTuruId };
+        await YukleAsync();
+    }
+
+    private async Task SilAsync(int id)
+    {
+        await using var db = await FirmaDb.AcAsync();
+        var i = await db.Izinler.FirstOrDefaultAsync(x => x.Id == id);
+        if (i is not null)
+        {
+            db.Izinler.Remove(i);
+            await db.SaveChangesAsync();
+        }
+        await YukleAsync();
+    }
+}

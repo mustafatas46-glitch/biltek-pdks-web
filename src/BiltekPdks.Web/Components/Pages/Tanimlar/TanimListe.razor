@@ -65,6 +65,7 @@ else
             "bolum" => "Bölümler",
             "gorev" => "Görevler",
             "grup" => "Çalışma grupları",
+            "izin" => "İzin türleri",
             _ => null,
         };
         if (_baslik is not null) await YukleAsync();
@@ -76,6 +77,7 @@ else
         "bolum" => db.Bolumler,
         "gorev" => db.Gorevler,
         "grup" => db.CalismaGruplari,
+        "izin" => db.IzinTurleri,
         _ => throw new InvalidOperationException("Bilinmeyen tanım türü."),
     };
 
@@ -85,6 +87,7 @@ else
         "bolum" => new Bolum(),
         "gorev" => new Gorev(),
         "grup" => new CalismaGrubu(),
+        "izin" => new IzinTuru(),
         _ => throw new InvalidOperationException("Bilinmeyen tanım türü."),
     };
 

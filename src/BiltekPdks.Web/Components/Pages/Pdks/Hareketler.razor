@@ -1,0 +1,120 @@
+@page "/hareketler"
+@inject FirmaDb FirmaDb
+
+<h1 class="h3 mb-2">Giriş-çıkış hareketleri</h1>
+<p class="text-muted mb-4">Kart okutmaları burada görünür. Eksik hareketleri elle ekleyebilir, hatalı olanları iptal edebilirsiniz. Kayıtlar silinmez.</p>
+
+<div class="d-flex gap-2 align-items-end mb-3 flex-wrap">
+    <div style="min-width:260px"><label class="form-label">Personel</label><PersonelSecici @bind-Value="_personelId" @bind-Value:after="YukleAsync" Liste="_personeller" BosMetin="Tüm personel" /></div>
+    <div><label class="form-label">Başlangıç</label><input class="form-control" type="date" @bind="_bas" @bind:after="YukleAsync" /></div>
+    <div><label class="form-label">Bitiş</label><input class="form-control" type="date" @bind="_bit" @bind:after="YukleAsync" /></div>
+</div>
+
+@if (_personelId is not null)
+{
+    <div class="card mb-4" style="max-width: 760px">
+        <div class="card-body d-flex gap-2 align-items-end flex-wrap">
+            <div><label class="form-label">Tarih</label><input class="form-control" type="date" @bind="_yeniTarih" /></div>
+            <div><label class="form-label">Saat</label><input class="form-control" type="time" @bind="_yeniSaat" /></div>
+            <div class="flex-grow-1"><label class="form-label">Açıklama</label><input class="form-control" @bind="_yeniAciklama" placeholder="Örn. kartını unuttu" /></div>
+            <button class="btn btn-primary" @onclick="EkleAsync">Elle ekle</button>
+        </div>
+    </div>
+}
+
+@if (_hata is not null) { <div class="alert alert-danger">@_hata</div> }
+
+@if (_liste is not null)
+{
+    <table class="table table-sm align-middle">
+        <thead><tr><th>Personel</th><th>Tarih</th><th>Saat</th><th>Kaynak</th><th>Terminal</th><th>Açıklama</th><th></th></tr></thead>
+        <tbody>
+            @foreach (var h in _liste)
+            {
+                <tr class="@(h.Iptal ? "text-decoration-line-through text-muted" : "")">
+                    <td>@h.Personel?.Ad @h.Personel?.Soyad</td>
+                    <td>@h.Zaman.ToString("dd.MM.yyyy")</td>
+                    <td>@h.Zaman.ToString("HH:mm:ss")</td>
+                    <td>@KaynakAdi(h.Kaynak)</td>
+                    <td>@h.TerminalKodu</td>
+                    <td>@h.Aciklama</td>
+                    <td class="text-end">
+                        <button class="btn btn-sm btn-outline-secondary" @onclick="() => IptalDegistirAsync(h.Id)">@(h.Iptal ? "Geri al" : "İptal et")</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    @if (_liste.Count == 0) { <p class="text-muted">Bu aralıkta hareket yok.</p> }
+    @if (_liste.Count == Sinir) { <p class="text-muted small">İlk @Sinir kayıt gösteriliyor; aralığı daraltın.</p> }
+}
+
+@code {
+    private const int Sinir = 500;
+    private int? _personelId;
+    private DateOnly? _bas = DateOnly.FromDateTime(DateTime.Today).AddDays(-7);
+    private DateOnly? _bit = DateOnly.FromDateTime(DateTime.Today);
+    private DateOnly? _yeniTarih = DateOnly.FromDateTime(DateTime.Today);
+    private TimeOnly? _yeniSaat;
+    private string? _yeniAciklama, _hata;
+    private List<PersonelOgesi> _personeller = new();
+    private List<Hareket>? _liste;
+
+    private static string KaynakAdi(HareketKaynagi k) => k switch
+    {
+        HareketKaynagi.Terminal => "Terminal",
+        HareketKaynagi.Elle => "Elle",
+        _ => "Aktarım",
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await FirmaDb.AcAsync();
+        _personeller = await PersonelOgesi.ListeleAsync(db, ayrilanlarDahil: true);
+        await YukleAsync();
+    }
+
+    private async Task YukleAsync()
+    {
+        _hata = null;
+        var bas = (_bas ?? DateOnly.FromDateTime(DateTime.Today)).ToDateTime(TimeOnly.MinValue);
+        var bit = (_bit ?? DateOnly.FromDateTime(DateTime.Today)).AddDays(1).ToDateTime(TimeOnly.MinValue);
+        await using var db = await FirmaDb.AcAsync();
+        var q = db.Hareketler.AsNoTracking().Include(h => h.Personel).Where(h => h.Zaman >= bas && h.Zaman < bit);
+        if (_personelId is int pid) q = q.Where(h => h.PersonelId == pid);
+        _liste = await q.OrderBy(h => h.Zaman).Take(Sinir).ToListAsync();
+    }
+
+    private async Task EkleAsync()
+    {
+        _hata = null;
+        if (_personelId is null || _yeniTarih is null || _yeniSaat is null) { _hata = "Personel, tarih ve saat girin."; return; }
+        if (string.IsNullOrWhiteSpace(_yeniAciklama)) { _hata = "Elle eklenen harekete açıklama yazın."; return; }
+
+        await using var db = await FirmaDb.AcAsync();
+        db.Hareketler.Add(new Hareket
+        {
+            PersonelId = _personelId.Value,
+            Zaman = _yeniTarih.Value.ToDateTime(_yeniSaat.Value),
+            Kaynak = HareketKaynagi.Elle,
+            Aciklama = _yeniAciklama.Trim(),
+            KaydedenKullaniciId = await FirmaDb.KullaniciIdAsync(),
+        });
+        await db.SaveChangesAsync();
+        _yeniSaat = null;
+        _yeniAciklama = null;
+        await YukleAsync();
+    }
+
+    private async Task IptalDegistirAsync(int id)
+    {
+        await using var db = await FirmaDb.AcAsync();
+        var h = await db.Hareketler.FirstOrDefaultAsync(x => x.Id == id);
+        if (h is not null)
+        {
+            h.Iptal = !h.Iptal;
+            await db.SaveChangesAsync();
+        }
+        await YukleAsync();
+    }
+}

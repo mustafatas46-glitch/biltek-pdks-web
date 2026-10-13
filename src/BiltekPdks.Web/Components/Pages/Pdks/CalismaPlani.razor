@@ -1,0 +1,103 @@
+@page "/calisma-plani"
+@inject FirmaDb FirmaDb
+
+<h1 class="h3 mb-2">Haftalık çalışma planı</h1>
+<p class="text-muted mb-4">Her çalışma grubu için haftanın günlerine vardiya atayın. Boş bırakılan gün hafta tatilidir.</p>
+
+@if (_gruplar is null)
+{
+    <p class="text-muted">Yükleniyor…</p>
+}
+else if (_gruplar.Count == 0)
+{
+    <p>Önce <a href="tanimlar/grup">çalışma grubu</a> tanımlayın.</p>
+}
+else
+{
+    <div class="mb-3" style="max-width: 320px">
+        <label class="form-label">Çalışma grubu</label>
+        <select class="form-select" @bind="_grupId" @bind:after="PlaniYukleAsync">
+            @foreach (var g in _gruplar) { <option value="@g.Id">@g.Ad</option> }
+        </select>
+    </div>
+
+    @if (_bilgi is not null) { <div class="alert alert-success">@_bilgi</div> }
+
+    <table class="table align-middle" style="max-width: 560px">
+        <tbody>
+            @foreach (var gun in Gunler)
+            {
+                <tr>
+                    <th style="width:140px">@GunAdi(gun)</th>
+                    <td><TanimSecici @bind-Value="_plan[gun]" Secenekler="_vardiyalar" /></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    <button class="btn btn-primary" @onclick="KaydetAsync">Kaydet</button>
+}
+
+@code {
+    private static readonly DayOfWeek[] Gunler =
+    {
+        DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday,
+        DayOfWeek.Friday, DayOfWeek.Saturday, DayOfWeek.Sunday,
+    };
+
+    private List<TanimSecenek>? _gruplar;
+    private List<TanimSecenek> _vardiyalar = new();
+    private int _grupId;
+    private Dictionary<DayOfWeek, int?> _plan = Gunler.ToDictionary(g => g, _ => (int?)null);
+    private string? _bilgi;
+
+    public static string GunAdi(DayOfWeek g) => g switch
+    {
+        DayOfWeek.Monday => "Pazartesi",
+        DayOfWeek.Tuesday => "Salı",
+        DayOfWeek.Wednesday => "Çarşamba",
+        DayOfWeek.Thursday => "Perşembe",
+        DayOfWeek.Friday => "Cuma",
+        DayOfWeek.Saturday => "Cumartesi",
+        _ => "Pazar",
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await FirmaDb.AcAsync();
+        _gruplar = await db.CalismaGruplari.AsNoTracking().Where(g => g.Aktif).OrderBy(g => g.Ad)
+            .Select(g => new TanimSecenek(g.Id, g.Ad)).ToListAsync();
+        _vardiyalar = await db.Vardiyalar.AsNoTracking().Where(v => v.Aktif).OrderBy(v => v.Baslangic)
+            .Select(v => new TanimSecenek(v.Id, v.Ad)).ToListAsync();
+        if (_gruplar.Count > 0)
+        {
+            _grupId = _gruplar[0].Id;
+            await PlaniYukleAsync();
+        }
+    }
+
+    private async Task PlaniYukleAsync()
+    {
+        _bilgi = null;
+        await using var db = await FirmaDb.AcAsync();
+        var kayitlar = await db.CalismaGrubuGunleri.AsNoTracking().Where(x => x.CalismaGrubuId == _grupId).ToListAsync();
+        _plan = Gunler.ToDictionary(g => g, g => kayitlar.FirstOrDefault(k => k.Gun == g)?.VardiyaId);
+    }
+
+    private async Task KaydetAsync()
+    {
+        await using var db = await FirmaDb.AcAsync();
+        var kayitlar = await db.CalismaGrubuGunleri.Where(x => x.CalismaGrubuId == _grupId).ToListAsync();
+        foreach (var gun in Gunler)
+        {
+            var kayit = kayitlar.FirstOrDefault(k => k.Gun == gun);
+            if (kayit is null)
+            {
+                kayit = new CalismaGrubuGunu { CalismaGrubuId = _grupId, Gun = gun };
+                db.CalismaGrubuGunleri.Add(kayit);
+            }
+            kayit.VardiyaId = _plan[gun];
+        }
+        await db.SaveChangesAsync();
+        _bilgi = "Plan kaydedildi.";
+    }
+}

@@ -1,0 +1,18 @@
+@* Firmadaki personelden birini seçtirir. Liste üst bileşenden gelir. *@
+<select class="form-select" value="@(Value?.ToString() ?? "")" @onchange="DegistiAsync">
+    <option value="">@BosMetin</option>
+    @foreach (var p in Liste)
+    {
+        <option value="@p.Id">@p.Ad (@p.KartNo)</option>
+    }
+</select>
+
+@code {
+    [Parameter] public int? Value { get; set; }
+    [Parameter] public EventCallback<int?> ValueChanged { get; set; }
+    [Parameter] public IReadOnlyList<PersonelOgesi> Liste { get; set; } = Array.Empty<PersonelOgesi>();
+    [Parameter] public string BosMetin { get; set; } = "Personel seçin";
+
+    private Task DegistiAsync(ChangeEventArgs e) =>
+        ValueChanged.InvokeAsync(int.TryParse(e.Value?.ToString(), out var id) ? id : null);
+}

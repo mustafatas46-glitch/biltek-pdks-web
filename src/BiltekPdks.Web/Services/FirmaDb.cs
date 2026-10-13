@@ -23,6 +23,13 @@ public class FirmaDb
         db.AktifFirmaId = int.TryParse(durum.User.FindFirst(Talepler.FirmaId)?.Value, out var id) ? id : null;
         return db;
     }
+
+    /// <summary>Oturumdaki kullanıcının id'si (kayıtlara "kim yaptı" bilgisi yazmak için).</summary>
+    public async Task<int?> KullaniciIdAsync()
+    {
+        var durum = await _auth.GetAuthenticationStateAsync();
+        return int.TryParse(durum.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var id) ? id : null;
+    }
 }
 
 public static class Talepler

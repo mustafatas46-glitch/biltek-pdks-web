@@ -1,0 +1,104 @@
+@page "/puantaj"
+@using BiltekPdks.Domain.Puantaj
+@using BiltekPdks.Infrastructure.Puantaj
+@inject FirmaDb FirmaDb
+@inject PuantajServisi PuantajServisi
+
+<h1 class="h3 mb-4">Aylık puantaj</h1>
+
+<div class="d-flex gap-2 align-items-end mb-4 flex-wrap">
+    <div style="min-width:260px"><label class="form-label">Personel</label><PersonelSecici @bind-Value="_personelId" @bind-Value:after="HesaplaAsync" Liste="_personeller" /></div>
+    <div><label class="form-label">Ay</label><input class="form-control" type="month" @bind="_ay" @bind:format="yyyy-MM" @bind:after="HesaplaAsync" /></div>
+</div>
+
+@if (_sonuc is not null)
+{
+    var t = _sonuc.Toplam;
+    <div class="row g-2 mb-4">
+        <Ozet Baslik="Çalışılan gün" Deger="@t.CalisilanGun.ToString()" />
+        <Ozet Baslik="Devamsız gün" Deger="@t.DevamsizGun.ToString()" Uyari="@(t.DevamsizGun > 0)" />
+        <Ozet Baslik="İzinli (ücretli/ücretsiz)" Deger="@($"{t.IzinliGun} / {t.UcretsizIzinGun}")" />
+        <Ozet Baslik="Eksik hareket" Deger="@t.EksikHareketGun.ToString()" Uyari="@(t.EksikHareketGun > 0)" />
+        <Ozet Baslik="Normal çalışma" Deger="@S(t.NormalCalismaDakika)" />
+        <Ozet Baslik="Eksik süre" Deger="@S(t.EksikDakika)" Uyari="@(t.EksikDakika > 0)" />
+        <Ozet Baslik="Fazla mesai" Deger="@S(t.FazlaMesaiDakika)" />
+        <Ozet Baslik="Tatil mesaisi" Deger="@S(t.TatilMesaisiDakika)" />
+    </div>
+
+    <table class="table table-sm align-middle">
+        <thead>
+            <tr><th>Tarih</th><th>Gün</th><th>Durum</th><th>Giriş</th><th>Çıkış</th><th>Plan</th><th>Çalışma</th><th>Geç</th><th>Erken</th><th>Eksik</th><th>FM</th><th>Tatil m.</th></tr>
+        </thead>
+        <tbody>
+            @foreach (var g in _sonuc.Gunler)
+            {
+                <tr class="@SatirSinifi(g.Durum)">
+                    <td>@g.Tarih.ToString("dd.MM")</td>
+                    <td>@CalismaPlani.GunAdi(g.Tarih.DayOfWeek)</td>
+                    <td>@DurumAdi(g)</td>
+                    <td>@g.Giris?.ToString("HH:mm")</td>
+                    <td>@g.Cikis?.ToString(g.Cikis?.Date != g.Giris?.Date ? "dd.MM HH:mm" : "HH:mm")</td>
+                    <td>@S(g.PlanlananDakika)</td>
+                    <td>@S(g.CalismaDakika)</td>
+                    <td>@S(g.GecKalmaDakika)</td>
+                    <td>@S(g.ErkenCikmaDakika)</td>
+                    <td>@S(g.EksikDakika)</td>
+                    <td>@S(g.FazlaMesaiDakika)</td>
+                    <td>@S(g.TatilMesaisiDakika)</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+else if (_personelId is null)
+{
+    <p class="text-muted">Puantajı görmek için personel seçin.</p>
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "personel")] public int? PersonelParametresi { get; set; }
+
+    private int? _personelId;
+    private DateTime _ay = new(DateTime.Today.Year, DateTime.Today.Month, 1);
+    private List<PersonelOgesi> _personeller = new();
+    private AylikPuantaj? _sonuc;
+
+    private static string S(int dakika) => PuantajMotoru.SaatDakika(dakika);
+
+    private static string DurumAdi(GunlukPuantaj g) => g.Durum switch
+    {
+        PuantajDurumu.Calisti => "Çalıştı",
+        PuantajDurumu.Devamsiz => "Devamsız",
+        PuantajDurumu.Izinli => g.IzinUcretli ? "İzinli" : "Ücretsiz izin",
+        PuantajDurumu.HaftaTatili => "Hafta tatili",
+        PuantajDurumu.ResmiTatil => "Resmi tatil",
+        PuantajDurumu.EksikHareket => "Eksik hareket",
+        _ => "—",
+    };
+
+    private static string SatirSinifi(PuantajDurumu d) => d switch
+    {
+        PuantajDurumu.Devamsiz => "table-danger",
+        PuantajDurumu.EksikHareket => "table-warning",
+        PuantajDurumu.Izinli => "table-info",
+        PuantajDurumu.HaftaTatili or PuantajDurumu.ResmiTatil => "table-light",
+        PuantajDurumu.KapsamDisi => "text-muted",
+        _ => "",
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await FirmaDb.AcAsync();
+        _personeller = await PersonelOgesi.ListeleAsync(db, ayrilanlarDahil: true);
+        _personelId = PersonelParametresi;
+        await HesaplaAsync();
+    }
+
+    private async Task HesaplaAsync()
+    {
+        _sonuc = null;
+        if (_personelId is not int pid) return;
+        await using var db = await FirmaDb.AcAsync();
+        _sonuc = await PuantajServisi.AylikAsync(db, pid, _ay.Year, _ay.Month);
+    }
+}

@@ -1,0 +1,85 @@
+@page "/resmi-tatiller"
+@inject FirmaDb FirmaDb
+
+<h1 class="h3 mb-4">Resmi tatiller</h1>
+
+<div class="d-flex gap-2 align-items-end mb-3 flex-wrap">
+    <div>
+        <label class="form-label">Yıl</label>
+        <input class="form-control" type="number" style="width:110px" @bind="_yil" @bind:after="YukleAsync" />
+    </div>
+    <div>
+        <label class="form-label">Tarih</label>
+        <input class="form-control" type="date" @bind="_yeniTarih" />
+    </div>
+    <div class="flex-grow-1" style="max-width:320px">
+        <label class="form-label">Ad</label>
+        <input class="form-control" @bind="_yeniAd" placeholder="Örn. Cumhuriyet Bayramı" />
+    </div>
+    <button class="btn btn-primary" @onclick="EkleAsync">Ekle</button>
+</div>
+<p class="text-muted small">Yarım günlük arifeler için şimdilik tam gün girilir; yarım gün desteği sonraki sürümde.</p>
+
+@if (_hata is not null) { <div class="alert alert-danger">@_hata</div> }
+
+@if (_liste is not null)
+{
+    <table class="table" style="max-width: 560px">
+        <thead><tr><th>Tarih</th><th>Gün</th><th>Ad</th><th></th></tr></thead>
+        <tbody>
+            @foreach (var t in _liste)
+            {
+                <tr>
+                    <td>@t.Tarih.ToString("dd.MM.yyyy")</td>
+                    <td>@CalismaPlani.GunAdi(t.Tarih.DayOfWeek)</td>
+                    <td>@t.Ad</td>
+                    <td class="text-end"><button class="btn btn-sm btn-outline-danger" @onclick="() => SilAsync(t.Id)">Sil</button></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    @if (_liste.Count == 0) { <p class="text-muted">Bu yıl için tatil girilmemiş.</p> }
+}
+
+@code {
+    private int _yil = DateTime.Today.Year;
+    private DateOnly? _yeniTarih;
+    private string? _yeniAd, _hata;
+    private List<ResmiTatil>? _liste;
+
+    protected override Task OnInitializedAsync() => YukleAsync();
+
+    private async Task YukleAsync()
+    {
+        await using var db = await FirmaDb.AcAsync();
+        var bas = new DateOnly(_yil, 1, 1);
+        var bit = new DateOnly(_yil, 12, 31);
+        _liste = await db.ResmiTatiller.AsNoTracking().Where(t => t.Tarih >= bas && t.Tarih <= bit).OrderBy(t => t.Tarih).ToListAsync();
+    }
+
+    private async Task EkleAsync()
+    {
+        _hata = null;
+        if (_yeniTarih is null || string.IsNullOrWhiteSpace(_yeniAd)) { _hata = "Tarih ve ad girin."; return; }
+        await using var db = await FirmaDb.AcAsync();
+        if (await db.ResmiTatiller.AnyAsync(t => t.Tarih == _yeniTarih)) { _hata = "Bu tarihte zaten tatil var."; return; }
+        db.ResmiTatiller.Add(new ResmiTatil { Tarih = _yeniTarih.Value, Ad = _yeniAd.Trim() });
+        await db.SaveChangesAsync();
+        _yil = _yeniTarih.Value.Year;
+        _yeniTarih = null;
+        _yeniAd = null;
+        await YukleAsync();
+    }
+
+    private async Task SilAsync(int id)
+    {
+        await using var db = await FirmaDb.AcAsync();
+        var t = await db.ResmiTatiller.FirstOrDefaultAsync(x => x.Id == id);
+        if (t is not null)
+        {
+            db.ResmiTatiller.Remove(t);
+            await db.SaveChangesAsync();
+        }
+        await YukleAsync();
+    }
+}
