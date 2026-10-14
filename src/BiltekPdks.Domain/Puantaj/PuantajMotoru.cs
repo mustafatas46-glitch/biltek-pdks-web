@@ -24,6 +24,11 @@ public sealed record VardiyaKurali(
     public bool CokluGiriseEksikYazma { get; init; }
     /// <summary>Giriş, vardiya başlangıcına bu süreden yakınsa vardiya başlangıcı kabul edilir.</summary>
     public int MaxToleransDakika { get; init; }
+    /// <summary>
+    /// Gün dönümü (gün atımı): doluysa günün hareketleri bu saatten ertesi gün bu saate kadar alınır
+    /// (ör. 06:00 → 08:30 giriş, ertesi gece 05:30 çıkış aynı güne yazılır). Boşsa pencere vardiyaya göre bulunur.
+    /// </summary>
+    public TimeOnly? GunDonumu { get; init; }
 
     /// <summary>Bitiş saati başlangıçtan önce ya da eşitse vardiya ertesi güne taşar (gece vardiyası).</summary>
     public bool GeceyiAsar => Bitis <= Baslangic;

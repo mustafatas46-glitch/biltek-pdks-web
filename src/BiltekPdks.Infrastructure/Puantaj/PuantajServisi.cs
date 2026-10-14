@@ -201,9 +201,11 @@ public class PuantajServisi
         for (var t = ilk.AddDays(-1); t <= son; t = t.AddDays(1))
         {
             var kural = KuralBul(t);
-            var (pBas, pBit) = Pencere(t, kural, KuralBul(t.AddDays(-1)), KuralBul(t.AddDays(1)));
+            var sonrakiKural = KuralBul(t.AddDays(1));
+            var (pBas, pBit) = Pencere(t, kural, KuralBul(t.AddDays(-1)), sonrakiKural);
             var gunun = kalan.Where(h => h >= pBas && h < pBit).ToList();
             kalan.RemoveAll(h => h >= pBas && h < pBit);
+            AcikGirisiKapat(t, kural, sonrakiKural, pBit, gunun, kalan);
 
             var izin = izinler.FirstOrDefault(i => i.Kapsar(t));
             var kapsamDisi = t < personel.IseGirisTarihi
@@ -222,6 +224,30 @@ public class PuantajServisi
         }
 
         return sonuc;
+    }
+
+    /// <summary>Açık kalan girişi kapatırken bir sonraki vardiya başlangıcından bu kadar önce durulur (erken gelen girişi çıkış sanmamak için).</summary>
+    public static readonly TimeSpan SonrakiGirisPayi = TimeSpan.FromHours(2);
+
+    /// <summary>
+    /// Mesaiye devam edip gece çıkan personel: günün okutma sayısı tekse (giriş açık kaldıysa) ve sonraki okutma
+    /// ertesi günün vardiyasından en az 2 saat önceyse, o okutma bu günün çıkışıdır.
+    /// Örnek: 08:30-18:30 vardiyası, 14.10 08:30 giriş, 15.10 05:30 çıkış → 14.10'a yazılır, 18:30 sonrası fazla mesaidir.
+    /// Gün dönümü tanımlı vardiyada kullanılmaz (orada sınır gün dönümüdür).
+    /// </summary>
+    public static void AcikGirisiKapat(DateOnly t, VardiyaKurali? kural, VardiyaKurali? sonraki, DateTime pencereBitis,
+        List<DateTime> gunun, List<DateTime> kalan)
+    {
+        if (kural is null || kural.GunDonumu is not null || gunun.Count % 2 == 0) return;
+        var sinir = sonraki is not null
+            ? sonraki.BaslangicZamani(t.AddDays(1)) - SonrakiGirisPayi
+            : t.AddDays(1).ToDateTime(new TimeOnly(8, 0));
+        var enGec = gunun[0] + TimeSpan.FromHours(24);
+        if (enGec < sinir) sinir = enGec;
+        var i = kalan.FindIndex(h => h >= pencereBitis);
+        if (i < 0 || kalan[i] >= sinir) return;
+        gunun.Add(kalan[i]);
+        kalan.RemoveAt(i);
     }
 
     /// <summary>
@@ -271,8 +297,18 @@ public class PuantajServisi
     /// </summary>
     public static (DateTime Baslangic, DateTime Bitis) Pencere(DateOnly t, VardiyaKurali? kural, VardiyaKurali? onceki, VardiyaKurali? sonraki)
     {
+        // Gün dönümü tanımlıysa gün, gün dönümünden ertesi gün dönümüne kadardır.
+        if (kural?.GunDonumu is { } gd) return (t.ToDateTime(gd), t.AddDays(1).ToDateTime(gd));
+
         var (bas, bit) = PuantajMotoru.HareketPenceresi(t, kural);
-        if (kural is null) return (bas, bit);
+        if (kural is null)
+        {
+            // Tatil günü, komşu günün gün dönümüne uyar ki okutma arada kaybolmasın.
+            if (onceki?.GunDonumu is { } og) bas = t.ToDateTime(og);
+            if (sonraki?.GunDonumu is { } sg) bit = t.AddDays(1).ToDateTime(sg);
+            return (bas, bit);
+        }
+        if (onceki?.GunDonumu is { } ogd && t.ToDateTime(ogd) > bas) bas = t.ToDateTime(ogd);
 
         var vBas = kural.BaslangicZamani(t);
         var vBit = kural.BitisZamani(t);

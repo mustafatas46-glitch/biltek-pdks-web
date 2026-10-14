@@ -20,6 +20,8 @@ public class Vardiya : TanimEntity
     public bool NormalTamamlaSonraFazlaMesai { get; set; }
     public bool CokluGiriseEksikYazma { get; set; }
     public int MaxToleransDakika { get; set; }
+    /// <summary>Gün dönümü (gün atımı). Bu saatten önceki okutmalar önceki güne yazılır. Boşsa otomatik.</summary>
+    public TimeOnly? GunDonumu { get; set; }
 
     /// <summary>Mola saatleri (bilgi ve ücretsiz mola toplamı için). Ücretsiz molalar varsa toplamları <see cref="MolaDakika"/> olur.</summary>
     public List<VardiyaMola> Molalar { get; set; } = new();
@@ -34,6 +36,7 @@ public class Vardiya : TanimEntity
         NormalTamamlaSonraFazlaMesai = NormalTamamlaSonraFazlaMesai,
         CokluGiriseEksikYazma = CokluGiriseEksikYazma,
         MaxToleransDakika = MaxToleransDakika,
+        GunDonumu = GunDonumu,
     };
 }
 

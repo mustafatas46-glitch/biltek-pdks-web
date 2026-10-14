@@ -104,4 +104,42 @@ public class PuantajServisiTestleri
         Assert.Equal(new DateTime(2026, 10, 1, 7, 59, 0), bir.Giris);
         Assert.Equal(0, bir.EksikDakika);
     }
+
+    private static List<GunlukPuantaj> MesaiyeKalan(TimeOnly? gunDonumu, params DateTime[] hareketler)
+    {
+        var v = new Vardiya { Id = 1, Baslangic = new TimeOnly(8, 30), Bitis = new TimeOnly(18, 30), MolaDakika = 60, GunDonumu = gunDonumu };
+        var personel = new Personel { Id = 1, IseGirisTarihi = new DateOnly(2026, 1, 1) };
+        return PuantajServisi.Hesapla(personel, new DateOnly(2026, 10, 14), new DateOnly(2026, 10, 15),
+            new Dictionary<int, Vardiya> { [1] = v },
+            Enum.GetValues<DayOfWeek>().ToDictionary(g => g, _ => (int?)1),
+            new Dictionary<DateOnly, int?>(), new HashSet<DateOnly>(), Array.Empty<Izin>(), hareketler);
+    }
+
+    [Theory]
+    [InlineData(null)]   // otomatik: açık kalan giriş ertesi sabahki çıkışla kapanır
+    [InlineData("06:00")] // gün dönümü 06:00
+    public void Mesaiye_kalip_gece_cikan_ayni_gune_yazilir_ve_mesai_alir(string? gunDonumu)
+    {
+        var gunler = MesaiyeKalan(gunDonumu is null ? null : TimeOnly.Parse(gunDonumu),
+            S(14, 8, 30), S(15, 5, 30), S(15, 8, 30), S(15, 18, 30));
+
+        var ondort = gunler[0];
+        Assert.Equal(PuantajDurumu.Calisti, ondort.Durum);
+        Assert.Equal((S(14, 8, 30), S(15, 5, 30)), (ondort.Giris, ondort.Cikis));
+        Assert.Equal(540, ondort.NormalCalismaDakika);
+        Assert.Equal(660, ondort.FazlaMesaiDakika); // 18:30 → 05:30 = 11 saat mesai
+        Assert.Equal(0, ondort.EksikDakika);
+
+        var onbes = gunler[1];
+        Assert.Equal(PuantajDurumu.Calisti, onbes.Durum);
+        Assert.Equal((S(15, 8, 30), S(15, 18, 30)), (onbes.Giris, onbes.Cikis));
+    }
+
+    [Fact]
+    public void Ertesi_sabah_erken_gelen_giris_onceki_gunun_cikisi_sayilmaz()
+    {
+        var gunler = MesaiyeKalan(null, S(14, 8, 30), S(15, 7, 0), S(15, 18, 30));
+        Assert.Equal(PuantajDurumu.EksikHareket, gunler[0].Durum);
+        Assert.Equal(S(15, 7, 0), gunler[1].Giris);
+    }
 }

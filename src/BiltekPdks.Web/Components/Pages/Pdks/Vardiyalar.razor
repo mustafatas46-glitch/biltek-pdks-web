@@ -121,6 +121,11 @@
                                 <span>Max tolerans (dk)</span><input class="form-control form-control-sm" style="width:6rem" type="number" min="0" @bind="v.MaxToleransDakika" />
                                 <span class="text-muted">Giriş ile İ.G.S arasındaki fark bundan küçükse giriş saati İ.G.S kabul edilir. 0 = kapalı.</span>
                             </div>
+                            <div class="d-flex align-items-center gap-2 mt-1 flex-wrap">
+                                <span>Gün dönümü (gün atımı)</span><input class="form-control form-control-sm" style="width:7rem" type="time" @bind="v.GunDonumu" />
+                                @if (v.GunDonumu is not null) { <button type="button" class="btn btn-sm btn-link p-0" @onclick="() => v.GunDonumu = null">otomatik yap</button> }
+                                <span class="text-muted">Bu saatten önceki okutmalar önceki güne yazılır (ör. 06:00: 08:30 giriş, gece 05:30 çıkış aynı gün; 18:30 sonrası mesai). Boş = otomatik: giriş açık kaldıysa ertesi sabahki çıkış (sonraki vardiyadan 2 saat öncesine kadar) aynı güne yazılır.</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -180,7 +185,7 @@
         FazlaMesaiEsikDakika = k.FazlaMesaiEsikDakika, DevamsizlikCezaDakika = k.DevamsizlikCezaDakika,
         GecCezaKatsayisi = k.GecCezaKatsayisi, ErkenCezaKatsayisi = k.ErkenCezaKatsayisi, EksikCezaKatsayisi = k.EksikCezaKatsayisi,
         NormalTamamlaSonraFazlaMesai = k.NormalTamamlaSonraFazlaMesai, CokluGiriseEksikYazma = k.CokluGiriseEksikYazma,
-        MaxToleransDakika = k.MaxToleransDakika,
+        MaxToleransDakika = k.MaxToleransDakika, GunDonumu = k.GunDonumu,
         Molalar = k.Molalar.Select(m => new VardiyaMola { Ad = m.Ad, Baslangic = m.Baslangic, Bitis = m.Bitis, Ucretli = m.Ucretli }).ToList(),
     };
 
@@ -249,6 +254,7 @@
         k.NormalTamamlaSonraFazlaMesai = v.NormalTamamlaSonraFazlaMesai;
         k.CokluGiriseEksikYazma = v.CokluGiriseEksikYazma;
         k.MaxToleransDakika = v.MaxToleransDakika;
+        k.GunDonumu = v.GunDonumu;
         db.VardiyaMolalari.RemoveRange(k.Molalar);
         k.Molalar = v.Molalar.Select(m => new VardiyaMola { Ad = m.Ad.Trim(), Baslangic = m.Baslangic, Bitis = m.Bitis, Ucretli = m.Ucretli }).ToList();
         await db.SaveChangesAsync();
