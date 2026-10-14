@@ -1016,6 +1016,9 @@ namespace BiltekPdks.Infrastructure.Migrations.MySql
                     b.Property<DateTime>("OlusturmaTarihi")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<bool>("OzelYetki")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<int?>("PersonelId")
                         .HasColumnType("int");
 
@@ -1040,6 +1043,41 @@ namespace BiltekPdks.Infrastructure.Migrations.MySql
                         .IsUnique();
 
                     b.ToTable("kullanici", (string)null);
+                });
+
+            modelBuilder.Entity("BiltekPdks.Domain.Entities.KullaniciYetkisi", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("FirmaId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("GuncellemeTarihi")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("KullaniciId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("OlusturmaTarihi")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Yetki")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("varchar(60)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FirmaId");
+
+                    b.HasIndex("KullaniciId", "Yetki")
+                        .IsUnique();
+
+                    b.ToTable("kullanici_yetkisi", (string)null);
                 });
 
             modelBuilder.Entity("BiltekPdks.Domain.Entities.Meslek", b =>
@@ -2055,6 +2093,21 @@ namespace BiltekPdks.Infrastructure.Migrations.MySql
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Personel");
+                });
+
+            modelBuilder.Entity("BiltekPdks.Domain.Entities.KullaniciYetkisi", b =>
+                {
+                    b.HasOne("BiltekPdks.Domain.Entities.Firma", null)
+                        .WithMany()
+                        .HasForeignKey("FirmaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("BiltekPdks.Domain.Entities.Kullanici", null)
+                        .WithMany()
+                        .HasForeignKey("KullaniciId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("BiltekPdks.Domain.Entities.Meslek", b =>

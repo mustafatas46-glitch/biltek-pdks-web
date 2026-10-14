@@ -971,6 +971,9 @@ namespace BiltekPdks.Infrastructure.Migrations.Sqlite
                     b.Property<DateTime>("OlusturmaTarihi")
                         .HasColumnType("TEXT");
 
+                    b.Property<bool>("OzelYetki")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int?>("PersonelId")
                         .HasColumnType("INTEGER");
 
@@ -995,6 +998,39 @@ namespace BiltekPdks.Infrastructure.Migrations.Sqlite
                         .IsUnique();
 
                     b.ToTable("kullanici", (string)null);
+                });
+
+            modelBuilder.Entity("BiltekPdks.Domain.Entities.KullaniciYetkisi", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("FirmaId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("GuncellemeTarihi")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("KullaniciId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("OlusturmaTarihi")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Yetki")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FirmaId");
+
+                    b.HasIndex("KullaniciId", "Yetki")
+                        .IsUnique();
+
+                    b.ToTable("kullanici_yetkisi", (string)null);
                 });
 
             modelBuilder.Entity("BiltekPdks.Domain.Entities.Meslek", b =>
@@ -1992,6 +2028,21 @@ namespace BiltekPdks.Infrastructure.Migrations.Sqlite
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Personel");
+                });
+
+            modelBuilder.Entity("BiltekPdks.Domain.Entities.KullaniciYetkisi", b =>
+                {
+                    b.HasOne("BiltekPdks.Domain.Entities.Firma", null)
+                        .WithMany()
+                        .HasForeignKey("FirmaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("BiltekPdks.Domain.Entities.Kullanici", null)
+                        .WithMany()
+                        .HasForeignKey("KullaniciId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("BiltekPdks.Domain.Entities.Meslek", b =>
