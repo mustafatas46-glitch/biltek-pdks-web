@@ -112,7 +112,7 @@ public class UygulamaTestleri : IClassFixture<UygulamaFabrikasi>
         {
             "/", $"/?personel={personelId}", "/ozet", "/personeller", "/personeller/yeni", $"/personeller/{personelId}",
             "/tanimlar/sube", "/tanimlar/bolum", "/tanimlar/gorev", "/tanimlar/grup", "/tanimlar/izin",
-            "/vardiyalar", "/grup-tanimlama", "/calisma-plani", "/resmi-tatiller", "/izinler", "/hareketler",
+            "/vardiyalar", "/vardiyalar?sekme=mola", "/grup-tanimlama", "/calisma-plani", "/resmi-tatiller", "/izinler", "/hareketler",
             "/puantaj", $"/puantaj?personel={personelId}", "/puantaj/toplu", "/hesap/sifre", "/toplu/giris-cikis", "/hakkinda", "/toplu/izin", "/toplu/kazanc-kesinti", "/tanimlar/kazanc-kesinti",
             "/tanimlar/servis", "/tanimlar/bolge", "/tanimlar/birim", "/tanimlar/takim", "/tanimlar/meslek",
             "/araclar/excel-aktarim", "/raporlar/bordro-uyum", "/raporlar/bordro-uyum.xlsx?yil=2026&ay=9", "/araclar/aktarim-ornegi.xlsx?tur=Hareket",

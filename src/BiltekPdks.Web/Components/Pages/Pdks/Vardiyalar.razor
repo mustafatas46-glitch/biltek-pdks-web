@@ -43,6 +43,7 @@
             var v = _secili;
             <ul class="nav nav-tabs small px-1 pt-1">
                 <li class="nav-item"><a class="nav-link @(_sekme == "hesap" ? "active" : "")" href="" @onclick:preventDefault @onclick='() => _sekme = "hesap"'>Hesap Prm</a></li>
+                <li class="nav-item"><a class="nav-link @(_sekme == "mola" ? "active" : "")" href="" @onclick:preventDefault @onclick='() => _sekme = "mola"'>Mola Saatleri</a></li>
                 <li class="nav-item"><a class="nav-link @(_sekme == "diger" ? "active" : "")" href="" @onclick:preventDefault @onclick='() => _sekme = "diger"'>Diğer Prm</a></li>
             </ul>
             <div class="p-3 small">
@@ -66,31 +67,79 @@
                 </table>
                 <p class="text-muted mb-3">İ.G.S: içeri giriş saati · D.Ç.S: dışarı çıkış saati (girişten küçükse ertesi gün, gece vardiyası) · G.G.T / E.Ç.T: geç gelme / erken çıkma toleransı · Minimum FM: bundan az fazla mesai yazılmaz. Planlanan net süre: <b>@S(v.Kural().PlanlananDakika(Ornek))</b></p>
 
-                <div class="kirmizi-baslik px-0">MOLA SAATLERİ</div>
-                <table class="table table-sm table-bordered align-middle mb-1" style="max-width:760px">
-                    <thead><tr><th>Ad</th><th>Başlama</th><th>Bitiş</th><th>Tipi</th><th></th></tr></thead>
+                <div class="kirmizi-baslik px-0">MOLA</div>
+                @if (v.Molalar.Count == 0)
+                {
+                    <div class="d-flex align-items-center gap-2 mb-2"><span>Mola süresi (dk, 4 saati aşan çalışmadan düşülür)</span><input class="form-control form-control-sm" style="width:6rem" type="number" min="0" @bind="v.MolaDakika" />
+                        <a href="" class="small" @onclick:preventDefault @onclick='() => _sekme = "mola"'>Mola saatlerini tanımla →</a></div>
+                }
+                else
+                {
+                    <p class="mb-2">@v.Molalar.Count mola saati tanımlı (@MolaOzeti(v)).
+                        <a href="" @onclick:preventDefault @onclick='() => _sekme = "mola"'>Mola Saatleri sekmesi →</a></p>
+                }
+
+            }
+            else if (_sekme == "mola")
+            {
+                <div class="kirmizi-baslik px-0">MOLA SAATLERİ (@v.Ad, @v.Baslangic.ToString("HH:mm")-@v.Bitis.ToString("HH:mm"))</div>
+                <table class="table table-sm table-bordered table-hover align-middle mb-1" style="max-width:820px">
+                    <thead><tr><th>Mola adı</th><th>Başlama</th><th>Bitiş</th><th>Süre</th><th>Tipi</th><th>Denk geldiği</th><th></th></tr></thead>
                     <tbody>
                         @foreach (var m in v.Molalar)
                         {
-                            <tr>
-                                <td><input class="form-control form-control-sm" @bind="m.Ad" /></td>
-                                <td><input class="form-control form-control-sm" type="time" @bind="m.Baslangic" /></td>
-                                <td><input class="form-control form-control-sm" type="time" @bind="m.Bitis" /></td>
-                                <td><select class="form-select form-select-sm" @bind="m.Ucretli"><option value="false">Ücretsiz (düşülür)</option><option value="true">Ücretli</option></select></td>
-                                <td><button class="btn btn-sm btn-outline-danger" @onclick="() => v.Molalar.Remove(m)">Sil</button></td>
+                            var mola = m;
+                            <tr @oncontextmenu="e => _menu.Ac(e, MolaMenusu(mola))" @oncontextmenu:preventDefault="true">
+                                <td><input class="form-control form-control-sm" @bind="mola.Ad" /></td>
+                                <td><input class="form-control form-control-sm" type="time" @bind="mola.Baslangic" /></td>
+                                <td><input class="form-control form-control-sm" type="time" @bind="mola.Bitis" /></td>
+                                <td class="text-end">@S(mola.Dakika)</td>
+                                <td><select class="form-select form-select-sm" @bind="mola.Ucretli"><option value="false">Ücretsiz (düşülür)</option><option value="true">Ücretli (düşülmez)</option></select></td>
+                                <td class="small text-muted">@MolaYeri(v, mola)</td>
+                                <td><button class="btn btn-sm btn-outline-danger" @onclick="() => v.Molalar.Remove(mola)">Sil</button></td>
+                            </tr>
+                        }
+                        @if (v.Molalar.Count == 0)
+                        {
+                            <tr @oncontextmenu="e => _menu.Ac(e, MolaMenusu(null))" @oncontextmenu:preventDefault="true">
+                                <td colspan="7" class="text-muted">Mola saati tanımlı değil. Aşağıdan ekleyin ya da sağ tıklayın.</td>
                             </tr>
                         }
                     </tbody>
                 </table>
-                <button class="btn btn-sm btn-outline-secondary mb-2" @onclick="MolaEkle">Mola ekle</button>
-                @if (v.Molalar.Count == 0)
+                <div class="d-flex gap-2 flex-wrap mb-2">
+                    <button class="btn btn-sm btn-outline-success" @onclick="MolaEkle">Mola ekle</button>
+                    <button class="btn btn-sm btn-outline-secondary" @onclick='() => HazirMola("Öğle yemeği", 12, 0, 13, 0, false)'>+ Öğle 12:00-13:00</button>
+                    <button class="btn btn-sm btn-outline-secondary" @onclick='() => HazirMola("Akşam yemeği", 19, 0, 19, 30, false)'>+ Akşam 19:00-19:30</button>
+                    <button class="btn btn-sm btn-outline-secondary" @onclick='() => HazirMola("Gece yemeği", 0, 0, 0, 30, false)'>+ Gece 00:00-00:30</button>
+                    <button class="btn btn-sm btn-outline-secondary" @onclick='() => HazirMola("Çay molası", 10, 0, 10, 15, true)'>+ Çay 10:00-10:15 (ücretli)</button>
+                    <button class="btn btn-sm btn-outline-primary ms-auto" disabled="@(v.Molalar.Count == 0)" @onclick="() => _uygulaAcik = !_uygulaAcik">Bu molaları başka planlara uygula…</button>
+                </div>
+                @if (_uygulaAcik)
                 {
-                    <div class="d-flex align-items-center gap-2 mb-2"><span>Mola süresi (dk, 4 saati aşan çalışmadan düşülür)</span><input class="form-control form-control-sm" style="width:6rem" type="number" min="0" @bind="v.MolaDakika" /></div>
+                    <div class="border rounded p-2 mb-2 bg-light" style="max-width:820px">
+                        <div class="fw-semibold mb-1">Molaları uygula (seçilen planların molaları bunlarla değiştirilir)</div>
+                        @foreach (var d in _liste.Where(x => x.Id != v.Id))
+                        {
+                            var diger = d;
+                            <label class="form-check form-check-inline">
+                                <input class="form-check-input" type="checkbox" checked="@_uygulanacak.Contains(diger.Id)"
+                                       @onchange="e => { if (e.Value is true) _uygulanacak.Add(diger.Id); else _uygulanacak.Remove(diger.Id); }" />
+                                @diger.Ad
+                            </label>
+                        }
+                        <div class="mt-1 d-flex gap-2">
+                            <button class="btn btn-sm btn-link p-0" @onclick="() => { _uygulanacak = _liste.Where(x => x.Id != v.Id).Select(x => x.Id).ToHashSet(); }">tümünü seç</button>
+                            <button class="btn btn-sm btn-primary" disabled="@(_uygulanacak.Count == 0)" @onclick="MolalariUygulaAsync">Uygula (@_uygulanacak.Count plan)</button>
+                        </div>
+                    </div>
                 }
-                else
-                {
-                    <p class="text-muted">Ücretsiz molalar, personel o saatlerde içerideyse çalışmadan düşülür; fazla mesai saatlerine denk gelen molalar (ör. gece yemeği) fazla mesaiden düşülür. Ücretli molalar düşülmez.</p>
-                }
+                <p class="text-muted mb-0">
+                    Ücretsiz molalar, personel o saatte içerideyse çalışmadan düşülür. Normal mesai içindeki mola normal çalışmadan,
+                    fazla mesai saatlerine denk gelen mola (ör. gece yemeği) fazla mesaiden düşülür. Molanın ortasında çıkan personelde
+                    yalnız içeride geçen kısmı düşülür. Ücretli molalar düşülmez. Mola tanımlı değilse "Hesap Prm" sekmesindeki mola süresi düşülür.
+                    Değişiklikleri <b>Kaydet</b> ile kaydedin.
+                </p>
             }
             else
             {
@@ -147,6 +196,10 @@
     private List<Vardiya> _liste = new();
     private Vardiya? _secili;
     private string _sekme = "hesap";
+    private bool _uygulaAcik;
+    private HashSet<int> _uygulanacak = new();
+
+    [SupplyParameterFromQuery(Name = "sekme")] public string? SekmeParametresi { get; set; }
     private string? _hata, _bilgi;
 
     private static string S(int dk) => PuantajMotoru.SaatDakika(dk);
@@ -157,7 +210,11 @@
         set { if (_secili is not null) _secili.DevamsizlikCezaDakika = value > 0 ? value : null; }
     }
 
-    protected override Task OnInitializedAsync() => YukleAsync();
+    protected override Task OnInitializedAsync()
+    {
+        if (SekmeParametresi is "hesap" or "mola" or "diger") _sekme = SekmeParametresi;
+        return YukleAsync();
+    }
 
     private async Task YukleAsync(int? secilecek = null)
     {
@@ -194,12 +251,59 @@
         new("Yeni plan", YeniAsync),
         new("Seçili planı kopyala", KopyalaAsync),
         SagTikMenu.Oge.Eylemli("Hesap parametreleri", () => _sekme = "hesap"),
+        SagTikMenu.Oge.Eylemli("Mola saatleri", () => _sekme = "mola"),
         SagTikMenu.Oge.Eylemli("Diğer parametreler", () => _sekme = "diger"),
         SagTikMenu.Oge.Cizgi(),
         new("Yenile", () => YukleAsync()),
     };
 
-    private void MolaEkle() => _secili?.Molalar.Add(new VardiyaMola { Ad = "Öğle yemeği", Baslangic = new TimeOnly(12, 0), Bitis = new TimeOnly(13, 0) });
+    private void MolaEkle() => _secili?.Molalar.Add(new VardiyaMola { Ad = "Mola", Baslangic = new TimeOnly(12, 0), Bitis = new TimeOnly(13, 0) });
+
+    private static string MolaOzeti(Vardiya v) =>
+        string.Join(", ", v.Molalar.Select(m => m.Ad + " " + m.Baslangic.ToString("HH:mm") + "-" + m.Bitis.ToString("HH:mm") + (m.Ucretli ? " (ücretli)" : "")));
+
+    private void HazirMola(string ad, int s1, int d1, int s2, int d2, bool ucretli) =>
+        _secili?.Molalar.Add(new VardiyaMola { Ad = ad, Baslangic = new TimeOnly(s1, d1), Bitis = new TimeOnly(s2, d2), Ucretli = ucretli });
+
+    /// <summary>Molanın vardiyanın normal saatine mi, fazla mesaiye mi denk geldiği.</summary>
+    private static string MolaYeri(Vardiya v, VardiyaMola m)
+    {
+        if (m.Baslangic == m.Bitis) return "";
+        var k = v.Kural() with { Molalar = new[] { (m.Baslangic, m.Bitis) } };
+        var icinde = k.MolaOrtusmesi(k.BaslangicZamani(Ornek), k.BitisZamani(Ornek));
+        return icinde >= m.Dakika ? "normal mesai" : icinde == 0 ? "fazla mesai / vardiya dışı" : "kısmen normal mesai";
+    }
+
+    private List<SagTikMenu.Oge> MolaMenusu(VardiyaMola? m) => new()
+    {
+        SagTikMenu.Oge.Eylemli("Mola ekle", MolaEkle),
+        SagTikMenu.Oge.Eylemli("Molayı sil", () => { if (m is not null) _secili?.Molalar.Remove(m); }, pasif: m is null),
+        SagTikMenu.Oge.Eylemli(m?.Ucretli == true ? "Ücretsiz yap (düşülsün)" : "Ücretli yap (düşülmesin)", () => { if (m is not null) m.Ucretli = !m.Ucretli; }, pasif: m is null),
+        SagTikMenu.Oge.Cizgi(),
+        SagTikMenu.Oge.Eylemli("Başka planlara uygula…", () => _uygulaAcik = true, pasif: _secili is null || _secili.Molalar.Count == 0),
+        new("Kaydet", KaydetAsync),
+    };
+
+    private async Task MolalariUygulaAsync()
+    {
+        if (_secili is null || _uygulanacak.Count == 0) return;
+        if (_secili.Molalar.Any(m => string.IsNullOrWhiteSpace(m.Ad) || m.Baslangic == m.Bitis)) { _hata = "Her molanın adı olmalı; başlama ve bitiş farklı olmalı."; return; }
+        await using var db = await FirmaDb.AcAsync();
+        var hedefler = await db.Vardiyalar.Include(x => x.Molalar).Where(x => _uygulanacak.Contains(x.Id)).ToListAsync();
+        foreach (var h in hedefler)
+        {
+            db.VardiyaMolalari.RemoveRange(h.Molalar);
+            h.Molalar = _secili.Molalar.Select(m => new VardiyaMola { Ad = m.Ad.Trim(), Baslangic = m.Baslangic, Bitis = m.Bitis, Ucretli = m.Ucretli }).ToList();
+            var k = h.Kural();
+            h.MolaDakika = k.MolaOrtusmesi(k.BaslangicZamani(Ornek), k.BitisZamani(Ornek));
+        }
+        await db.SaveChangesAsync();
+        var id = _secili.Id;
+        _uygulaAcik = false;
+        _uygulanacak.Clear();
+        await YukleAsync(id);
+        _bilgi = $"Molalar {hedefler.Count} plana uygulandı: {string.Join(", ", hedefler.Select(x => x.Ad))}.";
+    }
 
     private async Task YeniAsync()
     {
