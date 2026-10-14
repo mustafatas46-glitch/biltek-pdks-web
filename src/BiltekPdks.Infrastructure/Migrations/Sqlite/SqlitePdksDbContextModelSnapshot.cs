@@ -1280,6 +1280,20 @@ namespace BiltekPdks.Infrastructure.Migrations.Sqlite
                     b.Property<TimeOnly>("Bitis")
                         .HasColumnType("TEXT");
 
+                    b.Property<bool>("CokluGiriseEksikYazma")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("DevamsizlikCezaDakika")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<decimal>("EksikCezaKatsayisi")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal>("ErkenCezaKatsayisi")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("TEXT");
+
                     b.Property<int>("ErkenCikmaToleransDakika")
                         .HasColumnType("INTEGER");
 
@@ -1292,6 +1306,10 @@ namespace BiltekPdks.Infrastructure.Migrations.Sqlite
                     b.Property<int>("FirmaId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<decimal>("GecCezaKatsayisi")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("TEXT");
+
                     b.Property<int>("GecKalmaToleransDakika")
                         .HasColumnType("INTEGER");
 
@@ -1302,7 +1320,13 @@ namespace BiltekPdks.Infrastructure.Migrations.Sqlite
                         .HasMaxLength(20)
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("MaxToleransDakika")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int>("MolaDakika")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("NormalTamamlaSonraFazlaMesai")
                         .HasColumnType("INTEGER");
 
                     b.Property<DateTime>("OlusturmaTarihi")
@@ -1315,6 +1339,47 @@ namespace BiltekPdks.Infrastructure.Migrations.Sqlite
                     b.HasIndex("FirmaId", "Ad");
 
                     b.ToTable("vardiya", (string)null);
+                });
+
+            modelBuilder.Entity("BiltekPdks.Domain.Entities.VardiyaMola", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Ad")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("TEXT");
+
+                    b.Property<TimeOnly>("Baslangic")
+                        .HasColumnType("TEXT");
+
+                    b.Property<TimeOnly>("Bitis")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("FirmaId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("GuncellemeTarihi")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("OlusturmaTarihi")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Ucretli")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("VardiyaId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FirmaId");
+
+                    b.HasIndex("VardiyaId");
+
+                    b.ToTable("vardiya_mola", (string)null);
                 });
 
             modelBuilder.Entity("BiltekPdks.Domain.Entities.Birim", b =>
@@ -1644,6 +1709,26 @@ namespace BiltekPdks.Infrastructure.Migrations.Sqlite
                         .HasForeignKey("FirmaId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("BiltekPdks.Domain.Entities.VardiyaMola", b =>
+                {
+                    b.HasOne("BiltekPdks.Domain.Entities.Firma", null)
+                        .WithMany()
+                        .HasForeignKey("FirmaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("BiltekPdks.Domain.Entities.Vardiya", null)
+                        .WithMany("Molalar")
+                        .HasForeignKey("VardiyaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("BiltekPdks.Domain.Entities.Vardiya", b =>
+                {
+                    b.Navigation("Molalar");
                 });
 #pragma warning restore 612, 618
         }

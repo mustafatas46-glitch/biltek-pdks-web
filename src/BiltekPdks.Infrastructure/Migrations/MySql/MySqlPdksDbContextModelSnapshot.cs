@@ -1329,6 +1329,20 @@ namespace BiltekPdks.Infrastructure.Migrations.MySql
                     b.Property<TimeOnly>("Bitis")
                         .HasColumnType("time(6)");
 
+                    b.Property<bool>("CokluGiriseEksikYazma")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int?>("DevamsizlikCezaDakika")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("EksikCezaKatsayisi")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<decimal>("ErkenCezaKatsayisi")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
                     b.Property<int>("ErkenCikmaToleransDakika")
                         .HasColumnType("int");
 
@@ -1341,6 +1355,10 @@ namespace BiltekPdks.Infrastructure.Migrations.MySql
                     b.Property<int>("FirmaId")
                         .HasColumnType("int");
 
+                    b.Property<decimal>("GecCezaKatsayisi")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
                     b.Property<int>("GecKalmaToleransDakika")
                         .HasColumnType("int");
 
@@ -1351,8 +1369,14 @@ namespace BiltekPdks.Infrastructure.Migrations.MySql
                         .HasMaxLength(20)
                         .HasColumnType("varchar(20)");
 
+                    b.Property<int>("MaxToleransDakika")
+                        .HasColumnType("int");
+
                     b.Property<int>("MolaDakika")
                         .HasColumnType("int");
+
+                    b.Property<bool>("NormalTamamlaSonraFazlaMesai")
+                        .HasColumnType("tinyint(1)");
 
                     b.Property<DateTime>("OlusturmaTarihi")
                         .HasColumnType("datetime(6)");
@@ -1364,6 +1388,49 @@ namespace BiltekPdks.Infrastructure.Migrations.MySql
                     b.HasIndex("FirmaId", "Ad");
 
                     b.ToTable("vardiya", (string)null);
+                });
+
+            modelBuilder.Entity("BiltekPdks.Domain.Entities.VardiyaMola", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Ad")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("varchar(60)");
+
+                    b.Property<TimeOnly>("Baslangic")
+                        .HasColumnType("time(6)");
+
+                    b.Property<TimeOnly>("Bitis")
+                        .HasColumnType("time(6)");
+
+                    b.Property<int>("FirmaId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("GuncellemeTarihi")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("OlusturmaTarihi")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<bool>("Ucretli")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int>("VardiyaId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FirmaId");
+
+                    b.HasIndex("VardiyaId");
+
+                    b.ToTable("vardiya_mola", (string)null);
                 });
 
             modelBuilder.Entity("BiltekPdks.Domain.Entities.Birim", b =>
@@ -1693,6 +1760,26 @@ namespace BiltekPdks.Infrastructure.Migrations.MySql
                         .HasForeignKey("FirmaId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("BiltekPdks.Domain.Entities.VardiyaMola", b =>
+                {
+                    b.HasOne("BiltekPdks.Domain.Entities.Firma", null)
+                        .WithMany()
+                        .HasForeignKey("FirmaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("BiltekPdks.Domain.Entities.Vardiya", null)
+                        .WithMany("Molalar")
+                        .HasForeignKey("VardiyaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("BiltekPdks.Domain.Entities.Vardiya", b =>
+                {
+                    b.Navigation("Molalar");
                 });
 #pragma warning restore 612, 618
         }
