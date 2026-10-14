@@ -26,8 +26,33 @@ public sealed record EskiGirisCikis(
     DateTime? GirisTarihi, TimeSpan? GirisSaati, string? ElleGiris, string? GirisTerminal,
     DateTime? CikisTarihi, TimeSpan? CikisSaati, string? ElleCikis, string? CikisTerminal);
 
+/// <summary>pts_puantajparametre: günlük çalışma saati tanımı (yeni sistemde Vardiya).</summary>
+public sealed record EskiPuantajTanimi(int Id, string? Ad, string? GunlukSaat);
+
+/// <summary>pts_calismaparametre satırı: çalışma türüne (normal, fazla mesai…) göre saat aralığı.</summary>
+public sealed record EskiCalismaParametre(int Id, int PuantajId, string? BordroAd, string? Igs, string? Dcs);
+
+/// <summary>pts_molaparametre satırı.</summary>
+public sealed record EskiMola(int PuantajId, string? Ad, string? Baslama, string? Bitis, string? Tip);
+
+/// <summary>pts_altgrup: vardiyalı grubun alt grubu.</summary>
+public sealed record EskiAltGrup(int Id, int GrupId, string? Ad, string? GunlukSaat);
+
+/// <summary>pts_gunparametre: alt grubun (alt grup yoksa grubun) haftalık planı; G1 = pazartesi … G7 = pazar.</summary>
+public sealed record EskiGunParametre(int? GrupId, int AltGrupId, int?[] Gunler);
+
+/// <summary>pts_donemparametre satırı.</summary>
+public sealed record EskiDonem(int GrupId, int? AltGrupId, DateTime? Baslangic, DateTime? Bitis, TimeSpan? GirisSaati, TimeSpan? CikisSaati,
+    int? EksikGun, string? EksikSaat, int? FazlaGun, string? FazlaSaat, int? GunFarki);
+
 public sealed class EskiVeri
 {
+    public List<EskiPuantajTanimi> PuantajTanimlari { get; } = new();
+    public List<EskiCalismaParametre> CalismaParametreleri { get; } = new();
+    public List<EskiMola> Molalar { get; } = new();
+    public List<EskiAltGrup> AltGruplar { get; } = new();
+    public List<EskiGunParametre> GunParametreleri { get; } = new();
+    public List<EskiDonem> Donemler { get; } = new();
     public List<EskiTanim> Subeler { get; } = new();
     public List<EskiTanim> Bolumler { get; } = new();
     public List<EskiTanim> Gorevler { get; } = new();

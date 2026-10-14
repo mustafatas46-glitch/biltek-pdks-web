@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using BiltekPdks.Domain.Entities;
 using BiltekPdks.Infrastructure.Aktarim;
 using BiltekPdks.Infrastructure.Security;
@@ -113,6 +114,85 @@ public class AktarimTestleri
         Assert.Equal(2, oku.Personeller.Count());
         Assert.Equal(4, oku.Hareketler.Count());
     }
+
+    [Fact]
+    public async Task Gunluk_calisma_saatleri_alt_gruplar_planlar_ve_donemler_aktarilir()
+    {
+        var v = new EskiVeri();
+        v.Gruplar.Add(new(5, "Vardiyalı", "07:30", "225:00"));
+        v.PuantajTanimlari.Add(new(1, "Sabah", "07:30"));
+        v.PuantajTanimlari.Add(new(2, "Akşam", "07:30"));
+        v.PuantajTanimlari.Add(new(4, "Bozuk", null));
+        v.CalismaParametreleri.Add(new(1, 1, "Normal Çalışma", "08:00", "16:00"));
+        v.CalismaParametreleri.Add(new(2, 1, "Fazla Mesai %50", "16:00", "20:00"));
+        v.CalismaParametreleri.Add(new(3, 2, "Normal", "16:00", "24:00"));
+        v.Molalar.Add(new(1, "Yemek", "12:00", "12:30", "ucretsiz"));
+        v.AltGruplar.Add(new(10, 5, "08-16", "07:30"));
+        v.AltGruplar.Add(new(11, 5, "16-24", null));
+        v.AltGruplar.Add(new(12, 99, "Yetim", null));
+        v.GunParametreleri.Add(new(5, 10, new int?[] { 1, 1, 1, 1, 1, null, null }));
+        v.GunParametreleri.Add(new(5, 11, new int?[] { 2, 2, 2, 2, 2, 2, 4 }));    // 4: aktarılamayan plan
+        v.GunParametreleri.Add(new(5, 0, new int?[] { 1, 1, 1, 1, 1, 1, null }));    // grubun kendi planı
+        v.Donemler.Add(new(5, null, new DateTime(2026, 9, 26), new DateTime(2026, 10, 25), new TimeSpan(8, 0, 0), new TimeSpan(16, 0, 0), 0, "0:00", 0, "0:00", 30));
+        v.Donemler.Add(new(5, 10, new DateTime(2026, 2, 1), new DateTime(2026, 2, 28), null, null, null, null, null, null, null));
+
+        var (tv, firmaId) = await HedefAsync();
+        using var _ = tv;
+        using (var db = tv.Db(firmaId))
+        {
+            var r = await EskiSistemAktarimi.AktarAsync(db, firmaId, v);
+            Assert.Equal(2, r.Eklenen["Günlük çalışma saati"]);
+            Assert.Equal(2, r.Eklenen["Alt grup"]);
+            Assert.Equal(2, r.Eklenen["Dönem"]);
+            Assert.Equal(1, r.Eklenen["Grup çalışma planı"]);
+            Assert.Equal(1, r.Atlanan["Günlük çalışma saati: giriş/çıkış saati okunamadı"]);
+            Assert.Equal(1, r.Atlanan["Alt grup: grubu aktarılmamış"]);
+            Assert.Contains(r.Uyarilar, u => u.Contains("varsayılan plana bağlandı"));
+        }
+
+        using (var oku = tv.Db(firmaId))
+        {
+            var sabah = oku.Vardiyalar.Include(x => x.Molalar).Single(x => x.EskiId == 1);
+            Assert.Equal((new TimeOnly(8, 0), new TimeOnly(16, 0), 30), (sabah.Baslangic, sabah.Bitis, sabah.MolaDakika));
+            Assert.Single(sabah.Molalar);
+            var aksam = oku.Vardiyalar.Single(x => x.EskiId == 2);
+            Assert.Equal((new TimeOnly(16, 0), new TimeOnly(0, 0), 30), (aksam.Baslangic, aksam.Bitis, aksam.MolaDakika)); // 8 saat − 7:30
+
+            var grup = oku.CalismaGruplari.Single(g => g.EskiId == 5);
+            Assert.Equal(sabah.Id, oku.CalismaGrubuGunleri.Single(x => x.CalismaGrubuId == grup.Id && x.Gun == DayOfWeek.Saturday).VardiyaId);
+
+            var a816 = oku.AltGruplar.Single(a => a.EskiId == 10);
+            var a1624 = oku.AltGruplar.Single(a => a.EskiId == 11);
+            Assert.Equal(grup.Id, a816.CalismaGrubuId);
+            Assert.Equal(450, a1624.GunlukCalismaDakika);
+            Assert.Equal(sabah.Id, oku.AltGrupGunleri.Single(x => x.AltGrupId == a816.Id && x.Gun == DayOfWeek.Monday).VardiyaId);
+            Assert.Null(oku.AltGrupGunleri.Single(x => x.AltGrupId == a816.Id && x.Gun == DayOfWeek.Saturday).VardiyaId);
+            Assert.Equal(aksam.Id, oku.AltGrupGunleri.Single(x => x.AltGrupId == a1624.Id && x.Gun == DayOfWeek.Saturday).VardiyaId);
+            Assert.NotNull(oku.AltGrupGunleri.Single(x => x.AltGrupId == a1624.Id && x.Gun == DayOfWeek.Sunday).VardiyaId); // varsayılana bağlandı
+
+            var subat = oku.DonemTanimlari.Single(d => d.AltGrupId == a816.Id);
+            Assert.Equal((28, 2, 900), (subat.GunFarki, subat.EksikGun, subat.EksikDakika));
+            Assert.Equal(new TimeOnly(8, 0), oku.DonemTanimlari.Single(d => d.AltGrupId == null).GirisSaati);
+        }
+
+        // İkinci çalıştırma hiçbir şeyi çoğaltmaz.
+        using (var db = tv.Db(firmaId))
+        {
+            var r2 = await EskiSistemAktarimi.AktarAsync(db, firmaId, v);
+            Assert.False(r2.Eklenen.ContainsKey("Alt grup"));
+            Assert.False(r2.Eklenen.ContainsKey("Dönem"));
+            Assert.False(r2.Eklenen.ContainsKey("Günlük çalışma saati"));
+            Assert.False(r2.Eklenen.ContainsKey("Grup çalışma planı"));
+            Assert.False(r2.Atlanan.ContainsKey("Grup çalışma planı: yeni sistemde değiştirilmiş, dokunulmadı"));
+        }
+    }
+
+    [Theory]
+    [InlineData("08:00", 8, 0)]
+    [InlineData("8:30", 8, 30)]
+    [InlineData("24:00", 0, 0)]
+    public void Eski_saat_metni_cozulur(string metin, int saat, int dakika) =>
+        Assert.Equal(new TimeOnly(saat, dakika), EskiSistemAktarimi.EskiSaat(metin));
 
     [Theory]
     [InlineData("07:30", 450)]

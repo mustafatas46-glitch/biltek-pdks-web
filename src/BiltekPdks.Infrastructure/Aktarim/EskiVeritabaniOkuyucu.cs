@@ -32,6 +32,26 @@ public static class EskiVeritabaniOkuyucu
         await OkuAsync(c, "SELECT id, ad, gunluksaat, donemliksaat FROM grup",
             r => veri.Gruplar.Add(new(I(r, 0), S(r, 1), S(r, 2), S(r, 3))), ct);
 
+        // Günlük çalışma saatleri, alt gruplar, haftalık planlar ve dönemler (eski kurulumlarda tablo olmayabilir).
+        if (await TabloVarAsync(c, "pts_puantajparametre", ct))
+            await OkuAsync(c, "SELECT id, ad, saat FROM pts_puantajparametre",
+                r => veri.PuantajTanimlari.Add(new(I(r, 0), S(r, 1), S(r, 2))), ct);
+        if (await TabloVarAsync(c, "pts_calismaparametre", ct))
+            await OkuAsync(c, "SELECT id, puantajid, bordroad, igs, dcs FROM pts_calismaparametre ORDER BY id",
+                r => veri.CalismaParametreleri.Add(new(I(r, 0), I(r, 1), S(r, 2), S(r, 3), S(r, 4))), ct);
+        if (await TabloVarAsync(c, "pts_molaparametre", ct))
+            await OkuAsync(c, "SELECT puantajid, ad, baslamasaati, bitissaati, tip FROM pts_molaparametre ORDER BY id",
+                r => veri.Molalar.Add(new(I(r, 0), S(r, 1), S(r, 2), S(r, 3), S(r, 4))), ct);
+        if (await TabloVarAsync(c, "pts_altgrup", ct))
+            await OkuAsync(c, "SELECT id, grupid, ad, gunluksaat FROM pts_altgrup ORDER BY id",
+                r => veri.AltGruplar.Add(new(I(r, 0), I(r, 1), S(r, 2), S(r, 3))), ct);
+        if (await TabloVarAsync(c, "pts_gunparametre", ct))
+            await OkuAsync(c, "SELECT grupid, altgrupid, g1, g2, g3, g4, g5, g6, g7 FROM pts_gunparametre ORDER BY id",
+                r => veri.GunParametreleri.Add(new(NI(r, 0), I(r, 1), new[] { NI(r, 2), NI(r, 3), NI(r, 4), NI(r, 5), NI(r, 6), NI(r, 7), NI(r, 8) })), ct);
+        if (await TabloVarAsync(c, "pts_donemparametre", ct))
+            await OkuAsync(c, "SELECT grupid, altgrupid, bastarih, bittarih, girissaati, cikissaati, eksikgun, eksiksaat, fazlagun, fazlasaat, gunfarki FROM pts_donemparametre ORDER BY id",
+                r => veri.Donemler.Add(new(I(r, 0), NI(r, 1), D(r, 2), D(r, 3), T(r, 4), T(r, 5), NI(r, 6), S(r, 7), NI(r, 8), S(r, 9), NI(r, 10))), ct);
+
         var personelSql = "SELECT id, kartno, ad, soyad, sicilno, firmaid, grupid, bolumid, gorevid, subeid, " +
                           "isegiristarihi, istencikistarihi, istenayrilmanedeni, kimlikno, dogumtarihi, cinsiyet, ceptel, email, adres FROM personel";
         if (eskiFirmaId is not null) personelSql += " WHERE firmaid = @firma";
@@ -57,6 +77,14 @@ public static class EskiVeritabaniOkuyucu
             ("@bas", hareketBaslangic?.Date));
 
         return veri;
+    }
+
+    private static async Task<bool> TabloVarAsync(MySqlConnection c, string tablo, CancellationToken ct)
+    {
+        await using var cmd = new MySqlCommand(
+            "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = @t", c);
+        cmd.Parameters.AddWithValue("@t", tablo);
+        return Convert.ToInt64(await cmd.ExecuteScalarAsync(ct)) > 0;
     }
 
     private static async Task OkuAsync(MySqlConnection c, string sql, Action<MySqlDataReader> satir, CancellationToken ct,

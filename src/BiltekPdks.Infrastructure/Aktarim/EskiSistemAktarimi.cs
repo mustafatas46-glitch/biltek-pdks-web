@@ -52,7 +52,11 @@ public static class EskiSistemAktarimi
         var subeler = await TanimlariAktarAsync(db, db.Subeler, eski.Subeler, () => new Sube(), "Şube", rapor, ct);
         var bolumler = await TanimlariAktarAsync(db, db.Bolumler, eski.Bolumler, () => new Bolum(), "Bölüm", rapor, ct);
         var gorevler = await TanimlariAktarAsync(db, db.Gorevler, eski.Gorevler, () => new Gorev(), "Görev", rapor, ct);
+        var vardiyalar = await VardiyalariAktarAsync(db, eski, rapor, ct);
         var gruplar = await GruplariAktarAsync(db, eski.Gruplar, rapor, ct);
+        await GrupPlanlariniAktarAsync(db, eski, gruplar, vardiyalar, rapor, ct);
+        var altGruplar = await AltGruplariAktarAsync(db, eski, gruplar, vardiyalar, rapor, ct);
+        await DonemleriAktarAsync(db, eski.Donemler, gruplar, altGruplar, rapor, ct);
         var izinTurleri = await IzinTurleriniAktarAsync(db, eski.IzinTurleri, rapor, ct);
         var personeller = await PersonelleriAktarAsync(db, eski.Personeller, subeler, bolumler, gorevler, gruplar, rapor, ct);
         await TatilleriAktarAsync(db, eski.Tatiller, rapor, ct);
@@ -303,6 +307,201 @@ public static class EskiSistemAktarimi
             }
         }
         await db.SaveChangesAsync(ct);
+    }
+
+    // ---- Günlük çalışma saatleri (vardiya), alt gruplar, haftalık planlar, dönemler ----
+
+    private static async Task<Dictionary<int, int>> VardiyalariAktarAsync(PdksDbContext db, EskiVeri eski, AktarimRaporu rapor, CancellationToken ct)
+    {
+        var mevcut = await db.Vardiyalar.Where(x => x.EskiId != null).ToDictionaryAsync(x => x.EskiId!.Value, ct);
+        foreach (var e in eski.PuantajTanimlari)
+        {
+            if (mevcut.ContainsKey(e.Id)) continue;
+            var ad = string.IsNullOrWhiteSpace(e.Ad) ? $"Günlük plan {e.Id}" : e.Ad;
+            var satirlar = eski.CalismaParametreleri.Where(x => x.PuantajId == e.Id).ToList();
+            // Normal çalışma satırının giriş-çıkış saati vardiyanın saatidir; yoksa ilk satır alınır.
+            var normal = satirlar.FirstOrDefault(x => DegerCozucu.Anahtar(x.BordroAd).Contains("NORMAL")) ?? satirlar.FirstOrDefault();
+            var bas = EskiSaat(normal?.Igs);
+            var bit = EskiSaat(normal?.Dcs);
+            if (bas is null || bit is null)
+            {
+                rapor.Atla("Günlük çalışma saati: giriş/çıkış saati okunamadı");
+                rapor.Uyarilar.Add($"Günlük çalışma saati \"{ad}\" (eski id {e.Id}) aktarılmadı: giriş/çıkış saati yok. Bu planı kullanan günler varsayılan plana bağlandı.");
+                continue;
+            }
+
+            var molalar = new List<VardiyaMola>();
+            foreach (var m in eski.Molalar.Where(x => x.PuantajId == e.Id))
+            {
+                if (EskiSaat(m.Baslama) is not { } mb || EskiSaat(m.Bitis) is not { } mbit || mb == mbit) continue;
+                var tip = DegerCozucu.Anahtar(m.Tip);
+                molalar.Add(new VardiyaMola
+                {
+                    Ad = Kisalt(string.IsNullOrWhiteSpace(m.Ad) ? "Mola" : m.Ad, 60)!,
+                    Baslangic = mb, Bitis = mbit,
+                    Ucretli = tip.Contains("UCRETLI") && !tip.Contains("UCRETSIZ"),
+                });
+            }
+
+            var sure = (int)(bit.Value - bas.Value).TotalMinutes; // TimeOnly farkı gece yarısını kendisi aşar
+            var gunluk = SureDakika(e.GunlukSaat);
+            // Mola tanımı yoksa mola, vardiya süresi ile günlük çalışma süresinin farkıdır.
+            var mola = molalar.Count > 0 ? molalar.Where(x => !x.Ucretli).Sum(x => x.Dakika)
+                : gunluk is int g && g > 0 && g < sure ? sure - g : 0;
+
+            var v = new Vardiya { EskiId = e.Id, Ad = Kisalt(ad, 120)!, Baslangic = bas.Value, Bitis = bit.Value, MolaDakika = mola, Molalar = molalar };
+            db.Vardiyalar.Add(v);
+            mevcut[e.Id] = v;
+            rapor.Ekle("Günlük çalışma saati");
+        }
+        await db.SaveChangesAsync(ct);
+        return mevcut.ToDictionary(x => x.Key, x => x.Value.Id);
+    }
+
+    /// <summary>Eski g1…g7 (pazartesi…pazar) planını yeni plana çevirir. Bilinmeyen plan numarası varsayılan vardiyaya bağlanır.</summary>
+    private static Dictionary<DayOfWeek, int?> HaftalikPlan(int?[] gunler, Dictionary<int, int> vardiyalar, int? varsayilan, ref int bilinmeyen)
+    {
+        var plan = new Dictionary<DayOfWeek, int?>();
+        for (var i = 0; i < 7; i++)
+        {
+            var gun = i == 6 ? DayOfWeek.Sunday : (DayOfWeek)(i + 1);
+            int? vid = null;
+            if (i < gunler.Length && gunler[i] is int eskiId && eskiId > 0)
+            {
+                if (vardiyalar.TryGetValue(eskiId, out var yeni)) vid = yeni;
+                else { vid = varsayilan; bilinmeyen++; }
+            }
+            plan[gun] = vid;
+        }
+        return plan;
+    }
+
+    private static async Task GrupPlanlariniAktarAsync(PdksDbContext db, EskiVeri eski, Dictionary<int, int> gruplar,
+        Dictionary<int, int> vardiyalar, AktarimRaporu rapor, CancellationToken ct)
+    {
+        var altIdler = eski.AltGruplar.Select(a => a.Id).ToHashSet();
+        var planlar = eski.GunParametreleri
+            .Where(g => !altIdler.Contains(g.AltGrupId) && g.GrupId is int gid && gruplar.ContainsKey(gid))
+            .GroupBy(g => g.GrupId!.Value).Select(g => g.Last()).ToList();
+        if (planlar.Count == 0) return;
+
+        var varsayilan = await db.Vardiyalar.Where(v => v.Aktif && v.EskiId == null).OrderBy(v => v.Id).Select(v => (int?)v.Id).FirstOrDefaultAsync(ct);
+        var bilinmeyen = 0;
+        foreach (var e in planlar)
+        {
+            var grupId = gruplar[e.GrupId!.Value];
+            var plan = HaftalikPlan(e.Gunler, vardiyalar, varsayilan, ref bilinmeyen);
+            if (plan.Values.All(v => v is null)) continue;
+
+            var mevcut = await db.CalismaGrubuGunleri.Where(x => x.CalismaGrubuId == grupId).ToListAsync(ct);
+            if (mevcut.Count == 7 && mevcut.All(x => plan[x.Gun] == x.VardiyaId)) continue; // zaten aktarılmış
+            // Elle değiştirilmiş planlara dokunulmaz; yalnızca boş ya da aktarımın verdiği varsayılan plan değiştirilir.
+            var varsayilanPlan = mevcut.Count == 0 || mevcut.All(x =>
+                x.Gun is DayOfWeek.Saturday or DayOfWeek.Sunday ? x.VardiyaId is null : x.VardiyaId == varsayilan);
+            if (!varsayilanPlan)
+            {
+                rapor.Atla("Grup çalışma planı: yeni sistemde değiştirilmiş, dokunulmadı");
+                continue;
+            }
+            foreach (var (gun, vid) in plan)
+            {
+                var k = mevcut.FirstOrDefault(x => x.Gun == gun);
+                if (k is null) { k = new CalismaGrubuGunu { CalismaGrubuId = grupId, Gun = gun }; db.CalismaGrubuGunleri.Add(k); }
+                k.VardiyaId = vid;
+            }
+            rapor.Ekle("Grup çalışma planı");
+        }
+        await db.SaveChangesAsync(ct);
+        if (bilinmeyen > 0)
+            rapor.Uyarilar.Add($"Haftalık planlarda {bilinmeyen} gün, aktarılamayan bir günlük çalışma saatine bağlıydı; varsayılan plana bağlandı.");
+    }
+
+    private static async Task<Dictionary<int, int>> AltGruplariAktarAsync(PdksDbContext db, EskiVeri eski, Dictionary<int, int> gruplar,
+        Dictionary<int, int> vardiyalar, AktarimRaporu rapor, CancellationToken ct)
+    {
+        var mevcut = await db.AltGruplar.Where(x => x.EskiId != null).ToDictionaryAsync(x => x.EskiId!.Value, ct);
+        var grupSureleri = await db.CalismaGruplari.ToDictionaryAsync(g => g.Id, g => g.GunlukCalismaDakika, ct);
+        var yeniler = new List<(EskiAltGrup Eski, AltGrup Yeni)>();
+        foreach (var e in eski.AltGruplar)
+        {
+            if (mevcut.ContainsKey(e.Id)) continue;
+            if (!gruplar.TryGetValue(e.GrupId, out var grupId)) { rapor.Atla("Alt grup: grubu aktarılmamış"); continue; }
+            if (string.IsNullOrWhiteSpace(e.Ad)) { rapor.Atla("Alt grup: adı boş"); continue; }
+            var a = new AltGrup
+            {
+                EskiId = e.Id, CalismaGrubuId = grupId, Ad = Kisalt(e.Ad, 120)!,
+                GunlukCalismaDakika = SureDakika(e.GunlukSaat) ?? grupSureleri.GetValueOrDefault(grupId, 450),
+            };
+            db.AltGruplar.Add(a);
+            mevcut[e.Id] = a;
+            yeniler.Add((e, a));
+            rapor.Ekle("Alt grup");
+        }
+        await db.SaveChangesAsync(ct);
+
+        var varsayilan = await db.Vardiyalar.Where(v => v.Aktif && v.EskiId == null).OrderBy(v => v.Id).Select(v => (int?)v.Id).FirstOrDefaultAsync(ct);
+        var bilinmeyen = 0;
+        foreach (var (e, a) in yeniler)
+        {
+            var gp = eski.GunParametreleri.LastOrDefault(x => x.AltGrupId == e.Id);
+            if (gp is null) { rapor.Uyarilar.Add($"Alt grup \"{a.Ad}\" için eski programda haftalık plan yok; Grup Tanımlama ekranından girin."); continue; }
+            foreach (var (gun, vid) in HaftalikPlan(gp.Gunler, vardiyalar, varsayilan, ref bilinmeyen))
+                db.AltGrupGunleri.Add(new AltGrupGunu { AltGrupId = a.Id, Gun = gun, VardiyaId = vid });
+        }
+        await db.SaveChangesAsync(ct);
+        if (bilinmeyen > 0)
+            rapor.Uyarilar.Add($"Alt grup planlarında {bilinmeyen} gün, aktarılamayan bir günlük çalışma saatine bağlıydı; varsayılan plana bağlandı.");
+        return mevcut.ToDictionary(x => x.Key, x => x.Value.Id);
+    }
+
+    private static async Task DonemleriAktarAsync(PdksDbContext db, List<EskiDonem> eski, Dictionary<int, int> gruplar,
+        Dictionary<int, int> altGruplar, AktarimRaporu rapor, CancellationToken ct)
+    {
+        if (eski.Count == 0) return;
+        var mevcut = (await db.DonemTanimlari.Select(d => new { d.CalismaGrubuId, d.AltGrupId, d.Baslangic }).ToListAsync(ct))
+            .Select(d => (d.CalismaGrubuId, d.AltGrupId, d.Baslangic)).ToHashSet();
+        var grupSureleri = await db.CalismaGruplari.ToDictionaryAsync(g => g.Id, g => g.GunlukCalismaDakika, ct);
+
+        foreach (var e in eski)
+        {
+            if (!gruplar.TryGetValue(e.GrupId, out var grupId)) { rapor.Atla("Dönem: grubu aktarılmamış"); continue; }
+            int? altId = null;
+            if (e.AltGrupId is int ea && ea > 0)
+            {
+                if (!altGruplar.TryGetValue(ea, out var yeniAlt)) { rapor.Atla("Dönem: alt grubu aktarılmamış"); continue; }
+                altId = yeniAlt;
+            }
+            var bas = Tarih(e.Baslangic);
+            var bit = Tarih(e.Bitis);
+            if (bas is null || bit is null || bit < bas) { rapor.Atla("Dönem: tarih yok ya da hatalı"); continue; }
+            if (!mevcut.Add((grupId, altId, bas.Value))) continue;
+
+            var d = new DonemTanimi
+            {
+                CalismaGrubuId = grupId, AltGrupId = altId, Baslangic = bas.Value, Bitis = bit.Value,
+                GirisSaati = e.GirisSaati is { } g && g < TimeSpan.FromDays(1) ? TimeOnly.FromTimeSpan(g) : null,
+                CikisSaati = e.CikisSaati is { } c && c < TimeSpan.FromDays(1) ? TimeOnly.FromTimeSpan(c) : null,
+            };
+            d.GunHesapla(grupSureleri.GetValueOrDefault(grupId, 450));
+            // Eski programda kayıtlı değerler varsa onlar esas alınır.
+            if (e.GunFarki is int gf && gf > 0) d.GunFarki = gf;
+            if (e.EksikGun is int eg) d.EksikGun = Math.Max(0, eg);
+            if (SureDakika(e.EksikSaat) is int es) d.EksikDakika = Math.Max(0, es);
+            if (e.FazlaGun is int fg) d.FazlaGun = Math.Max(0, fg);
+            if (SureDakika(e.FazlaSaat) is int fs) d.FazlaDakika = Math.Max(0, fs);
+            db.DonemTanimlari.Add(d);
+            rapor.Ekle("Dönem");
+        }
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>Eski saat metni ("08:00", "8:00", "24:00") → saat. "24:00" gece yarısıdır.</summary>
+    public static TimeOnly? EskiSaat(string? metin)
+    {
+        if (string.IsNullOrWhiteSpace(metin)) return null;
+        var m = metin.Trim().Replace('.', ':');
+        if (m is "24:00" or "24:00:00") return TimeOnly.MinValue;
+        return TimeOnly.TryParseExact(m, new[] { "H:mm", "HH:mm", "H:mm:ss", "HH:mm:ss" }, CultureInfo.InvariantCulture, DateTimeStyles.None, out var t) ? t : null;
     }
 
     /// <summary>"07:30" ya da "7.5" gibi eski süre metnini dakikaya çevirir.</summary>

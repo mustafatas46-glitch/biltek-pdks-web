@@ -46,7 +46,8 @@ public class VardiyaMola : FirmaEntity
     public TimeOnly Bitis { get; set; }
     public bool Ucretli { get; set; }
 
-    public int Dakika => (int)((Bitis > Baslangic ? Bitis - Baslangic : Bitis - Baslangic + TimeSpan.FromDays(1)).TotalMinutes);
+    // TimeOnly farkı gece yarısını aşan molada da doğru süreyi verir (23:30-00:30 = 60 dk).
+    public int Dakika => (int)(Bitis - Baslangic).TotalMinutes;
 }
 
 /// <summary>Çalışma grubunun haftalık planı: hangi gün hangi vardiya. VardiyaId boşsa o gün hafta tatilidir.</summary>

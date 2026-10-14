@@ -12,7 +12,8 @@ public class EskiMySqlTestleri
 {
     private static readonly string? Baglanti = Environment.GetEnvironmentVariable("ESKI_MYSQL_TEST");
     private static readonly string[] Tablolar =
-        { "sube", "bolum", "gorev", "grup", "personel", "pts_izinturleri", "pts_izin", "pts_resmitatiller", "pts_giriscikis" };
+        { "sube", "bolum", "gorev", "grup", "personel", "pts_izinturleri", "pts_izin", "pts_resmitatiller", "pts_giriscikis",
+          "pts_puantajparametre", "pts_calismaparametre", "pts_molaparametre", "pts_altgrup", "pts_gunparametre", "pts_donemparametre" };
 
     private static string SemaDosyasi()
     {
@@ -54,6 +55,13 @@ public class EskiMySqlTestleri
             await Calistir("INSERT INTO pts_giriscikis (personelid, giristarihi, girissaati, cikistarihi, cikissaati, ellegiris) " +
                            "VALUES (7, '2026-10-01', '07:58:00', '2026-10-01', '17:03:00', 'E'), (7, '2025-01-01', '08:00:00', NULL, NULL, NULL)");
 
+            await Calistir("INSERT INTO pts_puantajparametre (id, ad, saat) VALUES (1, 'Sabah Çalışması', '07:30')");
+            await Calistir("INSERT INTO pts_calismaparametre (puantajid, bordroid, bordroad, igs, dcs) VALUES (1, 1, 'Normal Çalışma', '08:00', '16:00')");
+            await Calistir("INSERT INTO pts_molaparametre (puantajid, ad, baslamasaati, bitissaati, tip) VALUES (1, 'Öğle', '12:00', '12:30', 'ucretsiz')");
+            await Calistir("INSERT INTO pts_altgrup (id, grupid, ad, gunluksaat) VALUES (3, 5, '08-16 Şiş', '07:30')");
+            await Calistir("INSERT INTO pts_gunparametre (grupid, altgrupid, g1, g2, g3, g4, g5) VALUES (5, 3, 1, 1, 1, 1, 1)");
+            await Calistir("INSERT INTO pts_donemparametre (grupid, altgrupid, bastarih, bittarih, girissaati, eksiksaat) VALUES (5, 3, '2026-02-01', '2026-02-28', '08:00:00', '15:00')");
+
             // Tablolar gerçekten latin5 mi?
             await using var kontrol = new MySqlCommand("SELECT TABLE_COLLATION FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'personel'", c);
             Assert.StartsWith("latin5", (string)(await kontrol.ExecuteScalarAsync())!);
@@ -72,5 +80,14 @@ public class EskiMySqlTestleri
         var gc = Assert.Single(veri.GirisCikislar); // 2025 kaydı tarih filtresiyle elendi
         Assert.Equal(new TimeSpan(7, 58, 0), gc.GirisSaati);
         Assert.Equal("E", gc.ElleGiris);
+
+        Assert.Equal("Sabah Çalışması", Assert.Single(veri.PuantajTanimlari).Ad);
+        Assert.Equal("16:00", Assert.Single(veri.CalismaParametreleri).Dcs);
+        Assert.Equal("Öğle", Assert.Single(veri.Molalar).Ad);
+        Assert.Equal("08-16 Şiş", Assert.Single(veri.AltGruplar).Ad);
+        var gp = Assert.Single(veri.GunParametreleri);
+        Assert.Equal((3, (int?)1, (int?)null), (gp.AltGrupId, gp.Gunler[0], gp.Gunler[6]));
+        var donem = Assert.Single(veri.Donemler);
+        Assert.Equal(((DateTime?)new DateTime(2026, 2, 28), (TimeSpan?)new TimeSpan(8, 0, 0), "15:00"), (donem.Bitis, donem.GirisSaati, donem.EksikSaat));
     }
 }
