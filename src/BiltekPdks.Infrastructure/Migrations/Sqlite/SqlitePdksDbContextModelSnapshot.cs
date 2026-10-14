@@ -1649,6 +1649,9 @@ namespace BiltekPdks.Infrastructure.Migrations.Sqlite
                     b.Property<int>("GecKalmaToleransDakika")
                         .HasColumnType("INTEGER");
 
+                    b.Property<TimeOnly?>("GunDonumu")
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTime?>("GuncellemeTarihi")
                         .HasColumnType("TEXT");
 

@@ -1710,6 +1710,9 @@ namespace BiltekPdks.Infrastructure.Migrations.MySql
                     b.Property<int>("GecKalmaToleransDakika")
                         .HasColumnType("int");
 
+                    b.Property<TimeOnly?>("GunDonumu")
+                        .HasColumnType("time(6)");
+
                     b.Property<DateTime?>("GuncellemeTarihi")
                         .HasColumnType("datetime(6)");
 
