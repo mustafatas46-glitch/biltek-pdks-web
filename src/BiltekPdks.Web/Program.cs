@@ -1,3 +1,4 @@
+using BiltekPdks.Domain.Entities;
 using BiltekPdks.Infrastructure;
 using BiltekPdks.Infrastructure.Data;
 using BiltekPdks.Infrastructure.Firmalar;
@@ -23,6 +24,7 @@ builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 builder.Services.Configure<WebEncoderOptions>(o => o.TextEncoderSettings = new TextEncoderSettings(UnicodeRanges.All));
 builder.Services.AddPdksAltyapi(builder.Configuration);
 builder.Services.AddScoped<FirmaDb>();
+builder.Services.AddScoped<BiltekPdks.Web.Components.YetkiKontrol>();
 
 builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
@@ -37,7 +39,13 @@ builder.Services
         o.ExpireTimeSpan = TimeSpan.FromHours(10);
         o.SlidingExpiration = true;
     });
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(o =>
+{
+    // Her yetki bir politika: yönetici her şeye, diğerleri oturumdaki "yetki" taleplerine göre erişir.
+    foreach (var y in Yetkiler.Hepsi)
+        o.AddPolicy(y.Kod, p => p.RequireAuthenticatedUser().RequireAssertion(c =>
+            c.User.IsInRole(nameof(KullaniciRolu.Yonetici)) || c.User.HasClaim(Talepler.Yetki, y.Kod)));
+});
 builder.Services.AddCascadingAuthenticationState();
 
 var app = builder.Build();

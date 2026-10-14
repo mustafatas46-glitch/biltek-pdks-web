@@ -1,8 +1,19 @@
 <Router AppAssembly="typeof(Program).Assembly">
     <Found Context="routeData">
         <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(MainLayout)">
-            <NotAuthorized>
-                <GirisYonlendir />
+            <NotAuthorized Context="durum">
+                @if (durum.User.Identity?.IsAuthenticated == true)
+                {
+                    <div class="p-4">
+                        <h1 class="h5">Bu ekran için yetkiniz yok</h1>
+                        <p class="text-muted">Yetki verilmesi için yöneticinize başvurun. Yetkiniz yeni verildiyse çıkış yapıp yeniden giriş yapın.</p>
+                        <a href="">Ana ekrana dön</a>
+                    </div>
+                }
+                else
+                {
+                    <GirisYonlendir />
+                }
             </NotAuthorized>
             <Authorizing>
                 <p class="p-4 text-muted">Yükleniyor…</p>

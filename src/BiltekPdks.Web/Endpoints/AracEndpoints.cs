@@ -33,7 +33,7 @@ public static class AracEndpoints
             {
                 try { File.Delete(gecici); } catch (IOException) { }
             }
-        }).RequireAuthorization(p => p.RequireRole(nameof(KullaniciRolu.Yonetici)));
+        }).RequireAuthorization(Yetkiler.Yedek);
 
         // Excel'den veri alma için boş örnek dosya: doğru başlıklarla doldurulup geri yüklenir.
         app.MapGet("/araclar/aktarim-ornegi.xlsx", (AktarimTuru tur) =>

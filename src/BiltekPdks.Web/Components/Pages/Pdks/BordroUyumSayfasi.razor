@@ -1,4 +1,5 @@
 @page "/raporlar/bordro-uyum"
+@attribute [Authorize(Policy = Yetkiler.UcretGor)]
 @using BiltekPdks.Infrastructure.Puantaj
 @using BiltekPdks.Infrastructure.Raporlar
 @inject FirmaDb FirmaDb

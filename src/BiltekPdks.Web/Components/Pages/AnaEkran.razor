@@ -5,6 +5,7 @@
 @inject FirmaDb FirmaDb
 @inject PuantajServisi PuantajServisi
 @inject NavigationManager Navigation
+@inject YetkiKontrol YetkiKontrol
 @inject IJSRuntime JS
 
 <div class="ana-ekran">
@@ -56,7 +57,7 @@
                 <dt class="col-3">Şube</dt><dd class="col-3">@_secili.Sube?.Ad</dd>
                 <dt class="col-3">Mail</dt><dd class="col-3">@_secili.Eposta</dd>
                 <dt class="col-3">Servis</dt><dd class="col-3">@_secili.Servis?.Ad</dd>
-                <dt class="col-3">Maaş/S.Ücr</dt><dd class="col-3">@(_secili.Ucret is { } u ? u.ToString("N2") + (_secili.UcretTipi == UcretTipi.SaatUcreti ? " /saat" : "") : "")</dd>
+                <dt class="col-3">Maaş/S.Ücr</dt><dd class="col-3">@(!_ucretGor ? "***" : _secili.Ucret is { } u ? u.ToString("N2") + (_secili.UcretTipi == UcretTipi.SaatUcreti ? " /saat" : "") : "")</dd>
                 <dt class="col-3">Bölge</dt><dd class="col-3">@_secili.Bolge?.Ad</dd>
                 <dt class="col-3">Kimlik No</dt><dd class="col-3">@_secili.TcKimlikNo</dd>
                 <dt class="col-3">Birim</dt><dd class="col-3">@_secili.Birim?.Ad</dd>
@@ -359,8 +360,11 @@
 
     [SupplyParameterFromQuery(Name = "personel")] public int? PersonelParametresi { get; set; }
 
+    private bool _ucretGor;
+
     protected override async Task OnInitializedAsync()
     {
+        _ucretGor = await YetkiKontrol.VarMiAsync(Yetkiler.UcretGor);
         await ListeyiYukleAsync();
         await using (var db = await FirmaDb.AcAsync())
             _kkTurleri = await db.KazancKesintiTurleri.AsNoTracking().Where(t => t.Aktif).OrderBy(t => t.Ad).ToListAsync();
@@ -519,7 +523,7 @@
             new("Puantaj Hesapla", PuantajYukleAsync, "F8"),
             SagTikMenu.Oge.Eylemli("Kişisel Puantaj", KisiselPuantajAc, "F9"),
             SagTikMenu.Oge.Eylemli("Puantaj Raporu (Excel)", RaporAl, "F10"),
-            SagTikMenu.Oge.Eylemli("Maaş Pusulası", () => { if (_seciliId is int mp) Navigation.NavigateTo($"raporlar/maas-pusulasi?personel={mp}&ay={_ay:yyyy-MM}"); }),
+            SagTikMenu.Oge.Eylemli("Maaş Pusulası", () => { if (_seciliId is int mp) Navigation.NavigateTo($"raporlar/maas-pusulasi?personel={mp}&ay={_ay:yyyy-MM}"); }, null, !_ucretGor),
             SagTikMenu.Oge.Cizgi(),
             SagTikMenu.Oge.Eylemli("Personel Bilgi Formu", Degistir, "F5"),
             SagTikMenu.Oge.Eylemli("Yeni Kayıt", Yeni, "F2"),

@@ -1,7 +1,9 @@
 @page "/personeller/yeni"
 @page "/personeller/{Id:int}"
+@attribute [Authorize(Policy = Yetkiler.PersonelDuzenle)]
 @inject FirmaDb FirmaDb
 @inject NavigationManager Navigation
+@inject YetkiKontrol YetkiKontrol
 
 <PageTitle>Personel Sicil Kartı</PageTitle>
 <div class="d-flex align-items-center mb-2">
@@ -26,7 +28,7 @@ else
         @if (_bilgi is not null) { <div class="alert alert-success py-2">@_bilgi</div> }
 
         <ul class="nav nav-tabs">
-            @foreach (var (kod, ad) in Sekmeler)
+            @foreach (var (kod, ad) in Sekmeler.Where(x => _ucretGor || x.Kod != "ucret"))
             {
                 <li class="nav-item"><a class="nav-link @(_sekme == kod ? "active" : "")" href="" @onclick:preventDefault @onclick="() => _sekme = kod">@ad</a></li>
             }
@@ -48,6 +50,8 @@ else
                         <SicilSatir Etiket="Vergi No"><InputText class="form-control form-control-sm" @bind-Value="e.VergiNo" /></SicilSatir>
                         <SicilSatir Etiket="SGK Sicil No"><InputText class="form-control form-control-sm" @bind-Value="e.SgkSicilNo" /></SicilSatir>
                         <SicilSatir Etiket="SGK Tarihi"><InputDate class="form-control form-control-sm" @bind-Value="e.SgkGirisTarihi" /></SicilSatir>
+                        @if (_ucretGor)
+                        {
                         <SicilSatir Etiket="Ücret tipi">
                             <InputRadioGroup @bind-Value="e.UcretTipi">
                                 <label class="form-check form-check-inline m-0"><InputRadio class="form-check-input" Value="UcretTipi.Maas" /> Maaş</label>
@@ -57,6 +61,7 @@ else
                         <SicilSatir Etiket="@(e.UcretTipi == UcretTipi.Maas ? "Maaş" : "Saat ücreti")"><InputNumber class="form-control form-control-sm" @bind-Value="e.Ucret" /></SicilSatir>
                         <SicilSatir Etiket="Eski maaş"><InputNumber class="form-control form-control-sm" @bind-Value="e.EskiUcret" /></SicilSatir>
                         <SicilSatir Etiket="Mesai saat ücreti"><InputNumber class="form-control form-control-sm" @bind-Value="e.MesaiSaatUcreti" /><small class="text-muted">boşsa grup kuralından hesaplanır</small></SicilSatir>
+                        }
                         <SicilSatir Etiket="İlk işe başlama"><InputDate class="form-control form-control-sm" @bind-Value="e.IlkIseBaslamaTarihi" /><small class="text-muted">yıllık izin, kıdem, ihbar</small></SicilSatir>
                     </div>
                 </div>
@@ -241,6 +246,7 @@ else
 
     private PersonelFormu? _form;
     private string _sekme = "genel";
+    private bool _ucretGor;
     private bool _bulunamadi, _kaydediliyor, _seriKayit;
     private string? _hata, _bilgi;
     private List<TanimSecenek> _subeler = new(), _bolumler = new(), _gorevler = new(), _gruplar = new(),
@@ -249,6 +255,8 @@ else
 
     protected override async Task OnParametersSetAsync()
     {
+        // Ücret bilgileri yalnızca yetkisi olana gösterilir (gizli alanlar kayıtta korunur).
+        _ucretGor = await YetkiKontrol.VarMiAsync(Yetkiler.UcretGor);
         await using var db = await FirmaDb.AcAsync();
         _subeler = await Secenekler(db.Subeler);
         _bolumler = await Secenekler(db.Bolumler);

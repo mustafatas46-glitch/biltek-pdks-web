@@ -36,6 +36,7 @@ public class PdksDbContext : DbContext
 
     public DbSet<Firma> Firmalar => Set<Firma>();
     public DbSet<Kullanici> Kullanicilar => Set<Kullanici>();
+    public DbSet<KullaniciYetkisi> KullaniciYetkileri => Set<KullaniciYetkisi>();
     public DbSet<Sube> Subeler => Set<Sube>();
     public DbSet<Bolum> Bolumler => Set<Bolum>();
     public DbSet<Gorev> Gorevler => Set<Gorev>();
@@ -69,6 +70,7 @@ public class PdksDbContext : DbContext
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(PdksDbContext).Assembly);
 
         FirmaKurallari<Kullanici>(modelBuilder);
+        FirmaKurallari<KullaniciYetkisi>(modelBuilder);
         FirmaKurallari<Sube>(modelBuilder);
         FirmaKurallari<Bolum>(modelBuilder);
         FirmaKurallari<Gorev>(modelBuilder);

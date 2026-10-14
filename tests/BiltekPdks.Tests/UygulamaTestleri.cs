@@ -115,7 +115,7 @@ public class UygulamaTestleri : IClassFixture<UygulamaFabrikasi>
             "/vardiyalar", "/vardiyalar?sekme=mola", "/grup-tanimlama", "/calisma-plani", "/resmi-tatiller", "/izinler", "/hareketler",
             "/puantaj", $"/puantaj?personel={personelId}", "/puantaj/toplu", "/hesap/sifre", "/toplu/giris-cikis", "/hakkinda", "/toplu/izin", "/toplu/kazanc-kesinti", "/tanimlar/kazanc-kesinti",
             "/tanimlar/servis", "/tanimlar/bolge", "/tanimlar/birim", "/tanimlar/takim", "/tanimlar/meslek",
-            "/araclar/excel-aktarim", "/raporlar/maas-pusulasi", $"/raporlar/maas-pusulasi?personel={personelId}", "/raporlar/maas-listesi.xlsx?yil=2026&ay=10", "/raporlar/bordro-uyum", "/raporlar/bordro-uyum.xlsx?yil=2026&ay=9", "/araclar/aktarim-ornegi.xlsx?tur=Hareket",
+            "/araclar/excel-aktarim", "/tanimlar/kullanicilar", "/raporlar/maas-pusulasi", $"/raporlar/maas-pusulasi?personel={personelId}", "/raporlar/maas-listesi.xlsx?yil=2026&ay=10", "/raporlar/bordro-uyum", "/raporlar/bordro-uyum.xlsx?yil=2026&ay=9", "/araclar/aktarim-ornegi.xlsx?tur=Hareket",
         };
 
         foreach (var s in sayfalar)
@@ -173,5 +173,46 @@ public class UygulamaTestleri : IClassFixture<UygulamaFabrikasi>
     {
         var r = await Istemci().GetAsync("/raporlar/toplu-puantaj.xlsx?yil=2026&ay=10");
         Assert.NotEqual(HttpStatusCode.OK, r.StatusCode);
+    }
+
+    [Fact]
+    public async Task Yetkisiz_kullanici_ucret_ekranlarina_giremez_yetkili_ekrana_girer()
+    {
+        using (var scope = _fabrika.Services.CreateScope())
+        {
+            var factory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<PdksDbContext>>();
+            await using var sistem = await factory.CreateDbContextAsync();
+            sistem.FirmaFiltresiKapali = true;
+            var firmaId = await sistem.Firmalar.Select(f => f.Id).SingleAsync();
+            if (!await sistem.Kullanicilar.AnyAsync(k => k.KullaniciAdi == "puantajci"))
+            {
+                await using var db = await factory.CreateDbContextAsync();
+                db.AktifFirmaId = firmaId;
+                var b = new BiltekPdks.Infrastructure.Security.KullaniciBilgisi
+                {
+                    KullaniciAdi = "puantajci", AdSoyad = "Puantaj Memuru", Rol = KullaniciRolu.InsanKaynaklari, OzelYetki = true,
+                    Yetkiler = new() { Yetkiler.PuantajGor }, YeniSifre = UygulamaFabrikasi.Sifre,
+                };
+                Assert.Null(await BiltekPdks.Infrastructure.Security.KullaniciServisi.KaydetAsync(db, b, new BiltekPdks.Infrastructure.Security.SifreServisi(), null));
+            }
+        }
+
+        var c = Istemci();
+        var token = await TokenAsync(c);
+        var giris = await c.PostAsync("/hesap/giris", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["__RequestVerificationToken"] = token, ["firmaKodu"] = "", ["kullaniciAdi"] = "puantajci",
+            ["sifre"] = UygulamaFabrikasi.Sifre, ["donus"] = "/puantaj/toplu",
+        }));
+        Assert.Equal("/puantaj/toplu", giris.Headers.Location!.ToString());
+
+        Assert.Equal(HttpStatusCode.OK, (await c.GetAsync("/raporlar/toplu-puantaj.xlsx?yil=2026&ay=10")).StatusCode);
+        Assert.NotEqual(HttpStatusCode.OK, (await c.GetAsync("/raporlar/maas-listesi.xlsx?yil=2026&ay=10")).StatusCode);
+        Assert.NotEqual(HttpStatusCode.OK, (await c.GetAsync("/araclar/yedek")).StatusCode);
+        var maas = WebUtility.HtmlDecode(await c.GetStringAsync("/raporlar/maas-pusulasi"));
+        Assert.Contains("yetkiniz yok", maas);
+        var toplu = WebUtility.HtmlDecode(await c.GetStringAsync("/puantaj/toplu"));
+        Assert.DoesNotContain("yetkiniz yok", toplu);
+        Assert.DoesNotContain("Maaş Pusulası</a>", toplu); // menüde görünmez
     }
 }

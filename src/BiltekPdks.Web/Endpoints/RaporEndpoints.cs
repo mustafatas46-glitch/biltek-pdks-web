@@ -1,3 +1,4 @@
+using BiltekPdks.Domain.Entities;
 using System.Security.Claims;
 using BiltekPdks.Infrastructure.Data;
 using BiltekPdks.Infrastructure.Firmalar;
@@ -29,7 +30,7 @@ public static class RaporEndpoints
             return Results.File(dosya,
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 $"toplu-puantaj-{yil}-{ay:00}.xlsx");
-        }).RequireAuthorization();
+        }).RequireAuthorization(Yetkiler.PuantajGor);
 
         app.MapGet("/raporlar/kisisel-puantaj.xlsx", async (
             HttpContext http,
@@ -49,7 +50,7 @@ public static class RaporEndpoints
             return Results.File(KisiselPuantajExcel.Olustur(sonuc, firmaAdi),
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 $"puantaj-{ad}-{yil}-{ay:00}.xlsx");
-        }).RequireAuthorization();
+        }).RequireAuthorization(Yetkiler.PuantajGor);
 
         app.MapGet("/raporlar/bordro-uyum.xlsx", async (
             HttpContext http,
@@ -67,7 +68,7 @@ public static class RaporEndpoints
             return Results.File(BordroUyumu.Excel(satirlar, yil, ay, firmaAdi),
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 $"bordro-pdks-uyum-{yil}-{ay:00}.xlsx");
-        }).RequireAuthorization();
+        }).RequireAuthorization(Yetkiler.UcretGor);
 
         app.MapGet("/raporlar/maas-listesi.xlsx", async (
             HttpContext http,
@@ -85,6 +86,6 @@ public static class RaporEndpoints
             return Results.File(MaasListesiExcel.Olustur(pusulalar, yil, ay, firmaAdi),
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 $"maas-listesi-{yil}-{ay:00}.xlsx");
-        }).RequireAuthorization();
+        }).RequireAuthorization(Yetkiler.UcretGor);
     }
 }

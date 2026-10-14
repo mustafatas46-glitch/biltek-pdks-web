@@ -43,6 +43,7 @@ public static class Talepler
     public const string FirmaId = "firma_id";
     public const string KullaniciAdi = "kullanici_adi";
     public const string FirmaKodu = "firma_kodu";
+    public const string Yetki = "yetki";
 }
 
 public static class FirmaVeritabaniUzantilari

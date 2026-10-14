@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace BiltekPdks.Infrastructure.Security;
 
-public sealed record GirisSonucu(bool Basarili, Kullanici? Kullanici, string? Hata, string? FirmaKodu = null)
+public sealed record GirisSonucu(bool Basarili, Kullanici? Kullanici, string? Hata, string? FirmaKodu = null, IReadOnlyList<string>? Yetkiler = null)
 {
     public static GirisSonucu Hatali(string hata) => new(false, null, hata);
 }
@@ -89,7 +89,16 @@ public class GirisServisi
         kullanici.KilitBitis = null;
         kullanici.SonGirisTarihi = simdi;
         await db.SaveChangesAsync(ct);
-        return new GirisSonucu(true, kullanici, null, _veritabanlari.AyriVeritabani ? firmaKodu : firma.Kod);
+        var yetkiler = await GecerliYetkilerAsync(db, kullanici, ct);
+        return new GirisSonucu(true, kullanici, null, _veritabanlari.AyriVeritabani ? firmaKodu : firma.Kod, yetkiler);
+    }
+
+    /// <summary>Kullanıcının geçerli yetkileri: yönetici hepsi; özel yetkili kullanıcı kendi listesi; diğerleri rol varsayılanı.</summary>
+    public static async Task<IReadOnlyList<string>> GecerliYetkilerAsync(PdksDbContext db, Kullanici k, CancellationToken ct = default)
+    {
+        if (k.Rol == KullaniciRolu.Yonetici || !k.OzelYetki) return Yetkiler.RolVarsayilani(k.Rol);
+        return await db.KullaniciYetkileri.IgnoreQueryFilters()
+            .Where(y => y.KullaniciId == k.Id && y.FirmaId == k.FirmaId).Select(y => y.Yetki).ToListAsync(ct);
     }
 
     /// <summary>Oturumdaki kullanıcının şifresini değiştirir. Başarılıysa null, değilse hata mesajı döner.</summary>

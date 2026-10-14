@@ -7,8 +7,8 @@
         <div class="menu-grubu">
             <span class="menu-ogesi">Tanımlar ▾</span>
             <div class="menu-alt">
-                <a href="tanimlar/bolum">Personel Genel Tanımlar (Bölüm, Görev, Servis, Bölge)</a>
-                <span class="yakinda">Kullanıcı Tanımlama</span>
+                <YetkiliBaglanti Yetki="@Yetkiler.TanimDuzenle" Href="tanimlar/bolum">Personel Genel Tanımlar (Bölüm, Görev, Servis, Bölge)</YetkiliBaglanti>
+                <YetkiliBaglanti Yetki="@Yetkiler.KullaniciYonetimi" Href="tanimlar/kullanicilar">Kullanıcı Tanımlama</YetkiliBaglanti>
                 <span class="yakinda">Firma İşlemleri</span>
                 <hr />
                 <span class="yakinda">Kapı-Terminal Tanımları</span>
@@ -18,61 +18,61 @@
         <div class="menu-grubu">
             <span class="menu-ogesi">Toplu İşlemler ▾</span>
             <div class="menu-alt">
-                <a href="toplu/giris-cikis">Toplu Giriş-Çıkış Ekle</a>
-                <a href="toplu/izin">Toplu İzin Ekleme</a>
-                <a href="toplu/kazanc-kesinti">Toplu Kazanç-Kesinti Ekle</a>
+                <YetkiliBaglanti Yetki="@Yetkiler.HareketDuzenle" Href="toplu/giris-cikis">Toplu Giriş-Çıkış Ekle</YetkiliBaglanti>
+                <YetkiliBaglanti Yetki="@Yetkiler.IzinDuzenle" Href="toplu/izin">Toplu İzin Ekleme</YetkiliBaglanti>
+                <YetkiliBaglanti Yetki="@Yetkiler.KazancKesintiDuzenle" Href="toplu/kazanc-kesinti">Toplu Kazanç-Kesinti Ekle</YetkiliBaglanti>
             </div>
         </div>
         <div class="menu-grubu">
             <span class="menu-ogesi">İşlemler ▾</span>
             <div class="menu-alt">
                 <span class="yakinda">Terminalden Bilgi Aktar PDKS</span>
-                <a href="puantaj/toplu">Puantaj Hesapla</a>
+                <YetkiliBaglanti Yetki="@Yetkiler.PuantajGor" Href="puantaj/toplu">Puantaj Hesapla</YetkiliBaglanti>
                 <hr />
-                <a href="personeller">Personel Listesi</a>
-                <a href="personeller/yeni">Yeni Personel</a>
-                <a href="hareketler">Giriş-Çıkış Hareketleri</a>
-                <a href="izinler">İzinler</a>
+                <YetkiliBaglanti Yetki="@Yetkiler.PersonelGor" Href="personeller">Personel Listesi</YetkiliBaglanti>
+                <YetkiliBaglanti Yetki="@Yetkiler.PersonelDuzenle" Href="personeller/yeni">Yeni Personel</YetkiliBaglanti>
+                <YetkiliBaglanti Yetki="@Yetkiler.HareketDuzenle" Href="hareketler">Giriş-Çıkış Hareketleri</YetkiliBaglanti>
+                <YetkiliBaglanti Yetki="@Yetkiler.IzinDuzenle" Href="izinler">İzinler</YetkiliBaglanti>
             </div>
         </div>
         <div class="menu-grubu">
             <span class="menu-ogesi">Hesap Parametreleri ▾</span>
             <div class="menu-alt">
-                <a href="grup-tanimlama">Grup Tanımlama (Dönem, Resmi Tatil, Çalışma Planı)</a>
-                <a href="vardiyalar">Günlük Çalışma Saatleri (Puantaj Parametreleri)</a>
-                <a href="vardiyalar?sekme=mola">Mola Saatleri</a>
+                <YetkiliBaglanti Yetki="@Yetkiler.HesapParametreleri" Href="grup-tanimlama">Grup Tanımlama (Dönem, Resmi Tatil, Çalışma Planı)</YetkiliBaglanti>
+                <YetkiliBaglanti Yetki="@Yetkiler.HesapParametreleri" Href="vardiyalar">Günlük Çalışma Saatleri (Puantaj Parametreleri)</YetkiliBaglanti>
+                <YetkiliBaglanti Yetki="@Yetkiler.HesapParametreleri" Href="vardiyalar?sekme=mola">Mola Saatleri</YetkiliBaglanti>
                 <span class="yakinda">Grup Özel / Kişisel Çalışma Planı</span>
                 <hr />
-                <a href="tanimlar/izin">Bordro Alan Türleri — İzin</a>
-                <a href="tanimlar/kazanc-kesinti">Bordro Alan Türleri — Kazanç / Kesinti</a>
+                <YetkiliBaglanti Yetki="@Yetkiler.TanimDuzenle" Href="tanimlar/izin">Bordro Alan Türleri — İzin</YetkiliBaglanti>
+                <YetkiliBaglanti Yetki="@Yetkiler.TanimDuzenle" Href="tanimlar/kazanc-kesinti">Bordro Alan Türleri — Kazanç / Kesinti</YetkiliBaglanti>
                 <span class="yakinda">Genel Ayarlar (puantaj, kesinti, ceza, yuvarlama)</span>
             </div>
         </div>
         <div class="menu-grubu">
             <span class="menu-ogesi">Raporlar ▾</span>
             <div class="menu-alt">
-                <a href="ozet">Puantaj Sonuçları (Günlük)</a>
-                <a href="puantaj/toplu">Puantaj Sonuçları (Aylık)</a>
-                <a href="puantaj">Kişisel Puantaj</a>
-                <a href="raporlar/maas-pusulasi">Maaş Pusulası</a>
-                <a href="raporlar/bordro-uyum">Bordro–PDKS Uyum Raporu</a>
+                <YetkiliBaglanti Yetki="@Yetkiler.PuantajGor" Href="ozet">Puantaj Sonuçları (Günlük)</YetkiliBaglanti>
+                <YetkiliBaglanti Yetki="@Yetkiler.PuantajGor" Href="puantaj/toplu">Puantaj Sonuçları (Aylık)</YetkiliBaglanti>
+                <YetkiliBaglanti Yetki="@Yetkiler.PuantajGor" Href="puantaj">Kişisel Puantaj</YetkiliBaglanti>
+                <YetkiliBaglanti Yetki="@Yetkiler.UcretGor" Href="raporlar/maas-pusulasi">Maaş Pusulası</YetkiliBaglanti>
+                <YetkiliBaglanti Yetki="@Yetkiler.UcretGor" Href="raporlar/bordro-uyum">Bordro–PDKS Uyum Raporu</YetkiliBaglanti>
                 <hr />
-                <a href="personeller">Personel Listesi</a>
-                <a href="hareketler">Giriş-Çıkış Listesi</a>
-                <a href="izinler">İzin Listesi</a>
+                <YetkiliBaglanti Yetki="@Yetkiler.PersonelGor" Href="personeller">Personel Listesi</YetkiliBaglanti>
+                <YetkiliBaglanti Yetki="@Yetkiler.HareketDuzenle" Href="hareketler">Giriş-Çıkış Listesi</YetkiliBaglanti>
+                <YetkiliBaglanti Yetki="@Yetkiler.IzinDuzenle" Href="izinler">İzin Listesi</YetkiliBaglanti>
                 <span class="yakinda">Kazanç-Kesinti Listesi</span>
                 <span class="yakinda">Performans Listesi</span>
                 <hr />
                 <span class="yakinda">Yıllık İzin Raporu</span>
-                <a href="raporlar/maas-pusulasi">Kişisel Bordro (Excel, Pdf)</a>
+                <YetkiliBaglanti Yetki="@Yetkiler.UcretGor" Href="raporlar/maas-pusulasi">Kişisel Bordro (Excel, Pdf)</YetkiliBaglanti>
             </div>
         </div>
         <div class="menu-grubu">
             <span class="menu-ogesi">Araçlar ▾</span>
             <div class="menu-alt">
-                <a href="araclar/yedek" target="_blank">Data Yedekle (indir)</a>
-                <a href="puantaj/toplu">Excel Dosyaya Puantaj Aktarımı</a>
-                <a href="araclar/excel-aktarim">Excel Dosyadan Veri Al (personel, ücret, izin, kazanç-kesinti, hareket, bordro)</a>
+                <YetkiliBaglanti Yetki="@Yetkiler.Yedek" Href="araclar/yedek" Target="_blank">Data Yedekle (indir)</YetkiliBaglanti>
+                <YetkiliBaglanti Yetki="@Yetkiler.PuantajGor" Href="puantaj/toplu">Excel Dosyaya Puantaj Aktarımı</YetkiliBaglanti>
+                <YetkiliBaglanti Yetki="@Yetkiler.VeriAktarim" Href="araclar/excel-aktarim">Excel Dosyadan Veri Al (personel, ücret, izin, kazanç-kesinti, hareket, bordro)</YetkiliBaglanti>
                 <span class="yakinda">Geç / Mesai Kalanlar Onay</span>
             </div>
         </div>

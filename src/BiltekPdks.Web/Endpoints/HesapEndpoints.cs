@@ -28,7 +28,7 @@ public static class HesapEndpoints
             }
 
             var k = sonuc.Kullanici!;
-            var kimlik = new ClaimsIdentity(new[]
+            var talepler = new List<Claim>
             {
                 new Claim(ClaimTypes.NameIdentifier, k.Id.ToString()),
                 new Claim(ClaimTypes.Name, k.AdSoyad),
@@ -36,7 +36,10 @@ public static class HesapEndpoints
                 new Claim(Talepler.KullaniciAdi, k.KullaniciAdi),
                 new Claim(Talepler.FirmaId, k.FirmaId.ToString()),
                 new Claim(Talepler.FirmaKodu, sonuc.FirmaKodu ?? ""),
-            }, CookieAuthenticationDefaults.AuthenticationScheme);
+            };
+            // Ekran yetkileri oturuma yazılır; değişiklik bir sonraki girişte geçerli olur.
+            talepler.AddRange((sonuc.Yetkiler ?? Array.Empty<string>()).Select(y => new Claim(Talepler.Yetki, y)));
+            var kimlik = new ClaimsIdentity(talepler, CookieAuthenticationDefaults.AuthenticationScheme);
 
             await http.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(kimlik));
             return Results.LocalRedirect(YerelMi(donus) ? donus! : "/");

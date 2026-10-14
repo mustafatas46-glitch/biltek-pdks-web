@@ -1,4 +1,5 @@
 @page "/raporlar/maas-pusulasi"
+@attribute [Authorize(Policy = Yetkiler.UcretGor)]
 @using BiltekPdks.Domain.Puantaj
 @using BiltekPdks.Infrastructure.Puantaj
 @inject FirmaDb FirmaDb

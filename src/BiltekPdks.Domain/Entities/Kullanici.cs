@@ -24,6 +24,9 @@ public class Kullanici : FirmaEntity
     public int BasarisizGirisSayisi { get; set; }
     public DateTime? KilitBitis { get; set; }
 
+    /// <summary>İşaretliyse rolün varsayılanı yerine <see cref="KullaniciYetkisi"/> kayıtları geçerlidir.</summary>
+    public bool OzelYetki { get; set; }
+
     public int? PersonelId { get; set; }
     public Personel? Personel { get; set; }
 }

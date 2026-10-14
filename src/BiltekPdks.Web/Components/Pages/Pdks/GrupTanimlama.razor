@@ -1,4 +1,5 @@
 @page "/grup-tanimlama"
+@attribute [Authorize(Policy = Yetkiler.HesapParametreleri)]
 @using BiltekPdks.Domain.Puantaj
 @inject FirmaDb FirmaDb
 

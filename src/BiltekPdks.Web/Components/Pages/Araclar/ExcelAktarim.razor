@@ -1,4 +1,5 @@
 @page "/araclar/excel-aktarim"
+@attribute [Authorize(Policy = Yetkiler.VeriAktarim)]
 @using BiltekPdks.Infrastructure.Aktarim
 @inject FirmaDb FirmaDb
 

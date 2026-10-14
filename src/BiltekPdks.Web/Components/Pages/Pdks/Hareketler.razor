@@ -1,4 +1,5 @@
 @page "/hareketler"
+@attribute [Authorize(Policy = Yetkiler.HareketDuzenle)]
 @inject FirmaDb FirmaDb
 
 <h1 class="h3 mb-2">Giriş-çıkış hareketleri</h1>

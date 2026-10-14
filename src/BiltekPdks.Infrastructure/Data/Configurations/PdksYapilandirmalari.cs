@@ -165,3 +165,14 @@ internal sealed class DonemTanimiYapilandirma : IEntityTypeConfiguration<DonemTa
         b.HasOne<AltGrup>().WithMany().HasForeignKey(x => x.AltGrupId).OnDelete(DeleteBehavior.Cascade);
     }
 }
+
+internal sealed class KullaniciYetkisiYapilandirma : IEntityTypeConfiguration<KullaniciYetkisi>
+{
+    public void Configure(EntityTypeBuilder<KullaniciYetkisi> b)
+    {
+        b.ToTable("kullanici_yetkisi");
+        b.Property(x => x.Yetki).HasMaxLength(60).IsRequired();
+        b.HasIndex(x => new { x.KullaniciId, x.Yetki }).IsUnique();
+        b.HasOne<Kullanici>().WithMany().HasForeignKey(x => x.KullaniciId).OnDelete(DeleteBehavior.Cascade);
+    }
+}

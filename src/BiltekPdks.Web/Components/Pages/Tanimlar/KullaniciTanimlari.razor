@@ -1,0 +1,185 @@
+@page "/tanimlar/kullanicilar"
+@attribute [Authorize(Policy = Yetkiler.KullaniciYonetimi)]
+@using BiltekPdks.Infrastructure.Security
+@inject FirmaDb FirmaDb
+@inject SifreServisi SifreServisi
+
+<PageTitle>Kullanıcı Tanımlama</PageTitle>
+<SagTikMenu @ref="_menu" />
+<h1 class="h5 mb-1">Kullanıcı Tanımlama</h1>
+<p class="small text-muted mb-2">Programı kullanacak kişiler ve hangi ekranlara girebilecekleri. Yönetici her şeye erişir. Yetki değişikliği kullanıcının bir sonraki girişinde geçerli olur.</p>
+
+@if (_mesaj is not null) { <div class="alert @(_hata ? "alert-danger" : "alert-success") py-1 small">@_mesaj</div> }
+
+<div class="grup-ekrani">
+    <section class="border rounded bg-white">
+        <div class="kirmizi-baslik">KULLANICILAR</div>
+        <div class="izgara" style="max-height:calc(100vh - 16rem)">
+            <table class="table table-sm table-hover mb-0">
+                <thead><tr><th>Kullanıcı adı</th><th>Ad soyad</th><th>Rol</th><th>Son giriş</th></tr></thead>
+                <tbody>
+                    @foreach (var k in _liste)
+                    {
+                        var kul = k;
+                        <tr class="@(kul.Id == _secili?.Id ? "secili" : "") @(kul.Aktif ? "" : "text-muted")" @onclick="() => Sec(kul)"
+                            @oncontextmenu="e => { Sec(kul); _menu.Ac(e, Menu()); }" @oncontextmenu:preventDefault="true">
+                            <td>@kul.KullaniciAdi @(kul.Kilitli ? "🔒" : "")</td><td>@kul.AdSoyad</td><td>@Yetkiler.RolAdi(kul.Rol)</td>
+                            <td>@(kul.SonGirisTarihi?.ToLocalTime().ToString("dd.MM.yyyy HH:mm"))</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div class="alt-cubuk">
+            <button class="btn btn-sm btn-outline-success" @onclick="Yeni">Yeni kullanıcı</button>
+            <span class="small text-muted ms-auto">Sağ tık: işlemler</span>
+        </div>
+    </section>
+
+    <section class="border rounded bg-white p-3 small">
+        @if (_secili is null)
+        {
+            <p class="text-muted">Soldan bir kullanıcı seçin ya da yeni kullanıcı ekleyin.</p>
+        }
+        else
+        {
+            var k = _secili;
+            <div class="kirmizi-baslik px-0 mb-2">@(k.Id == 0 ? "YENİ KULLANICI" : "KULLANICI: " + k.KullaniciAdi)</div>
+            <div class="row g-2 align-items-center" style="max-width:640px">
+                <label class="col-4">Kullanıcı adı</label><div class="col-8"><input class="form-control form-control-sm" @bind="k.KullaniciAdi" autocomplete="off" /></div>
+                <label class="col-4">Ad soyad</label><div class="col-8"><input class="form-control form-control-sm" @bind="k.AdSoyad" /></div>
+                <label class="col-4">Rol</label>
+                <div class="col-8">
+                    <select class="form-select form-select-sm" value="@((int)k.Rol)" @onchange="RolDegisti">
+                        @foreach (var r in Enum.GetValues<KullaniciRolu>()) { <option value="@((int)r)">@Yetkiler.RolAdi(r)</option> }
+                    </select>
+                </div>
+                <label class="col-4">Bağlı personel</label>
+                <div class="col-8"><PersonelSecici @bind-Value="k.PersonelId" Liste="_personeller" BosMetin="— yok —" /></div>
+                <label class="col-4">@(k.Id == 0 ? "Şifre" : "Yeni şifre")</label>
+                <div class="col-8"><input class="form-control form-control-sm" type="password" autocomplete="new-password" placeholder="@(k.Id == 0 ? "" : "değiştirmeyecekseniz boş bırakın")" @bind="k.YeniSifre" /></div>
+                <div class="col-8 offset-4"><label class="form-check m-0"><input class="form-check-input" type="checkbox" @bind="k.Aktif" /> Aktif (pasif kullanıcı giriş yapamaz)</label></div>
+            </div>
+
+            <div class="kirmizi-baslik px-0 mt-3 mb-1">YETKİLER</div>
+            @if (k.Rol == KullaniciRolu.Yonetici)
+            {
+                <p class="text-muted">Yönetici tüm ekranlara ve işlemlere erişir.</p>
+            }
+            else
+            {
+                <label class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" checked="@k.OzelYetki" @onchange="OzelYetkiDegisti" />
+                    Bu kullanıcıya özel yetki ver (işaretli değilse "@Yetkiler.RolAdi(k.Rol)" rolünün yetkileri geçerlidir)
+                </label>
+                <table class="table table-sm table-bordered mb-1" style="max-width:640px">
+                    <tbody>
+                        @foreach (var g in Yetkiler.Hepsi.GroupBy(y => y.Grup))
+                        {
+                            <tr class="table-light"><th colspan="2">@g.Key</th></tr>
+                            @foreach (var y in g)
+                            {
+                                var yetki = y;
+                                <tr>
+                                    <td style="width:2rem"><input class="form-check-input" type="checkbox" checked="@k.Yetkiler.Contains(yetki.Kod)" disabled="@(!k.OzelYetki)"
+                                               @onchange="e => YetkiDegisti(yetki.Kod, e.Value is true)" /></td>
+                                    <td>@yetki.Aciklama</td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            }
+            <div class="d-flex gap-2 mt-3">
+                <button class="btn btn-sm btn-primary px-4" @onclick="KaydetAsync">Kaydet</button>
+                <button class="btn btn-sm btn-outline-secondary" @onclick="() => Sec(_liste.FirstOrDefault(x => x.Id == k.Id))">Vazgeç</button>
+                @if (k.Kilitli) { <button class="btn btn-sm btn-outline-warning" @onclick="() => KilitAcAsync(k.Id)">Kilidi aç</button> }
+            </div>
+        }
+    </section>
+</div>
+
+@code {
+    private SagTikMenu _menu = default!;
+    private List<KullaniciBilgisi> _liste = new();
+    private List<PersonelOgesi> _personeller = new();
+    private KullaniciBilgisi? _secili;
+    private string? _mesaj;
+    private bool _hata;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await FirmaDb.AcAsync();
+        _personeller = await PersonelOgesi.ListeleAsync(db, ayrilanlarDahil: false);
+        await YukleAsync();
+    }
+
+    private async Task YukleAsync(int? secilecek = null)
+    {
+        await using var db = await FirmaDb.AcAsync();
+        _liste = await KullaniciServisi.ListeleAsync(db);
+        if (secilecek is int id) Sec(_liste.FirstOrDefault(x => x.Id == id));
+    }
+
+    private void Sec(KullaniciBilgisi? k)
+    {
+        _secili = k is null ? null : new KullaniciBilgisi
+        {
+            Id = k.Id, KullaniciAdi = k.KullaniciAdi, AdSoyad = k.AdSoyad, Rol = k.Rol, Aktif = k.Aktif, OzelYetki = k.OzelYetki,
+            PersonelId = k.PersonelId, Yetkiler = new HashSet<string>(k.Yetkiler), SonGirisTarihi = k.SonGirisTarihi, Kilitli = k.Kilitli,
+        };
+    }
+
+    private void Yeni()
+    {
+        _secili = new KullaniciBilgisi { Rol = KullaniciRolu.InsanKaynaklari, Yetkiler = Yetkiler.RolVarsayilani(KullaniciRolu.InsanKaynaklari).ToHashSet() };
+        _mesaj = null;
+    }
+
+    private void RolDegisti(ChangeEventArgs e)
+    {
+        if (_secili is null || !int.TryParse(e.Value?.ToString(), out var r)) return;
+        _secili.Rol = (KullaniciRolu)r;
+        if (!_secili.OzelYetki) _secili.Yetkiler = Yetkiler.RolVarsayilani(_secili.Rol).ToHashSet();
+    }
+
+    private void OzelYetkiDegisti(ChangeEventArgs e)
+    {
+        if (_secili is null) return;
+        _secili.OzelYetki = e.Value is true;
+        if (!_secili.OzelYetki) _secili.Yetkiler = Yetkiler.RolVarsayilani(_secili.Rol).ToHashSet();
+    }
+
+    private void YetkiDegisti(string kod, bool secildi)
+    {
+        if (_secili is null) return;
+        if (secildi) _secili.Yetkiler.Add(kod); else _secili.Yetkiler.Remove(kod);
+    }
+
+    private async Task KaydetAsync()
+    {
+        if (_secili is null) return;
+        await using var db = await FirmaDb.AcAsync();
+        var hata = await KullaniciServisi.KaydetAsync(db, _secili, SifreServisi, await FirmaDb.KullaniciIdAsync());
+        _hata = hata is not null;
+        _mesaj = hata ?? $"{_secili.KullaniciAdi} kaydedildi.";
+        if (hata is null) await YukleAsync(_secili.Id);
+    }
+
+    private async Task KilitAcAsync(int id)
+    {
+        await using var db = await FirmaDb.AcAsync();
+        await KullaniciServisi.KilidiAcAsync(db, id);
+        await YukleAsync(id);
+        _hata = false;
+        _mesaj = "Kilit açıldı.";
+    }
+
+    private List<SagTikMenu.Oge> Menu() => new()
+    {
+        SagTikMenu.Oge.Eylemli("Yeni kullanıcı", Yeni),
+        new("Kilidi aç", () => _secili is null ? Task.CompletedTask : KilitAcAsync(_secili.Id), Pasif: _secili is not { Kilitli: true }),
+        SagTikMenu.Oge.Cizgi(),
+        new("Yenile", () => YukleAsync(_secili?.Id)),
+    };
+}
