@@ -1,4 +1,6 @@
+using System.Security.Claims;
 using BiltekPdks.Infrastructure.Data;
+using BiltekPdks.Infrastructure.Firmalar;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.EntityFrameworkCore;
 
@@ -7,25 +9,28 @@ namespace BiltekPdks.Web.Services;
 /// <summary>Oturumdaki kullanıcının firmasına kilitli veritabanı bağlamı açar.</summary>
 public class FirmaDb
 {
-    private readonly IDbContextFactory<PdksDbContext> _factory;
+    private readonly IFirmaVeritabanlari _veritabanlari;
     private readonly AuthenticationStateProvider _auth;
 
-    public FirmaDb(IDbContextFactory<PdksDbContext> factory, AuthenticationStateProvider auth)
+    public FirmaDb(IFirmaVeritabanlari veritabanlari, AuthenticationStateProvider auth)
     {
-        _factory = factory;
+        _veritabanlari = veritabanlari;
         _auth = auth;
     }
 
     public async Task<PdksDbContext> AcAsync()
     {
         var durum = await _auth.GetAuthenticationStateAsync();
-        var db = await _factory.CreateDbContextAsync();
+        var db = await _veritabanlari.Fabrika(durum.User).CreateDbContextAsync();
         db.AktifFirmaId = int.TryParse(durum.User.FindFirst(Talepler.FirmaId)?.Value, out var id) ? id : null;
         db.IslemYapanKullaniciId = int.TryParse(durum.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var k) ? k : null;
         return db;
     }
 
     /// <summary>Oturumdaki kullanıcının id'si (kayıtlara "kim yaptı" bilgisi yazmak için).</summary>
+    /// <summary>Oturumdaki kullanıcının firma kodu (ayrı veritabanı modunda veritabanını seçer).</summary>
+    public async Task<string?> FirmaKoduAsync() => (await _auth.GetAuthenticationStateAsync()).User.FindFirst(Talepler.FirmaKodu)?.Value;
+
     public async Task<int?> KullaniciIdAsync()
     {
         var durum = await _auth.GetAuthenticationStateAsync();
@@ -37,4 +42,12 @@ public static class Talepler
 {
     public const string FirmaId = "firma_id";
     public const string KullaniciAdi = "kullanici_adi";
+    public const string FirmaKodu = "firma_kodu";
+}
+
+public static class FirmaVeritabaniUzantilari
+{
+    /// <summary>Oturumdaki kullanıcının firmasının veritabanı fabrikası.</summary>
+    public static IDbContextFactory<PdksDbContext> Fabrika(this IFirmaVeritabanlari v, ClaimsPrincipal kullanici) =>
+        v.AyriVeritabani ? v.Fabrika(kullanici.FindFirst(Talepler.FirmaKodu)?.Value ?? throw new FirmaBulunamadi(null)) : v.Fabrika((string?)null);
 }

@@ -51,6 +51,26 @@ veritabanı ve ekrandan bağımsız test edilir.
 Yeni bir firmaya ait tablo eklerken: `FirmaEntity`'den türet → `PdksDbContext`'e `DbSet` ve
 `FirmaKurallari<T>()` ekle → yapılandırma sınıfı yaz → migration üret.
 
+### 3.1 Her firmaya ayrı veritabanı (bulut)
+
+`Veritabani:Mod = FirmaBasina` olduğunda her firmanın verisi ayrı veritabanında (SQLite'ta ayrı klasörde) durur.
+Hangi firmanın nerede olduğu küçük bir **katalog** veritabanında tutulur (`katalog_firma`).
+
+```json
+"Veritabani": { "Saglayici": "MySql", "Mod": "FirmaBasina" },
+"ConnectionStrings": {
+  "Katalog": "Server=..;Database=pdks_katalog;User=..;Password=..",
+  "FirmaSablonu": "Server=..;Database=pdks_{kod};User=..;Password=.."
+}
+```
+
+- `{kod}` küçük harfli firma koduyla değişir; firma kodu yalnızca `A-Z 0-9 _` olabilir (`FirmaKodu.Normallestir`).
+- Giriş: firma kodu → katalog → o firmanın veritabanı. Oturum çerezinde `firma_kodu` taşınır; ekranlar,
+  raporlar ve yedek yalnızca bu veritabanını açar (`IFirmaVeritabanlari.Fabrika(User)`).
+- Açılışta katalog boşsa `Kurulum:FirmaKodu` ile ilk firma açılır; sonra her firmanın veritabanı güncellenir (migration).
+- FirmaId filtresi ayrı veritabanında da çalışmaya devam eder (ikinci güvenlik katmanı).
+- `Mod` boşsa (masaüstü) eski tek veritabanı davranışı sürer.
+
 ## 4. Veritabanı ve sürüm yönetimi
 
 - **SQLite:** tek bilgisayarlık kurulum (Windows paketi, `pdks.db`).

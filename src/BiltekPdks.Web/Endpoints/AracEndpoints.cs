@@ -1,5 +1,7 @@
 using BiltekPdks.Domain.Entities;
 using BiltekPdks.Infrastructure.Data;
+using BiltekPdks.Infrastructure.Firmalar;
+using BiltekPdks.Web.Services;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 
@@ -10,9 +12,10 @@ public static class AracEndpoints
     public static void MapAracEndpoints(this IEndpointRouteBuilder app)
     {
         // Araçlar → Data Yedekle: veritabanının tutarlı bir kopyasını indirir (yalnızca yönetici).
-        app.MapGet("/araclar/yedek", async (HttpContext http, IDbContextFactory<PdksDbContext> factory) =>
+        app.MapGet("/araclar/yedek", async (HttpContext http, IFirmaVeritabanlari veritabanlari) =>
         {
-            await using var db = await factory.CreateDbContextAsync(http.RequestAborted);
+            // Ayrı veritabanı modunda yalnızca oturumdaki firmanın veritabanı yedeklenir.
+            await using var db = await veritabanlari.Fabrika(http.User).CreateDbContextAsync(http.RequestAborted);
             if (!db.Database.IsSqlite())
                 return Results.Text("Sunucu (MySQL) kurulumunda yedek, veritabanı sunucusunun kendi yedekleme aracıyla alınır.", statusCode: 400);
 

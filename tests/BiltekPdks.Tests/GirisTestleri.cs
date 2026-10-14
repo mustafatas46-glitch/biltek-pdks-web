@@ -1,3 +1,4 @@
+using BiltekPdks.Infrastructure.Firmalar;
 using BiltekPdks.Domain.Entities;
 using BiltekPdks.Infrastructure.Security;
 using BiltekPdks.Infrastructure.Seed;
@@ -16,7 +17,7 @@ public class GirisTestleri
         var sonuc = kurulum.CalistirAsync("demo", "Demo Ltd", Sifre).GetAwaiter().GetResult();
         Assert.True(sonuc.IlkKurulum);
         var saat = new SabitSaat();
-        return (tv, new GirisServisi(tv, sifre, saat), saat);
+        return (tv, new GirisServisi(new TekVeritabani(tv), sifre, saat), saat);
     }
 
     [Fact]
@@ -85,7 +86,7 @@ public class GirisTestleri
         var sonuc = await new KurulumServisi(tv, sifre).CalistirAsync("demo", "Demo", "123");
         Assert.NotNull(sonuc.UretilenSifre);
         Assert.Null(SifreServisi.KuralHatasi(sonuc.UretilenSifre));
-        var giris = new GirisServisi(tv, sifre, new SabitSaat());
+        var giris = new GirisServisi(new TekVeritabani(tv), sifre, new SabitSaat());
         Assert.True((await giris.DogrulaAsync("DEMO", "admin", sonuc.UretilenSifre!)).Basarili);
     }
 

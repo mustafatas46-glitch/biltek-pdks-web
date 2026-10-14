@@ -1,5 +1,7 @@
 using BiltekPdks.Infrastructure;
 using BiltekPdks.Infrastructure.Data;
+using BiltekPdks.Infrastructure.Firmalar;
+using BiltekPdks.Infrastructure.Security;
 using BiltekPdks.Infrastructure.Seed;
 using BiltekPdks.Web.Components;
 using BiltekPdks.Web.Endpoints;
@@ -66,6 +68,29 @@ static async Task VeritabaniniHazirlaAsync(WebApplication app)
     using var scope = app.Services.CreateScope();
     var sp = scope.ServiceProvider;
     var log = sp.GetRequiredService<ILoggerFactory>().CreateLogger("Kurulum");
+    var cfg = app.Configuration;
+    var kurulumKodu = cfg["Kurulum:FirmaKodu"] ?? "FIRMA";
+    var kurulumAdi = cfg["Kurulum:FirmaAdi"] ?? "Firmam";
+    var veritabanlari = sp.GetRequiredService<IFirmaVeritabanlari>();
+    var sifre = sp.GetRequiredService<SifreServisi>();
+
+    if (veritabanlari.AyriVeritabani)
+    {
+        // Her firmanın ayrı veritabanı: katalog boşsa ilk firma açılır, sonra tüm firmalar güncellenir.
+        if ((await veritabanlari.FirmalarAsync()).Count == 0)
+            await veritabanlari.FirmaEkleAsync(kurulumKodu, kurulumAdi);
+
+        foreach (var f in await veritabanlari.FirmalarAsync())
+        {
+            if (!f.Aktif) continue;
+            var fabrika = veritabanlari.Fabrika(f.Kod);
+            await using (var db = await fabrika.CreateDbContextAsync())
+                await VeritabaniGuncelleyici.GuncelleAsync(db);
+            var s = await new KurulumServisi(fabrika, sifre).CalistirAsync(f.Kod, f.Ad, cfg["Kurulum:YoneticiSifresi"]);
+            KurulumuBildir(log, s);
+        }
+        return;
+    }
 
     await using (var db = await sp.GetRequiredService<IDbContextFactory<PdksDbContext>>().CreateDbContextAsync())
     {
@@ -73,21 +98,20 @@ static async Task VeritabaniniHazirlaAsync(WebApplication app)
         await VeritabaniGuncelleyici.GuncelleAsync(db);
     }
 
-    var cfg = app.Configuration;
-    var sonuc = await sp.GetRequiredService<KurulumServisi>().CalistirAsync(
-        cfg["Kurulum:FirmaKodu"] ?? "FIRMA",
-        cfg["Kurulum:FirmaAdi"] ?? "Firmam",
-        cfg["Kurulum:YoneticiSifresi"]);
+    var sonuc = await sp.GetRequiredService<KurulumServisi>().CalistirAsync(kurulumKodu, kurulumAdi, cfg["Kurulum:YoneticiSifresi"]);
 
     if (cfg.GetValue<bool>("Kurulum:DemoVeri") && await sp.GetRequiredService<DemoVeriServisi>().OlusturAsync())
         log.LogWarning("Tanıtım amaçlı hayali personel ve hareketler eklendi (Kurulum:DemoVeri).");
 
-    if (sonuc.IlkKurulum)
-    {
-        log.LogWarning("İlk kurulum yapıldı. Firma kodu: {Firma}, kullanıcı: {Kullanici}", sonuc.FirmaKodu, sonuc.YoneticiKullaniciAdi);
-        if (sonuc.UretilenSifre is not null)
-            log.LogWarning("Yönetici için geçici şifre üretildi: {Sifre}  (ilk girişten sonra değiştirin)", sonuc.UretilenSifre);
-    }
+    KurulumuBildir(log, sonuc);
+}
+
+static void KurulumuBildir(ILogger log, KurulumSonucu sonuc)
+{
+    if (!sonuc.IlkKurulum) return;
+    log.LogWarning("İlk kurulum yapıldı. Firma kodu: {Firma}, kullanıcı: {Kullanici}", sonuc.FirmaKodu, sonuc.YoneticiKullaniciAdi);
+    if (sonuc.UretilenSifre is not null)
+        log.LogWarning("Yönetici için geçici şifre üretildi: {Sifre}  (ilk girişten sonra değiştirin)", sonuc.UretilenSifre);
 }
 
 public partial class Program { }

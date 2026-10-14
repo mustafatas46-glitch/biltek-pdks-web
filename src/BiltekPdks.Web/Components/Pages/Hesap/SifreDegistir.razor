@@ -39,7 +39,7 @@
         {
             var id = await FirmaDb.KullaniciIdAsync();
             if (id is null) { _hata = "Oturum bulunamadı. Yeniden giriş yapın."; return; }
-            _hata = await GirisServisi.SifreDegistirAsync(id.Value, _mevcut, _yeni, _tekrar);
+            _hata = await GirisServisi.SifreDegistirAsync(id.Value, _mevcut, _yeni, _tekrar, await FirmaDb.FirmaKoduAsync());
             if (_hata is null)
             {
                 _tamam = true;

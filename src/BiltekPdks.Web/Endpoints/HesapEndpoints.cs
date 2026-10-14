@@ -35,6 +35,7 @@ public static class HesapEndpoints
                 new Claim(ClaimTypes.Role, k.Rol.ToString()),
                 new Claim(Talepler.KullaniciAdi, k.KullaniciAdi),
                 new Claim(Talepler.FirmaId, k.FirmaId.ToString()),
+                new Claim(Talepler.FirmaKodu, sonuc.FirmaKodu ?? ""),
             }, CookieAuthenticationDefaults.AuthenticationScheme);
 
             await http.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(kimlik));

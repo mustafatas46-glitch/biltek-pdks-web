@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using BiltekPdks.Infrastructure.Data;
+using BiltekPdks.Infrastructure.Firmalar;
 using BiltekPdks.Infrastructure.Puantaj;
 using BiltekPdks.Infrastructure.Raporlar;
 using BiltekPdks.Web.Services;
@@ -13,14 +14,14 @@ public static class RaporEndpoints
     {
         app.MapGet("/raporlar/toplu-puantaj.xlsx", async (
             HttpContext http,
-            IDbContextFactory<PdksDbContext> factory,
+            IFirmaVeritabanlari veritabanlari,
             PuantajServisi puantaj,
             int yil, int ay, int? bolum, int? grup) =>
         {
             if (ay is < 1 or > 12 || yil is < 2000 or > 2100) return Results.BadRequest("Geçersiz ay.");
             if (!int.TryParse(http.User.FindFirstValue(Talepler.FirmaId), out var firmaId)) return Results.Forbid();
 
-            await using var db = await factory.CreateDbContextAsync(http.RequestAborted);
+            await using var db = await veritabanlari.Fabrika(http.User).CreateDbContextAsync(http.RequestAborted);
             db.AktifFirmaId = firmaId;
             var firmaAdi = await db.Firmalar.Where(f => f.Id == firmaId).Select(f => f.Ad).FirstOrDefaultAsync(http.RequestAborted) ?? "";
             var satirlar = await puantaj.TopluAsync(db, yil, ay, bolum, grup, http.RequestAborted);
@@ -32,14 +33,14 @@ public static class RaporEndpoints
 
         app.MapGet("/raporlar/kisisel-puantaj.xlsx", async (
             HttpContext http,
-            IDbContextFactory<PdksDbContext> factory,
+            IFirmaVeritabanlari veritabanlari,
             PuantajServisi puantaj,
             int personel, int yil, int ay) =>
         {
             if (ay is < 1 or > 12 || yil is < 2000 or > 2100) return Results.BadRequest("Geçersiz ay.");
             if (!int.TryParse(http.User.FindFirstValue(Talepler.FirmaId), out var firmaId)) return Results.Forbid();
 
-            await using var db = await factory.CreateDbContextAsync(http.RequestAborted);
+            await using var db = await veritabanlari.Fabrika(http.User).CreateDbContextAsync(http.RequestAborted);
             db.AktifFirmaId = firmaId;
             var sonuc = await puantaj.AylikAsync(db, personel, yil, ay, http.RequestAborted);
             if (sonuc is null) return Results.NotFound();
