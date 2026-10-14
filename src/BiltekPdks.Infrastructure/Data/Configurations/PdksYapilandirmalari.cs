@@ -131,3 +131,37 @@ internal sealed class BordroSatiriYapilandirma : IEntityTypeConfiguration<Bordro
         b.HasOne(x => x.Personel).WithMany().HasForeignKey(x => x.PersonelId).OnDelete(DeleteBehavior.Cascade);
     }
 }
+
+internal sealed class AltGrupYapilandirma : TanimYapilandirma<AltGrup>
+{
+    protected override string Tablo => "alt_grup";
+
+    public override void Configure(EntityTypeBuilder<AltGrup> b)
+    {
+        base.Configure(b);
+        b.HasOne(x => x.CalismaGrubu).WithMany().HasForeignKey(x => x.CalismaGrubuId).OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+internal sealed class AltGrupGunuYapilandirma : IEntityTypeConfiguration<AltGrupGunu>
+{
+    public void Configure(EntityTypeBuilder<AltGrupGunu> b)
+    {
+        b.ToTable("alt_grup_gunu");
+        b.Property(x => x.Gun).HasConversion<int>();
+        b.HasIndex(x => new { x.AltGrupId, x.Gun }).IsUnique();
+        b.HasOne(x => x.AltGrup).WithMany().HasForeignKey(x => x.AltGrupId).OnDelete(DeleteBehavior.Cascade);
+        b.HasOne<Vardiya>().WithMany().HasForeignKey(x => x.VardiyaId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+internal sealed class DonemTanimiYapilandirma : IEntityTypeConfiguration<DonemTanimi>
+{
+    public void Configure(EntityTypeBuilder<DonemTanimi> b)
+    {
+        b.ToTable("donem_tanimi");
+        b.HasIndex(x => new { x.CalismaGrubuId, x.Baslangic });
+        b.HasOne<CalismaGrubu>().WithMany().HasForeignKey(x => x.CalismaGrubuId).OnDelete(DeleteBehavior.Cascade);
+        b.HasOne<AltGrup>().WithMany().HasForeignKey(x => x.AltGrupId).OnDelete(DeleteBehavior.Cascade);
+    }
+}

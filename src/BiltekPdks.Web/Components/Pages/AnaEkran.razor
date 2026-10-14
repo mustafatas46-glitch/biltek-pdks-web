@@ -587,7 +587,14 @@
         if (_secili.CalismaGrubuId is int gid)
         {
             await using var db = await FirmaDb.AcAsync();
-            var v = await db.CalismaGrubuGunleri.AsNoTracking().Where(x => x.CalismaGrubuId == gid && x.Vardiya != null)
+            Vardiya? v = null;
+            if (_secili.AltGrupId is int aid)
+            {
+                var vid = await db.AltGrupGunleri.AsNoTracking().Where(x => x.AltGrupId == aid && x.VardiyaId != null)
+                    .OrderBy(x => x.Gun == DayOfWeek.Sunday ? 7 : (int)x.Gun).Select(x => x.VardiyaId).FirstOrDefaultAsync();
+                if (vid is int id) v = await db.Vardiyalar.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
+            }
+            v ??= await db.CalismaGrubuGunleri.AsNoTracking().Where(x => x.CalismaGrubuId == gid && x.Vardiya != null)
                 .OrderBy(x => x.Gun == DayOfWeek.Sunday ? 7 : (int)x.Gun).Select(x => x.Vardiya).FirstOrDefaultAsync();
             if (v is not null) { _toplu.Giris = v.Baslangic; _toplu.Cikis = v.Bitis; }
         }

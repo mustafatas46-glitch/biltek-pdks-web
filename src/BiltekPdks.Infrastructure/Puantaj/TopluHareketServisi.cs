@@ -40,9 +40,12 @@ public static class TopluHareketServisi
         var p = await db.Personeller.AsNoTracking().FirstOrDefaultAsync(x => x.Id == istek.PersonelId, ct)
             ?? throw new ArgumentException("Personel bulunamadı.");
 
-        var grupPlani = p.CalismaGrubuId is int gid
-            ? await db.CalismaGrubuGunleri.AsNoTracking().Where(x => x.CalismaGrubuId == gid).ToDictionaryAsync(x => x.Gun, x => x.VardiyaId, ct)
+        // Sabit alt grubu olan personelde plan alt gruptan gelir.
+        var grupPlani = p.AltGrupId is int aid
+            ? await db.AltGrupGunleri.AsNoTracking().Where(x => x.AltGrupId == aid).ToDictionaryAsync(x => x.Gun, x => x.VardiyaId, ct)
             : new Dictionary<DayOfWeek, int?>();
+        if (grupPlani.Count == 0 && p.CalismaGrubuId is int gid)
+            grupPlani = await db.CalismaGrubuGunleri.AsNoTracking().Where(x => x.CalismaGrubuId == gid).ToDictionaryAsync(x => x.Gun, x => x.VardiyaId, ct);
         var kisisel = await db.PersonelVardiyalari.AsNoTracking()
             .Where(x => x.PersonelId == p.Id && x.Tarih >= istek.Baslangic && x.Tarih <= istek.Bitis)
             .ToDictionaryAsync(x => x.Tarih, x => x.VardiyaId, ct);

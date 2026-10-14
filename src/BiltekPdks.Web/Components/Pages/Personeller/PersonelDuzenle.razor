@@ -72,6 +72,11 @@ else
                 <div class="col-lg-5">
                     <div class="row g-2 align-items-center">
                         <SicilSatir Etiket="Grup" Zorunlu="true"><TanimSecici @bind-Value="_form.CalismaGrubuId" Secenekler="_gruplar" /></SicilSatir>
+                        @{ var altlar = _altGruplar.Where(x => x.GrupId == _form.CalismaGrubuId).Select(x => new TanimSecenek(x.Id, x.Ad)).ToList(); }
+                        @if (altlar.Count > 0)
+                        {
+                            <SicilSatir Etiket="Alt grup"><TanimSecici @bind-Value="e.AltGrupId" Secenekler="altlar" /><small class="text-muted">boşsa okutmaya göre seçilir</small></SicilSatir>
+                        }
                         <SicilSatir Etiket="Durumu">
                             <select class="form-select form-select-sm" value="@(_form.IstenCikisTarihi is null ? "aktif" : "pasif")" @onchange="DurumDegisti">
                                 <option value="aktif">Aktif</option><option value="pasif">Pasif (işten ayrıldı)</option>
@@ -240,6 +245,7 @@ else
     private string? _hata, _bilgi;
     private List<TanimSecenek> _subeler = new(), _bolumler = new(), _gorevler = new(), _gruplar = new(),
         _servisler = new(), _bolgeler = new(), _birimler = new(), _takimlar = new(), _meslekler = new();
+    private List<(int Id, string Ad, int GrupId)> _altGruplar = new();
 
     protected override async Task OnParametersSetAsync()
     {
@@ -253,6 +259,8 @@ else
         _birimler = await Secenekler(db.Birimler);
         _takimlar = await Secenekler(db.Takimlar);
         _meslekler = await Secenekler(db.Meslekler);
+        _altGruplar = (await db.AltGruplar.AsNoTracking().OrderBy(x => x.Ad).Select(x => new { x.Id, x.Ad, x.CalismaGrubuId }).ToListAsync())
+            .Select(x => (x.Id, x.Ad, x.CalismaGrubuId)).ToList();
 
         if (Id is null)
         {
@@ -278,6 +286,9 @@ else
 
     private async Task KaydetAsync()
     {
+        // Başka gruba geçen personelde eski grubun alt grubu kalmasın.
+        if (_form!.Ek.AltGrupId is int ag && !_altGruplar.Any(x => x.Id == ag && x.GrupId == _form.CalismaGrubuId))
+            _form.Ek.AltGrupId = null;
         _hata = _bilgi = null;
         _kaydediliyor = true;
         try

@@ -34,6 +34,9 @@ public class Personel : FirmaEntity
     public Gorev? Gorev { get; set; }
     public int? CalismaGrubuId { get; set; }
     public CalismaGrubu? CalismaGrubu { get; set; }
+    /// <summary>Vardiyalı grupta sabit alt grup. Boşsa puantaj okutmaya göre alt grubu kendisi seçer.</summary>
+    public int? AltGrupId { get; set; }
+    public AltGrup? AltGrup { get; set; }
 
     // --- Genel / SGK ---
     public string? KartId { get; set; }

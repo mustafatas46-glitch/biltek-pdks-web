@@ -111,6 +111,15 @@ public class PuantajServisi
             .GroupBy(x => x.CalismaGrubuId)
             .ToDictionary(x => x.Key, x => (IReadOnlyDictionary<DayOfWeek, int?>)x.ToDictionary(y => y.Gun, y => y.VardiyaId));
 
+        // Alt grupların haftalık planları (vardiyalı gruplar: 08-16, 16-24, 24-08 ...).
+        var altGrupGunleri = await db.AltGrupGunleri.AsNoTracking()
+            .Select(x => new { x.AltGrupId, x.AltGrup!.CalismaGrubuId, x.Gun, x.VardiyaId }).ToListAsync(ct);
+        var altPlanlar = altGrupGunleri.GroupBy(x => x.AltGrupId)
+            .ToDictionary(x => x.Key, x => (IReadOnlyDictionary<DayOfWeek, int?>)x.ToDictionary(y => y.Gun, y => y.VardiyaId));
+        var grupAltPlanlari = altGrupGunleri.GroupBy(x => x.CalismaGrubuId)
+            .ToDictionary(x => x.Key, x => (IReadOnlyList<IReadOnlyDictionary<DayOfWeek, int?>>)x.Select(y => y.AltGrupId).Distinct().OrderBy(id => id)
+                .Select(id => altPlanlar[id]).ToList());
+
         var kisiselPlanlar = (await db.PersonelVardiyalari.AsNoTracking()
                 .Where(x => idSorgusu.Contains(x.PersonelId) && x.Tarih >= ilk && x.Tarih <= son)
                 .ToListAsync(ct))
@@ -141,8 +150,13 @@ public class PuantajServisi
         foreach (var p in personeller)
         {
             var grupPlani = p.CalismaGrubuId is int gid && grupPlanlari.TryGetValue(gid, out var gp) ? gp : bosPlan;
+            IReadOnlyList<IReadOnlyDictionary<DayOfWeek, int?>>? altAdaylar = null;
+            if (p.AltGrupId is int aid && altPlanlar.TryGetValue(aid, out var sabitAlt))
+                grupPlani = sabitAlt;                       // sabit alt grup
+            else if (p.CalismaGrubuId is int gid2 && grupAltPlanlari.TryGetValue(gid2, out var adaylar))
+                altAdaylar = adaylar;                       // alt grup okutmaya göre seçilir
             var kisisel = kisiselPlanlar.TryGetValue(p.Id, out var kp) ? kp : bosKisisel;
-            var gunler = Hesapla(p, ilk, son, vardiyalar, grupPlani, kisisel, tatiller, izinler[p.Id].ToList(), hareketler[p.Id], bugun);
+            var gunler = Hesapla(p, ilk, son, vardiyalar, grupPlani, kisisel, tatiller, izinler[p.Id].ToList(), hareketler[p.Id], bugun, altAdaylar);
             sonuc.Add(new AylikPuantaj(p, yil, ay, gunler, PuantajToplamlari.Hesapla(gunler)));
         }
         return sonuc;
@@ -162,17 +176,25 @@ public class PuantajServisi
         IReadOnlySet<DateOnly> resmiTatiller,
         IReadOnlyList<Izin> izinler,
         IEnumerable<DateTime> hareketler,
-        DateOnly? sonHesapGunu = null)
+        DateOnly? sonHesapGunu = null,
+        IReadOnlyList<IReadOnlyDictionary<DayOfWeek, int?>>? altGrupPlanlari = null)
     {
         var kalan = PuantajMotoru.Temizle(hareketler);
+        var tumHareketler = kalan.ToList();
         var sonuc = new List<GunlukPuantaj>();
+        var onbellek = new Dictionary<DateOnly, VardiyaKurali?>();
+
+        VardiyaKurali? Kural(int? vardiyaId) => vardiyaId is int id && vardiyalar.TryGetValue(id, out var v) ? v.Kural() : null;
 
         VardiyaKurali? KuralBul(DateOnly t)
         {
-            int? vardiyaId = kisiselPlan.TryGetValue(t, out var k) ? k
-                : grupPlani.TryGetValue(t.DayOfWeek, out var g) ? g
-                : null;
-            return vardiyaId is int id && vardiyalar.TryGetValue(id, out var v) ? v.Kural() : null;
+            if (onbellek.TryGetValue(t, out var hazir)) return hazir;
+            VardiyaKurali? kural;
+            if (kisiselPlan.TryGetValue(t, out var k)) kural = Kural(k);
+            else if (altGrupPlanlari is { Count: > 0 }) kural = AltGrupSec(t, altGrupPlanlari, grupPlani, Kural, tumHareketler);
+            else kural = grupPlani.TryGetValue(t.DayOfWeek, out var g) ? Kural(g) : null;
+            onbellek[t] = kural;
+            return kural;
         }
 
         // Önceki günden başlanır ki ay başına sarkan gece vardiyası çıkışları 1'ine yazılmasın.
@@ -200,6 +222,47 @@ public class PuantajServisi
         }
 
         return sonuc;
+    }
+
+    /// <summary>
+    /// Sabit alt grubu olmayan personelde günün alt grubunu seçer: o günün planındaki vardiyalardan,
+    /// okutmaların başlangıç ve bitişe en yakın düştüğü vardiya alınır. Okutma yoksa grubun kendi planı,
+    /// o da yoksa ilk alt grubun vardiyası kullanılır (devamsızlık yine doğru günde görünür).
+    /// </summary>
+    public static VardiyaKurali? AltGrupSec(DateOnly t, IReadOnlyList<IReadOnlyDictionary<DayOfWeek, int?>> altGrupPlanlari,
+        IReadOnlyDictionary<DayOfWeek, int?> grupPlani, Func<int?, VardiyaKurali?> kural, IReadOnlyList<DateTime> hareketler)
+    {
+        var adaylar = altGrupPlanlari
+            .Select(p => p.TryGetValue(t.DayOfWeek, out var v) ? v : null)
+            .Where(v => v is not null).Distinct()
+            .Select(kural).Where(k => k is not null).Select(k => k!).ToList();
+        var grubunKendi = grupPlani.TryGetValue(t.DayOfWeek, out var g) ? kural(g) : null;
+        if (adaylar.Count == 0) return grubunKendi;
+        if (adaylar.Count == 1) return adaylar[0];
+
+        // Puan: girişe en yakın okutmanın uzaklığı + çıkışa en yakın okutmanın uzaklığı (dakika).
+        // Vardiya başlangıcının ±4 saatinde okutma yoksa o vardiya aday değildir; çıkış okutması yoksa 240 dk ceza eklenir.
+        VardiyaKurali? enIyi = null;
+        var enIyiPuan = double.MaxValue;
+        foreach (var a in adaylar)
+        {
+            var girisUzakligi = EnYakin(hareketler, a.BaslangicZamani(t));
+            if (girisUzakligi is not { } g1) continue;
+            var puan = g1 + (EnYakin(hareketler, a.BitisZamani(t)) ?? 240);
+            if (puan < enIyiPuan) { enIyiPuan = puan; enIyi = a; }
+        }
+        return enIyi ?? grubunKendi ?? adaylar[0];
+    }
+
+    private static double? EnYakin(IReadOnlyList<DateTime> hareketler, DateTime an)
+    {
+        double? en = null;
+        foreach (var h in hareketler)
+        {
+            var fark = Math.Abs((h - an).TotalMinutes);
+            if (fark <= PuantajMotoru.OncekiPay.TotalMinutes && (en is null || fark < en)) en = fark;
+        }
+        return en;
     }
 
     /// <summary>

@@ -63,6 +63,7 @@ internal sealed class PersonelYapilandirma : IEntityTypeConfiguration<Personel>
         b.HasOne(x => x.Bolum).WithMany().HasForeignKey(x => x.BolumId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.Gorev).WithMany().HasForeignKey(x => x.GorevId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.CalismaGrubu).WithMany().HasForeignKey(x => x.CalismaGrubuId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.AltGrup).WithMany().HasForeignKey(x => x.AltGrupId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.Servis).WithMany().HasForeignKey(x => x.ServisId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.Bolge).WithMany().HasForeignKey(x => x.BolgeId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.Birim).WithMany().HasForeignKey(x => x.BirimId).OnDelete(DeleteBehavior.Restrict);

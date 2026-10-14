@@ -7,7 +7,7 @@
     <h1 class="h5 m-0">Hesap Parametreleri (Grup, Dönem, Resmi Tatil, Çalışma Planı)</h1>
     <div class="d-flex align-items-center gap-2 ms-auto">
         <span class="small fw-semibold">Yıl</span>
-        <input class="form-control form-control-sm" type="number" style="width:6rem" @bind="_yil" @bind:after="TatilleriYukleAsync" />
+        <input class="form-control form-control-sm" type="number" style="width:6rem" @bind="_yil" @bind:after="YilDegistiAsync" />
         <a class="btn btn-sm btn-outline-secondary" href="vardiyalar">Günlük Çalışma Saatleri</a>
     </div>
 </div>
@@ -15,7 +15,8 @@
 @if (_mesaj is not null) { <div class="alert @(_hata ? "alert-danger" : "alert-success") py-1 small">@_mesaj</div> }
 
 <div class="grup-ekrani">
-    @* ---------- SOL: GRUPLAR ---------- *@
+    @* ---------- SOL: GRUPLAR + ALT GRUPLAR ---------- *@
+    <div class="d-flex flex-column gap-2">
     <section class="border rounded bg-white">
         <div class="kirmizi-baslik">GRUP TANIMLARI</div>
         <div class="izgara" style="max-height:16rem">
@@ -60,6 +61,54 @@
         }
     </section>
 
+    <section class="border rounded bg-white">
+        <div class="kirmizi-baslik">ALT GRUP TANIMLARI @(_secili is null ? "" : $"({_secili.Ad})")</div>
+        <div class="izgara" style="max-height:12rem">
+            <table class="table table-sm table-hover mb-0">
+                <thead><tr><th>Alt Grup Adı</th><th>Günlük</th><th>Plan</th></tr></thead>
+                <tbody>
+                    @foreach (var a in _altGruplar)
+                    {
+                        var alt = a;
+                        <tr class="@(alt.Id == _seciliAlt ? "secili" : "")" @onclick="() => AltSecAsync(alt.Id)"
+                            @ondblclick="() => AltDuzenle(alt)"
+                            @oncontextmenu="async e => { await AltSecAsync(alt.Id); _menu.Ac(e, AltGrupMenusu()); }" @oncontextmenu:preventDefault="true">
+                            <td>@alt.Ad</td><td>@S(alt.GunlukCalismaDakika)</td><td class="small">@(_altPlanOzeti.GetValueOrDefault(alt.Id) ?? "—")</td>
+                        </tr>
+                    }
+                    @if (_secili is not null && _altGruplar.Count == 0)
+                    {
+                        <tr @oncontextmenu="e => _menu.Ac(e, AltGrupMenusu())" @oncontextmenu:preventDefault="true">
+                            <td colspan="3" class="text-muted small">Alt grup yok. Vardiyalı çalışılıyorsa (08-16, 16-24, 24-08) ekleyin.</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        @if (_altDuzen is not null)
+        {
+            <div class="p-2 border-top bg-light small">
+                <div class="row g-2 align-items-center">
+                    <label class="col-5 fw-semibold">Alt grup adı</label><div class="col-7"><input class="form-control form-control-sm" placeholder="ör. 08-16" @bind="_altDuzen.Ad" /></div>
+                    <label class="col-5 fw-semibold">Günlük çalışma</label><div class="col-7"><SureKutusu @bind-Dakika="_altDuzen.GunlukCalismaDakika" /></div>
+                </div>
+                <div class="d-flex gap-2 mt-2">
+                    <button class="btn btn-sm btn-primary" @onclick="AltKaydetAsync">Kaydet</button>
+                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => _altDuzen = null">Vazgeç</button>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="alt-cubuk">
+                <button class="btn btn-sm btn-outline-success" disabled="@(_secili is null)" @onclick="YeniAlt">Yeni alt grup</button>
+                <button class="btn btn-sm btn-outline-primary" disabled="@(_seciliAlt is null)" @onclick="() => AltDuzenle(_altGruplar.FirstOrDefault(x => x.Id == _seciliAlt))">Düzenle</button>
+                <button class="btn btn-sm btn-outline-danger" disabled="@(_seciliAlt is null)" @onclick="AltSilAsync">Sil</button>
+            </div>
+        }
+    </section>
+    </div>
+
     @* ---------- SAĞ: SEKMELER ---------- *@
     <section class="border rounded bg-white">
         <ul class="nav nav-tabs small px-1 pt-1">
@@ -75,7 +124,13 @@
         }
         else if (_sekme == "plan")
         {
-            <div class="kirmizi-baslik mb-2">ÇALIŞMA PLANI (@_secili.Ad)</div>
+            <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                <div class="kirmizi-baslik p-0">ÇALIŞMA PLANI</div>
+                <select class="form-select form-select-sm" style="max-width:20rem" value="@(_planHedef?.ToString() ?? "")" @onchange="PlanHedefDegistiAsync">
+                    <option value="">@_secili.Ad — grubun kendi planı</option>
+                    @foreach (var a in _altGruplar) { <option value="@a.Id">@_secili.Ad / @a.Ad</option> }
+                </select>
+            </div>
             <div class="d-flex gap-4 flex-wrap">
                 <table class="table table-sm align-middle mb-0" style="max-width:520px">
                     <tbody>
@@ -94,26 +149,58 @@
                     <button class="btn btn-sm btn-primary mt-3" @onclick="PlanKaydetAsync">Kaydet</button>
                 </div>
             </div>
-            <p class="small text-muted mt-2 mb-0">Boş bırakılan gün hafta tatilidir. Günlere atanan planlar <a href="vardiyalar">Günlük Çalışma Saatleri</a> ekranında tanımlanır.</p>
+            <p class="small text-muted mt-2 mb-0">Boş bırakılan gün hafta tatilidir. Günlere atanan planlar <a href="vardiyalar">Günlük Çalışma Saatleri</a> ekranında tanımlanır.
+                @if (_altGruplar.Count > 0)
+                {
+                    <br />@("Alt grubu sicil kartında sabitlenmeyen personelde, puantaj o günün okutmasına en uygun alt grubu kendisi seçer.")
+                }
+            </p>
         }
         else if (_sekme == "donem")
         {
-            <div class="kirmizi-baslik mb-2">DÖNEM TANIMLARI (@_yil, 30 gün hesabı)</div>
-            <table class="table table-sm table-bordered small mb-1" style="max-width:860px">
-                <thead><tr><th>Baş. Tarih</th><th>Bit. Tarih</th><th>Gün Farkı</th><th>Eksik Gün</th><th>Eksik Saat</th><th>Fazla Gün</th><th>Fazla Saat</th><th title="Çalışma planına göre ayın planlanan çalışma süresi">Plana göre çalışma</th></tr></thead>
+            <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                <div class="kirmizi-baslik p-0">DÖNEM TANIMLARI (@_secili.Ad, @_yil, 30 gün hesabı)</div>
+                <button class="btn btn-sm btn-outline-success ms-auto" @onclick="DonemEkle">Dönem ekle</button>
+                @if (_donemler.Count == 0) { <button class="btn btn-sm btn-outline-primary" @onclick="YilinDonemleriniOlusturAsync">@_yil yılının dönemlerini oluştur</button> }
+            </div>
+            <table class="table table-sm table-bordered table-hover small mb-1" style="max-width:980px">
+                <thead><tr><th>Baş. Tarih</th><th>Bit. Tarih</th><th>Alt Grup</th><th>Giriş</th><th>Çıkış</th><th>Gün Farkı</th><th>Eksik Gün</th><th>Eksik Saat</th><th>Fazla Gün</th><th>Fazla Saat</th><th title="Seçili çalışma planına göre dönemin planlanan çalışma süresi">Plana göre çalışma</th></tr></thead>
                 <tbody>
-                    @foreach (var d in Donemler())
+                    @if (_donemler.Count > 0)
                     {
-                        <tr>
-                            <td>@d.Bas.ToString("dd MMM yyyy", Tr)</td><td>@d.Bit.ToString("dd MMM yyyy", Tr)</td><td class="text-end">@d.Gun</td>
-                            <td class="text-end">@(d.Gun < 30 ? (30 - d.Gun).ToString() : "")</td><td class="text-end">@(d.Gun < 30 ? S((30 - d.Gun) * _secili.GunlukCalismaDakika) : "")</td>
-                            <td class="text-end">@(d.Gun > 30 ? (d.Gun - 30).ToString() : "")</td><td class="text-end">@(d.Gun > 30 ? S((d.Gun - 30) * _secili.GunlukCalismaDakika) : "")</td>
-                            <td class="text-end">@S(d.PlanDakika)</td>
-                        </tr>
+                        foreach (var d in _donemler)
+                        {
+                            var donem = d;
+                            <tr class="@(donem.Id == _seciliDonem ? "table-primary" : "")" style="cursor:pointer" @onclick="() => _seciliDonem = donem.Id" @ondblclick="() => DonemDegistir(donem)"
+                                @oncontextmenu="e => { _seciliDonem = donem.Id; _menu.Ac(e, DonemMenusu(donem)); }" @oncontextmenu:preventDefault="true">
+                                <td>@donem.Baslangic.ToString("dd MMM yyyy", Tr)</td><td>@donem.Bitis.ToString("dd MMM yyyy", Tr)</td>
+                                <td>@(donem.AltGrupId is int ag ? _altGruplar.FirstOrDefault(x => x.Id == ag)?.Ad : "")</td>
+                                <td>@(donem.GirisSaati?.ToString("HH:mm"))</td><td>@(donem.CikisSaati?.ToString("HH:mm"))</td>
+                                <td class="text-end">@donem.GunFarki</td>
+                                <td class="text-end">@Sifirsiz(donem.EksikGun)</td><td class="text-end">@S(donem.EksikDakika)</td>
+                                <td class="text-end">@Sifirsiz(donem.FazlaGun)</td><td class="text-end">@S(donem.FazlaDakika)</td>
+                                <td class="text-end">@S(PlanDakika(donem.Baslangic, donem.Bitis))</td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        foreach (var d in Donemler())
+                        {
+                            <tr class="text-muted" @oncontextmenu="e => _menu.Ac(e, DonemMenusu(null))" @oncontextmenu:preventDefault="true">
+                                <td>@d.Bas.ToString("dd MMM yyyy", Tr)</td><td>@d.Bit.ToString("dd MMM yyyy", Tr)</td><td></td><td></td><td></td><td class="text-end">@d.Gun</td>
+                                <td class="text-end">@(d.Gun < 30 ? (30 - d.Gun).ToString() : "")</td><td class="text-end">@(d.Gun < 30 ? S((30 - d.Gun) * _secili.GunlukCalismaDakika) : "")</td>
+                                <td class="text-end">@(d.Gun > 30 ? (d.Gun - 30).ToString() : "")</td><td class="text-end">@(d.Gun > 30 ? S((d.Gun - 30) * _secili.GunlukCalismaDakika) : "")</td>
+                                <td class="text-end">@S(d.PlanDakika)</td>
+                            </tr>
+                        }
                     }
                 </tbody>
             </table>
-            <p class="small text-muted mb-0">Her ay 30 gün sayılır: 31 çeken ayda 1 gün fazla, şubatta 2 (artık yılda 1) gün eksik olur. Saat karşılığı grubun günlük çalışma süresiyle (@S(_secili.GunlukCalismaDakika)) hesaplanır.</p>
+            <p class="small text-muted mb-0">
+                @(_donemler.Count == 0 ? "Kayıtlı dönem yok; takvim ayları gösteriliyor. " : "Çift tık ya da sağ tık: dönemi değiştir / sil. ")
+                Her dönem 30 gün sayılır: 31 çeken dönemde 1 gün fazla, şubatta 2 (artık yılda 1) gün eksik olur. Saat karşılığı günlük çalışma süresiyle hesaplanır.
+            </p>
         }
         else if (_sekme == "tatil")
         {
@@ -167,6 +254,36 @@
     </section>
 </div>
 
+@if (_donemPencere is not null && _secili is not null)
+{
+    <div class="pdks-pencere-arka" @onclick="() => _donemPencere = null"></div>
+    <div class="pdks-pencere" role="dialog" aria-label="Dönem ekle / değiştir" style="width:min(520px, calc(100vw - 2rem))">
+        <div class="fw-semibold mb-2">@(_donemPencere.Id == 0 ? "Dönem Ekle" : "Dönem Değiştir") — @_secili.Ad</div>
+        <div class="row g-2 small align-items-center">
+            <label class="col-4">Baş. tarih</label><div class="col-8"><input class="form-control form-control-sm" type="date" @bind="_donemPencere.Baslangic" /></div>
+            <label class="col-4">Bit. tarih</label><div class="col-8"><input class="form-control form-control-sm" type="date" @bind="_donemPencere.Bitis" /></div>
+            @if (_altGruplar.Count > 0)
+            {
+                <label class="col-4">Alt grup</label>
+                <div class="col-8"><TanimSecici @bind-Value="_donemPencere.AltGrupId" Secenekler="@(_altGruplar.Select(x => new TanimSecenek(x.Id, x.Ad)).ToList())" /></div>
+            }
+            <label class="col-4">Giriş saati</label><div class="col-8"><input class="form-control form-control-sm" type="time" @bind="_donemPencere.GirisSaati" /></div>
+            <label class="col-4">Çıkış saati</label><div class="col-8"><input class="form-control form-control-sm" type="time" @bind="_donemPencere.CikisSaati" /></div>
+            <div class="col-12"><button class="btn btn-sm btn-outline-primary" @onclick="GunHesapla">Gün hesapla</button></div>
+            <label class="col-4">Gün farkı</label><div class="col-8"><input class="form-control form-control-sm" type="number" @bind="_donemPencere.GunFarki" /></div>
+            <label class="col-4">Eksik gün</label><div class="col-3"><input class="form-control form-control-sm" type="number" min="0" @bind="_donemPencere.EksikGun" /></div>
+            <label class="col-2">saat</label><div class="col-3"><SureKutusu @bind-Dakika="_donemPencere.EksikDakika" /></div>
+            <label class="col-4">Fazla gün</label><div class="col-3"><input class="form-control form-control-sm" type="number" min="0" @bind="_donemPencere.FazlaGun" /></div>
+            <label class="col-2">saat</label><div class="col-3"><SureKutusu @bind-Dakika="_donemPencere.FazlaDakika" /></div>
+        </div>
+        @if (_donemHata is not null) { <div class="alert alert-danger py-1 small mt-2 mb-0">@_donemHata</div> }
+        <div class="d-flex gap-2 mt-3">
+            <button class="btn btn-sm btn-primary" @onclick="DonemKaydetAsync">Kaydet</button>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="() => _donemPencere = null">Vazgeç</button>
+        </div>
+    </div>
+}
+
 <SagTikMenu @ref="_menu" />
 
 @code {
@@ -190,6 +307,15 @@
     private string? _tatilAd, _mesaj;
     private bool _hata;
     private string _sekme = "plan";
+    private List<AltGrup> _altGruplar = new();
+    private Dictionary<int, string> _altPlanOzeti = new();
+    private int? _seciliAlt;
+    private AltGrup? _altDuzen;
+    private int? _planHedef;
+    private List<DonemTanimi> _donemler = new();
+    private int? _seciliDonem;
+    private DonemTanimi? _donemPencere;
+    private string? _donemHata;
     private int _yil = DateTime.Today.Year;
 
     private static string S(int dk) => dk == 0 ? "" : $"{dk / 60}:{dk % 60:00}";
@@ -213,12 +339,244 @@
 
     private async Task SecAsync(int id)
     {
+        if (_secili?.Id != id) { _planHedef = null; _seciliAlt = null; _altDuzen = null; _seciliDonem = null; }
         _secili = _gruplar.FirstOrDefault(g => g.Id == id);
         _duzen = null;
-        await using var db = await FirmaDb.AcAsync();
-        var kayitlar = await db.CalismaGrubuGunleri.AsNoTracking().Where(x => x.CalismaGrubuId == id).ToListAsync();
-        _plan = Gunler.ToDictionary(g => g, g => kayitlar.FirstOrDefault(k => k.Gun == g)?.VardiyaId);
+        await AltGruplariYukleAsync();
+        await PlanYukleAsync();
+        await DonemleriYukleAsync();
     }
+
+    private async Task PlanYukleAsync()
+    {
+        if (_secili is null) return;
+        await using var db = await FirmaDb.AcAsync();
+        if (_planHedef is int aid)
+        {
+            var kayitlar = await db.AltGrupGunleri.AsNoTracking().Where(x => x.AltGrupId == aid).ToListAsync();
+            _plan = Gunler.ToDictionary(g => g, g => kayitlar.FirstOrDefault(k => k.Gun == g)?.VardiyaId);
+        }
+        else
+        {
+            var kayitlar = await db.CalismaGrubuGunleri.AsNoTracking().Where(x => x.CalismaGrubuId == _secili.Id).ToListAsync();
+            _plan = Gunler.ToDictionary(g => g, g => kayitlar.FirstOrDefault(k => k.Gun == g)?.VardiyaId);
+        }
+    }
+
+    private async Task PlanHedefDegistiAsync(ChangeEventArgs e)
+    {
+        _planHedef = int.TryParse(e.Value?.ToString(), out var id) ? id : null;
+        if (_planHedef is int a) _seciliAlt = a;
+        await PlanYukleAsync();
+    }
+
+    private async Task YilDegistiAsync()
+    {
+        await TatilleriYukleAsync();
+        await DonemleriYukleAsync();
+    }
+
+    // ---- Alt gruplar ----
+
+    private async Task AltGruplariYukleAsync()
+    {
+        if (_secili is null) { _altGruplar = new(); return; }
+        await using var db = await FirmaDb.AcAsync();
+        _altGruplar = await db.AltGruplar.AsNoTracking().Where(x => x.CalismaGrubuId == _secili.Id).OrderBy(x => x.Ad).ToListAsync();
+        var idler = _altGruplar.Select(x => x.Id).ToList();
+        var gunler = await db.AltGrupGunleri.AsNoTracking().Where(x => idler.Contains(x.AltGrupId) && x.VardiyaId != null).ToListAsync();
+        var adlar = _vardiyalar.ToDictionary(v => v.Id, v => v.Ad);
+        _altPlanOzeti = gunler.GroupBy(x => x.AltGrupId).ToDictionary(g => g.Key,
+            g => string.Join(", ", g.Select(x => adlar.GetValueOrDefault(x.VardiyaId!.Value) ?? "?").Distinct()));
+    }
+
+    private async Task AltSecAsync(int id)
+    {
+        _seciliAlt = id;
+        _planHedef = id;
+        await PlanYukleAsync();
+    }
+
+    private void YeniAlt()
+    {
+        if (_secili is null) return;
+        _altDuzen = new AltGrup { CalismaGrubuId = _secili.Id, GunlukCalismaDakika = _secili.GunlukCalismaDakika, Aktif = true };
+    }
+
+    private void AltDuzenle(AltGrup? a)
+    {
+        if (a is null) return;
+        _altDuzen = new AltGrup { Id = a.Id, CalismaGrubuId = a.CalismaGrubuId, Ad = a.Ad, GunlukCalismaDakika = a.GunlukCalismaDakika, Aktif = a.Aktif };
+    }
+
+    private async Task AltKaydetAsync()
+    {
+        if (_altDuzen is null || _secili is null) return;
+        var ad = _altDuzen.Ad?.Trim() ?? "";
+        if (ad.Length == 0) { Bildir("Alt grup adı boş olamaz.", true); return; }
+        if (_altGruplar.Any(x => x.Id != _altDuzen.Id && string.Equals(x.Ad, ad, StringComparison.CurrentCultureIgnoreCase)))
+        { Bildir("Bu grupta aynı adlı alt grup var.", true); return; }
+        await using var db = await FirmaDb.AcAsync();
+        AltGrup a;
+        if (_altDuzen.Id == 0) { a = new AltGrup { CalismaGrubuId = _secili.Id }; db.AltGruplar.Add(a); }
+        else a = await db.AltGruplar.FirstAsync(x => x.Id == _altDuzen.Id);
+        a.Ad = ad.Length > 120 ? ad[..120] : ad;
+        a.GunlukCalismaDakika = _altDuzen.GunlukCalismaDakika;
+        await db.SaveChangesAsync();
+        var yeni = _altDuzen.Id == 0;
+        _altDuzen = null;
+        await AltGruplariYukleAsync();
+        if (yeni)
+        {
+            // Yeni alt grubun planı boş başlar; hemen planını girmek için seçilir.
+            await AltSecAsync(a.Id);
+            _sekme = "plan";
+        }
+        Bildir(yeni ? $"\"{a.Ad}\" alt grubu eklendi. Çalışma planını girip kaydedin." : "Alt grup kaydedildi.");
+    }
+
+    private async Task AltSilAsync()
+    {
+        if (_seciliAlt is not int id) return;
+        await using var db = await FirmaDb.AcAsync();
+        var kisi = await db.Personeller.CountAsync(p => p.AltGrupId == id);
+        if (kisi > 0) { Bildir($"Bu alt grupta sabitlenmiş {kisi} personel var; önce sicil kartlarından alt grubu kaldırın.", true); return; }
+        await db.AltGruplar.Where(x => x.Id == id).ExecuteDeleteAsync();
+        _seciliAlt = null;
+        if (_planHedef == id) _planHedef = null;
+        await AltGruplariYukleAsync();
+        await PlanYukleAsync();
+        await DonemleriYukleAsync();
+        Bildir("Alt grup silindi.");
+    }
+
+    private List<SagTikMenu.Oge> AltGrupMenusu() => new()
+    {
+        SagTikMenu.Oge.Eylemli("Yeni alt grup", YeniAlt, pasif: _secili is null),
+        SagTikMenu.Oge.Eylemli("Alt grubu düzenle", () => AltDuzenle(_altGruplar.FirstOrDefault(x => x.Id == _seciliAlt)), pasif: _seciliAlt is null),
+        new("Alt grubu sil", AltSilAsync, Pasif: _seciliAlt is null),
+        SagTikMenu.Oge.Cizgi(),
+        SagTikMenu.Oge.Eylemli("Çalışma planını göster", () => _sekme = "plan", pasif: _seciliAlt is null),
+        SagTikMenu.Oge.Eylemli("Dönemler", () => _sekme = "donem"),
+    };
+
+    // ---- Dönemler ----
+
+    private async Task DonemleriYukleAsync()
+    {
+        if (_secili is null || _yil is < 2000 or > 2100) { _donemler = new(); return; }
+        var bas = new DateOnly(_yil, 1, 1);
+        var bit = new DateOnly(_yil, 12, 31);
+        await using var db = await FirmaDb.AcAsync();
+        _donemler = await db.DonemTanimlari.AsNoTracking()
+            .Where(d => d.CalismaGrubuId == _secili.Id && d.Bitis >= bas && d.Baslangic <= bit)
+            .OrderBy(d => d.Baslangic).ThenBy(d => d.AltGrupId).ToListAsync();
+    }
+
+    private void DonemEkle()
+    {
+        if (_secili is null) return;
+        // Son dönemin ertesi gününden başlayan bir aylık dönem önerilir.
+        var bas = _donemler.Count > 0 ? _donemler.Max(d => d.Bitis).AddDays(1) : new DateOnly(_yil, 1, 1);
+        _donemPencere = new DonemTanimi { CalismaGrubuId = _secili.Id, Baslangic = bas, Bitis = bas.AddMonths(1).AddDays(-1), AltGrupId = _planHedef };
+        GunHesapla();
+        _donemHata = null;
+    }
+
+    private void DonemDegistir(DonemTanimi d)
+    {
+        _donemPencere = new DonemTanimi
+        {
+            Id = d.Id, CalismaGrubuId = d.CalismaGrubuId, AltGrupId = d.AltGrupId, Baslangic = d.Baslangic, Bitis = d.Bitis,
+            GirisSaati = d.GirisSaati, CikisSaati = d.CikisSaati, GunFarki = d.GunFarki, EksikGun = d.EksikGun, EksikDakika = d.EksikDakika,
+            FazlaGun = d.FazlaGun, FazlaDakika = d.FazlaDakika,
+        };
+        _donemHata = null;
+    }
+
+    private int GunlukDakika(int? altGrupId) =>
+        altGrupId is int a && _altGruplar.FirstOrDefault(x => x.Id == a) is { } alt ? alt.GunlukCalismaDakika : _secili?.GunlukCalismaDakika ?? 450;
+
+    private void GunHesapla()
+    {
+        if (_donemPencere is null) return;
+        if (_donemPencere.Bitis < _donemPencere.Baslangic) { _donemHata = "Bitiş tarihi başlangıçtan önce olamaz."; return; }
+        _donemPencere.GunHesapla(GunlukDakika(_donemPencere.AltGrupId));
+        _donemHata = null;
+    }
+
+    private async Task DonemKaydetAsync()
+    {
+        var d = _donemPencere;
+        if (d is null || _secili is null) return;
+        if (d.Bitis < d.Baslangic) { _donemHata = "Bitiş tarihi başlangıçtan önce olamaz."; return; }
+        if (d.Bitis.DayNumber - d.Baslangic.DayNumber > 62) { _donemHata = "Bir dönem en çok iki ay olabilir."; return; }
+        if (d.GunFarki == 0) d.GunHesapla(GunlukDakika(d.AltGrupId));
+        await using var db = await FirmaDb.AcAsync();
+        var cakisan = await db.DonemTanimlari.AnyAsync(x => x.Id != d.Id && x.CalismaGrubuId == _secili.Id && x.AltGrupId == d.AltGrupId
+            && x.Baslangic <= d.Bitis && x.Bitis >= d.Baslangic);
+        if (cakisan) { _donemHata = "Bu tarihlerle çakışan başka bir dönem var."; return; }
+
+        DonemTanimi k;
+        if (d.Id == 0) { k = new DonemTanimi { CalismaGrubuId = _secili.Id }; db.DonemTanimlari.Add(k); }
+        else k = await db.DonemTanimlari.FirstAsync(x => x.Id == d.Id);
+        k.AltGrupId = d.AltGrupId;
+        k.Baslangic = d.Baslangic; k.Bitis = d.Bitis; k.GirisSaati = d.GirisSaati; k.CikisSaati = d.CikisSaati;
+        k.GunFarki = d.GunFarki; k.EksikGun = Math.Max(0, d.EksikGun); k.EksikDakika = Math.Max(0, d.EksikDakika);
+        k.FazlaGun = Math.Max(0, d.FazlaGun); k.FazlaDakika = Math.Max(0, d.FazlaDakika);
+        await db.SaveChangesAsync();
+        _donemPencere = null;
+        _yil = k.Baslangic.Year;
+        await DonemleriYukleAsync();
+        _seciliDonem = k.Id;
+        Bildir("Dönem kaydedildi.");
+    }
+
+    private async Task DonemSilAsync(int id)
+    {
+        await using var db = await FirmaDb.AcAsync();
+        await db.DonemTanimlari.Where(x => x.Id == id).ExecuteDeleteAsync();
+        _seciliDonem = null;
+        await DonemleriYukleAsync();
+        Bildir("Dönem silindi.");
+    }
+
+    private async Task YilinDonemleriniOlusturAsync()
+    {
+        if (_secili is null) return;
+        await using var db = await FirmaDb.AcAsync();
+        for (var ay = 1; ay <= 12; ay++)
+        {
+            var bas = new DateOnly(_yil, ay, 1);
+            var d = new DonemTanimi { CalismaGrubuId = _secili.Id, Baslangic = bas, Bitis = bas.AddMonths(1).AddDays(-1) };
+            d.GunHesapla(_secili.GunlukCalismaDakika);
+            db.DonemTanimlari.Add(d);
+        }
+        await db.SaveChangesAsync();
+        await DonemleriYukleAsync();
+        Bildir($"{_yil} yılının 12 dönemi oluşturuldu.");
+    }
+
+    private List<SagTikMenu.Oge> DonemMenusu(DonemTanimi? d) => new()
+    {
+        SagTikMenu.Oge.Eylemli("Dönem ekle", DonemEkle),
+        SagTikMenu.Oge.Eylemli("Dönem değiştir", () => { if (d is not null) DonemDegistir(d); }, pasif: d is null),
+        new("Dönem sil", () => d is null ? Task.CompletedTask : DonemSilAsync(d.Id), Pasif: d is null),
+        SagTikMenu.Oge.Cizgi(),
+        new($"{_yil} yılının dönemlerini oluştur", YilinDonemleriniOlusturAsync, Pasif: _donemler.Count > 0, PasifNedeni: "Bu yıl için dönem zaten var."),
+    };
+
+    private int PlanDakika(DateOnly bas, DateOnly bit)
+    {
+        var plan = 0;
+        for (var t = bas; t <= bit; t = t.AddDays(1))
+            if (_plan.TryGetValue(t.DayOfWeek, out var v) && v is int vid && _vardiyaDakika.TryGetValue(vid, out var dk)
+                && !_tatiller.Any(x => x.Tarih == t))
+                plan += dk;
+        return plan;
+    }
+
+    private static string Sifirsiz(int n) => n == 0 ? "" : n.ToString();
 
     private List<SagTikMenu.Oge> GrupMenusu() => new()
     {
@@ -228,6 +586,7 @@
         SagTikMenu.Oge.Eylemli("Çalışma planı", () => _sekme = "plan"),
         SagTikMenu.Oge.Eylemli("Dönemler", () => _sekme = "donem"),
         SagTikMenu.Oge.Eylemli("Resmi tatiller", () => _sekme = "tatil"),
+        SagTikMenu.Oge.Eylemli("Yeni alt grup", YeniAlt),
         SagTikMenu.Oge.Cizgi(),
         new("Yenile", GruplariYukleAsync),
     };
@@ -288,6 +647,20 @@
     {
         if (_secili is null) return;
         await using var db = await FirmaDb.AcAsync();
+        if (_planHedef is int aid)
+        {
+            var altKayitlar = await db.AltGrupGunleri.Where(x => x.AltGrupId == aid).ToListAsync();
+            foreach (var gun in Gunler)
+            {
+                var kayit = altKayitlar.FirstOrDefault(k => k.Gun == gun);
+                if (kayit is null) { kayit = new AltGrupGunu { AltGrupId = aid, Gun = gun }; db.AltGrupGunleri.Add(kayit); }
+                kayit.VardiyaId = _plan[gun];
+            }
+            await db.SaveChangesAsync();
+            await AltGruplariYukleAsync();
+            Bildir($"\"{_altGruplar.FirstOrDefault(x => x.Id == aid)?.Ad}\" alt grubunun çalışma planı kaydedildi.");
+            return;
+        }
         var kayitlar = await db.CalismaGrubuGunleri.Where(x => x.CalismaGrubuId == _secili.Id).ToListAsync();
         foreach (var gun in Gunler)
         {
