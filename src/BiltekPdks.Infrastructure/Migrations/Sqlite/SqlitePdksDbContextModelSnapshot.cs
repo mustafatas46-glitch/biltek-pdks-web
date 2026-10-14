@@ -17,6 +17,110 @@ namespace BiltekPdks.Infrastructure.Migrations.Sqlite
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "8.0.11");
 
+            modelBuilder.Entity("BiltekPdks.Domain.Entities.AktarimKaydi", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Atlanan")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("DosyaAdi")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Eklenen")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Eslesme")
+                        .HasMaxLength(4000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("FirmaId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("GeriAlindi")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("GeriAlmaZamani")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("GuncellemeTarihi")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Guncellenen")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Hatali")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("KullaniciId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("OlusturmaTarihi")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SatirSayisi")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Tur")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("Zaman")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FirmaId");
+
+                    b.HasIndex("FirmaId", "Zaman");
+
+                    b.ToTable("aktarim_kaydi", (string)null);
+                });
+
+            modelBuilder.Entity("BiltekPdks.Domain.Entities.AktarimSablonu", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Ad")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("BaslikSatiri")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Eslesme")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("FirmaId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("GuncellemeTarihi")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("OlusturmaTarihi")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Tur")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FirmaId");
+
+                    b.HasIndex("FirmaId", "Tur", "Ad")
+                        .IsUnique();
+
+                    b.ToTable("aktarim_sablonu", (string)null);
+                });
+
             modelBuilder.Entity("BiltekPdks.Domain.Entities.Birim", b =>
                 {
                     b.Property<int>("Id")
@@ -132,6 +236,73 @@ namespace BiltekPdks.Infrastructure.Migrations.Sqlite
                     b.HasIndex("FirmaId", "Ad");
 
                     b.ToTable("bolum", (string)null);
+                });
+
+            modelBuilder.Entity("BiltekPdks.Domain.Entities.BordroSatiri", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Aciklama")
+                        .HasMaxLength(250)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("AktarimId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Ay")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<decimal?>("BrutUcret")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal?>("CalisilanGun")
+                        .HasPrecision(6, 2)
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal?>("DevamsizGun")
+                        .HasPrecision(6, 2)
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal?>("FazlaMesaiSaat")
+                        .HasPrecision(8, 2)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("FirmaId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("GuncellemeTarihi")
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal?>("IzinGun")
+                        .HasPrecision(6, 2)
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal?>("NetUcret")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("OlusturmaTarihi")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("PersonelId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Yil")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AktarimId");
+
+                    b.HasIndex("FirmaId");
+
+                    b.HasIndex("PersonelId", "Yil", "Ay")
+                        .IsUnique();
+
+                    b.ToTable("bordro_satiri", (string)null);
                 });
 
             modelBuilder.Entity("BiltekPdks.Domain.Entities.CalismaGrubu", b =>
@@ -349,6 +520,9 @@ namespace BiltekPdks.Infrastructure.Migrations.Sqlite
                         .HasMaxLength(250)
                         .HasColumnType("TEXT");
 
+                    b.Property<int?>("AktarimId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int>("FirmaId")
                         .HasColumnType("INTEGER");
 
@@ -378,6 +552,8 @@ namespace BiltekPdks.Infrastructure.Migrations.Sqlite
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AktarimId");
 
                     b.HasIndex("FirmaId");
 
@@ -444,6 +620,9 @@ namespace BiltekPdks.Infrastructure.Migrations.Sqlite
                         .HasMaxLength(250)
                         .HasColumnType("TEXT");
 
+                    b.Property<int?>("AktarimId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<DateOnly>("Baslangic")
                         .HasColumnType("TEXT");
 
@@ -466,6 +645,8 @@ namespace BiltekPdks.Infrastructure.Migrations.Sqlite
                         .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AktarimId");
 
                     b.HasIndex("FirmaId");
 
@@ -531,6 +712,9 @@ namespace BiltekPdks.Infrastructure.Migrations.Sqlite
                         .HasMaxLength(250)
                         .HasColumnType("TEXT");
 
+                    b.Property<int?>("AktarimId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int>("FirmaId")
                         .HasColumnType("INTEGER");
 
@@ -557,6 +741,8 @@ namespace BiltekPdks.Infrastructure.Migrations.Sqlite
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AktarimId");
 
                     b.HasIndex("FirmaId");
 
@@ -730,6 +916,9 @@ namespace BiltekPdks.Infrastructure.Migrations.Sqlite
                     b.Property<string>("AileSiraNo")
                         .HasMaxLength(30)
                         .HasColumnType("TEXT");
+
+                    b.Property<int?>("AktarimId")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("AnneAdi")
                         .HasMaxLength(60)
@@ -1382,6 +1571,24 @@ namespace BiltekPdks.Infrastructure.Migrations.Sqlite
                     b.ToTable("vardiya_mola", (string)null);
                 });
 
+            modelBuilder.Entity("BiltekPdks.Domain.Entities.AktarimKaydi", b =>
+                {
+                    b.HasOne("BiltekPdks.Domain.Entities.Firma", null)
+                        .WithMany()
+                        .HasForeignKey("FirmaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("BiltekPdks.Domain.Entities.AktarimSablonu", b =>
+                {
+                    b.HasOne("BiltekPdks.Domain.Entities.Firma", null)
+                        .WithMany()
+                        .HasForeignKey("FirmaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("BiltekPdks.Domain.Entities.Birim", b =>
                 {
                     b.HasOne("BiltekPdks.Domain.Entities.Firma", null)
@@ -1407,6 +1614,23 @@ namespace BiltekPdks.Infrastructure.Migrations.Sqlite
                         .HasForeignKey("FirmaId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("BiltekPdks.Domain.Entities.BordroSatiri", b =>
+                {
+                    b.HasOne("BiltekPdks.Domain.Entities.Firma", null)
+                        .WithMany()
+                        .HasForeignKey("FirmaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("BiltekPdks.Domain.Entities.Personel", "Personel")
+                        .WithMany()
+                        .HasForeignKey("PersonelId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Personel");
                 });
 
             modelBuilder.Entity("BiltekPdks.Domain.Entities.CalismaGrubu", b =>
