@@ -44,7 +44,8 @@ public class MaasHesabiTestleri
         decimal Kazanc(string ad) => pusula.Kazanclar.Single(k => k.Ad == ad).Tutar;
         Assert.Equal(30000m, Kazanc("Normal çalışma"));      // 30 gün × 1.000
         Assert.Equal(600m, Kazanc("Fazla mesai %50"));       // 3 saat × 133,33 × 1,5
-        Assert.Equal(300m, Kazanc("Prim"));                  // 3 gün × 100 (sicil kartı, günlük) — ayrıca 500 prim kalemi
+        Assert.Equal(300m, Kazanc("Prim (sicil)"));                  // 3 gün × 100 (sicil kartı, günlük) — ayrıca 500 prim kalemi
+        Assert.Equal(500m, Kazanc("Prim"));                  // ay içindeki prim kalemi
         Assert.Equal(31400m, pusula.ToplamKazanc);
         Assert.Equal(66.67m, pusula.Kesintiler.Single(k => k.Ad.Contains("cezası")).Tutar); // 30 dk geç
         Assert.Equal(2000m, pusula.Kesintiler.Single(k => k.Ad == "Avans").Tutar);

@@ -22,7 +22,7 @@ public static class MaasListesiExcel
         s.Row(4).Style.Font.Bold = true;
 
         var r = 5;
-        string[] ek = { "Prim", "Yol ücreti", "Yemek ücreti", "Özel ücret" };
+        var ek = MaasHesabi.EkUcretAdlari;
         foreach (var p in pusulalar)
         {
             decimal K(string ad) => p.Kazanclar.Where(x => x.Ad == ad).Sum(x => x.Tutar);

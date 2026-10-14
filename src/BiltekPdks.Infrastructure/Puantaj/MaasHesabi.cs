@@ -40,6 +40,8 @@ public sealed class MaasPusulasi
 /// </summary>
 public static class MaasHesabi
 {
+    public static readonly string[] EkUcretAdlari = { "Prim (sicil)", "Yol ücreti (sicil)", "Yemek ücreti (sicil)", "Özel ücret (sicil)" };
+
     public static MaasPusulasi Hesapla(AylikPuantaj a, IReadOnlyList<KazancKesinti> kalemler)
     {
         var p = a.Personel;
@@ -97,10 +99,11 @@ public static class MaasHesabi
                 ? new(ad, $"{t.CalisilanGun} gün × {u:N2}", Yuvarla(t.CalisilanGun * u))
                 : new(ad, "aylık", Yuvarla(u)));
         }
-        EkUcret("Prim", p.PrimUcreti, p.PrimGunluk);
-        EkUcret("Yol ücreti", p.YolUcreti, p.YolGunluk);
-        EkUcret("Yemek ücreti", p.YemekUcreti, p.YemekGunluk);
-        EkUcret("Özel ücret", p.OzelUcret, p.OzelGunluk);
+        // Sicil kartındaki sabit ek ücretler; aynı adlı kazanç-kesinti kalemlerinden ayırmak için "(sicil)" yazılır.
+        EkUcret(EkUcretAdlari[0], p.PrimUcreti, p.PrimGunluk);
+        EkUcret(EkUcretAdlari[1], p.YolUcreti, p.YolGunluk);
+        EkUcret(EkUcretAdlari[2], p.YemekUcreti, p.YemekGunluk);
+        EkUcret(EkUcretAdlari[3], p.OzelUcret, p.OzelGunluk);
 
         foreach (var k in kalemler.Where(x => x.KazancKesintiTuru?.Tip == KazancKesintiTipi.Kazanc))
             s.Kazanclar.Add(new(k.KazancKesintiTuru!.Ad, k.Aciklama ?? k.Tarih.ToString("dd.MM.yyyy"), Yuvarla(k.Tutar)));
