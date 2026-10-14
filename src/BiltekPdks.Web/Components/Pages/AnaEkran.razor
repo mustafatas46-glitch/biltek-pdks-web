@@ -519,6 +519,7 @@
             new("Puantaj Hesapla", PuantajYukleAsync, "F8"),
             SagTikMenu.Oge.Eylemli("Kişisel Puantaj", KisiselPuantajAc, "F9"),
             SagTikMenu.Oge.Eylemli("Puantaj Raporu (Excel)", RaporAl, "F10"),
+            SagTikMenu.Oge.Eylemli("Maaş Pusulası", () => { if (_seciliId is int mp) Navigation.NavigateTo($"raporlar/maas-pusulasi?personel={mp}&ay={_ay:yyyy-MM}"); }),
             SagTikMenu.Oge.Cizgi(),
             SagTikMenu.Oge.Eylemli("Personel Bilgi Formu", Degistir, "F5"),
             SagTikMenu.Oge.Eylemli("Yeni Kayıt", Yeni, "F2"),

@@ -1,0 +1,185 @@
+@page "/raporlar/maas-pusulasi"
+@using BiltekPdks.Domain.Puantaj
+@using BiltekPdks.Infrastructure.Puantaj
+@inject FirmaDb FirmaDb
+@inject PuantajServisi PuantajServisi
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>Maaş pusulası</PageTitle>
+<SagTikMenu @ref="_menu" />
+
+<div class="d-flex gap-2 align-items-end mb-2 flex-wrap yazdirma-gizle">
+    <h1 class="h4 me-3 mb-1">Maaş Pusulası</h1>
+    <div style="min-width:260px"><label class="form-label small mb-0">Personel</label><PersonelSecici @bind-Value="_personelId" @bind-Value:after="HesaplaAsync" Liste="_personeller" BosMetin="— Tüm personel —" /></div>
+    <div><label class="form-label small mb-0">Ay</label><input class="form-control form-control-sm" type="month" @bind="_ay" @bind:format="yyyy-MM" @bind:after="HesaplaAsync" /></div>
+    @if (_personelId is null)
+    {
+        <div>
+            <label class="form-label small mb-0">Bölüm</label>
+            <select class="form-select form-select-sm" @bind="_bolumId" @bind:after="HesaplaAsync">
+                <option value="">Tümü</option>
+                @foreach (var b in _bolumler) { <option value="@b.Id">@b.Ad</option> }
+            </select>
+        </div>
+    }
+    <button class="btn btn-sm btn-outline-secondary ms-auto" @onclick="YazdirAsync" disabled="@(_pusulalar.Count == 0)">Yazdır / PDF</button>
+    <a class="btn btn-sm btn-success" href="@ExcelAdresi" target="_blank">Excel (kişisel bordro listesi)</a>
+</div>
+<p class="small text-muted yazdirma-gizle">
+    Pusula puantajdan hesaplanır: aylık ücretlide 30 gün hesabı, saat ücretlide çalışılan saat; fazla mesai ve tatil mesaisi grubun çarpanlarıyla;
+    prim/yol/yemek sicil kartından; kazanç-kesinti ve avanslar ilgili aydan gelir. <b>Vergi ve SGK hesaplanmaz</b>; ücret sicil kartına nasıl girildiyse o esas alınır.
+</p>
+
+@if (_yukleniyor)
+{
+    <p class="text-muted">Hesaplanıyor…</p>
+}
+else if (_pusulalar.Count == 0)
+{
+    <p class="text-muted">Bu ay için personel bulunamadı.</p>
+}
+else
+{
+    @if (_personelId is null)
+    {
+        <table class="table table-sm table-hover bg-white yazdirma-gizle mb-3" style="max-width:1100px">
+            <thead><tr><th>Sicil</th><th>Ad Soyad</th><th class="text-end">Gün</th><th class="text-end">Kazanç</th><th class="text-end">Kesinti</th><th class="text-end">Net ödenecek</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var p in _pusulalar)
+                {
+                    var pus = p;
+                    <tr style="cursor:pointer" @onclick="() => Git(pus.Personel.Id)" @oncontextmenu="e => _menu.Ac(e, Menu(pus))" @oncontextmenu:preventDefault="true">
+                        <td>@(pus.Personel.SicilNo ?? pus.Personel.KartNo)</td><td>@pus.Personel.Ad @pus.Personel.Soyad</td>
+                        <td class="text-end">@pus.Puantaj.OdenecekGun</td>
+                        <td class="text-end">@pus.ToplamKazanc.ToString("N2")</td><td class="text-end">@pus.ToplamKesinti.ToString("N2")</td>
+                        <td class="text-end fw-semibold">@pus.NetOdenecek.ToString("N2")</td>
+                        <td class="small text-warning-emphasis">@(pus.Uyarilar.Count > 0 ? "⚠ " + pus.Uyarilar.Count : "")</td>
+                    </tr>
+                }
+            </tbody>
+            <tfoot><tr class="fw-semibold"><td></td><td>Toplam (@_pusulalar.Count kişi)</td><td></td>
+                <td class="text-end">@_pusulalar.Sum(x => x.ToplamKazanc).ToString("N2")</td><td class="text-end">@_pusulalar.Sum(x => x.ToplamKesinti).ToString("N2")</td>
+                <td class="text-end">@_pusulalar.Sum(x => x.NetOdenecek).ToString("N2")</td><td></td></tr></tfoot>
+        </table>
+    }
+
+    <div class="pusula-listesi">
+        @foreach (var p in _pusulalar)
+        {
+            var pus = p;
+            var t = pus.Puantaj.Toplam;
+            <div class="pusula" @oncontextmenu="e => _menu.Ac(e, Menu(pus))" @oncontextmenu:preventDefault="true">
+                <div class="d-flex justify-content-between border-bottom pb-1 mb-2">
+                    <div><b>@_firmaAdi</b><div class="small">MAAŞ PUSULASI — @Ay(_ay)</div></div>
+                    <div class="text-end small">
+                        <b>@pus.Personel.Ad @pus.Personel.Soyad</b><br />
+                        Sicil: @(pus.Personel.SicilNo ?? "-") · Kart: @pus.Personel.KartNo<br />
+                        @pus.Personel.Bolum?.Ad
+                    </div>
+                </div>
+                <div class="row small g-1 mb-2">
+                    <div class="col-6 col-md-3">Ücret: <b>@pus.Ucret.ToString("N2")</b> @(pus.UcretTipi == UcretTipi.SaatUcreti ? "/saat" : "/ay")</div>
+                    <div class="col-6 col-md-3">Günlük: @pus.GunlukUcret.ToString("N2")</div>
+                    <div class="col-6 col-md-3">Saat ücreti: @pus.SaatUcreti.ToString("N2")</div>
+                    <div class="col-6 col-md-3">Mesai saat ücreti: @pus.MesaiSaatUcreti.ToString("N2")</div>
+                    <div class="col-6 col-md-3">Gün (30): <b>@pus.Puantaj.OdenecekGun</b></div>
+                    <div class="col-6 col-md-3">Çalışılan gün: @t.CalisilanGun</div>
+                    <div class="col-6 col-md-3">Devamsız: @t.DevamsizGun · İzin: @t.IzinliGun / @t.UcretsizIzinGun</div>
+                    <div class="col-6 col-md-3">N.Ç: @S(t.NormalCalismaDakika) · FM: @S(t.FazlaMesaiDakika) · %100: @S(t.TatilMesaisiDakika)</div>
+                </div>
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <table class="table table-sm table-bordered mb-0 small">
+                            <thead><tr><th colspan="3">KAZANÇLAR</th></tr></thead>
+                            <tbody>
+                                @foreach (var k in pus.Kazanclar) { <tr><td>@k.Ad</td><td class="text-muted">@k.Aciklama</td><td class="text-end">@k.Tutar.ToString("N2")</td></tr> }
+                            </tbody>
+                            <tfoot><tr class="fw-semibold"><td colspan="2">Toplam kazanç</td><td class="text-end">@pus.ToplamKazanc.ToString("N2")</td></tr></tfoot>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <table class="table table-sm table-bordered mb-0 small">
+                            <thead><tr><th colspan="3">KESİNTİLER</th></tr></thead>
+                            <tbody>
+                                @foreach (var k in pus.Kesintiler) { <tr><td>@k.Ad</td><td class="text-muted">@k.Aciklama</td><td class="text-end">@k.Tutar.ToString("N2")</td></tr> }
+                                @if (pus.Kesintiler.Count == 0) { <tr><td colspan="3" class="text-muted">Kesinti yok</td></tr> }
+                            </tbody>
+                            <tfoot><tr class="fw-semibold"><td colspan="2">Toplam kesinti</td><td class="text-end">@pus.ToplamKesinti.ToString("N2")</td></tr></tfoot>
+                        </table>
+                    </div>
+                </div>
+                <div class="d-flex justify-content-between align-items-end mt-2">
+                    <div class="small text-warning-emphasis">
+                        @foreach (var u in pus.Uyarilar) { <div>⚠ @u</div> }
+                    </div>
+                    <div class="fs-5">NET ÖDENECEK: <b>@pus.NetOdenecek.ToString("N2") ₺</b></div>
+                </div>
+                <div class="d-flex justify-content-between small mt-4 pt-3">
+                    <span>Düzenleyen</span><span>Personel imzası</span>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "personel")] public int? PersonelParametresi { get; set; }
+    [SupplyParameterFromQuery(Name = "ay")] public string? AyParametresi { get; set; }
+
+    private static readonly string[] AyAdlari = { "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık" };
+
+    private SagTikMenu _menu = default!;
+    private int? _personelId;
+    private int? _bolumId;
+    private DateTime _ay = new(DateTime.Today.Year, DateTime.Today.Month, 1);
+    private List<PersonelOgesi> _personeller = new();
+    private List<(int Id, string Ad)> _bolumler = new();
+    private List<MaasPusulasi> _pusulalar = new();
+    private string _firmaAdi = "";
+    private bool _yukleniyor = true;
+
+    private string ExcelAdresi => $"raporlar/maas-listesi.xlsx?yil={_ay.Year}&ay={_ay.Month}"
+        + (_personelId is int p ? $"&personel={p}" : "") + (_bolumId is int b ? $"&bolum={b}" : "");
+
+    protected override async Task OnInitializedAsync()
+    {
+        _personelId = PersonelParametresi;
+        if (DateTime.TryParseExact(AyParametresi, "yyyy-MM", null, System.Globalization.DateTimeStyles.None, out var a)) _ay = a;
+        await using var db = await FirmaDb.AcAsync();
+        _personeller = await PersonelOgesi.ListeleAsync(db, ayrilanlarDahil: true);
+        _bolumler = (await db.Bolumler.AsNoTracking().OrderBy(x => x.Ad).Select(x => new { x.Id, x.Ad }).ToListAsync()).Select(x => (x.Id, x.Ad)).ToList();
+        _firmaAdi = await db.Firmalar.Where(f => f.Id == db.AktifFirmaId).Select(f => f.Ad).FirstOrDefaultAsync() ?? "";
+        await HesaplaAsync();
+    }
+
+    private async Task HesaplaAsync()
+    {
+        _yukleniyor = true;
+        await using var db = await FirmaDb.AcAsync();
+        _pusulalar = await MaasHesabi.HesaplaAsync(db, PuantajServisi, _ay.Year, _ay.Month, _personelId, _bolumId);
+        _yukleniyor = false;
+    }
+
+    private async Task Git(int id)
+    {
+        _personelId = id;
+        await HesaplaAsync();
+    }
+
+    private async Task YazdirAsync() => await JS.InvokeVoidAsync("print");
+
+    private List<SagTikMenu.Oge> Menu(MaasPusulasi p) => new()
+    {
+        new("Yalnız bu pusulayı göster", () => Git(p.Personel.Id)),
+        SagTikMenu.Oge.Eylemli("Kişisel puantaj", () => Nav.NavigateTo($"puantaj?personel={p.Personel.Id}&ay={_ay:yyyy-MM}"), "F9"),
+        SagTikMenu.Oge.Eylemli("Sicil kartı (ücret)", () => Nav.NavigateTo($"personeller/{p.Personel.Id}")),
+        SagTikMenu.Oge.Eylemli("Kazanç / kesinti ekle", () => Nav.NavigateTo("toplu/kazanc-kesinti")),
+        SagTikMenu.Oge.Cizgi(),
+        new("Tüm personel", async () => { _personelId = null; await HesaplaAsync(); }),
+        new("Yazdır / PDF", YazdirAsync),
+    };
+
+    private static string S(int dk) => PuantajMotoru.SaatDakika(dk) is { Length: > 0 } s ? s : "0:00";
+    private static string Ay(DateTime a) => $"{AyAdlari[a.Month - 1]} {a.Year}";
+}

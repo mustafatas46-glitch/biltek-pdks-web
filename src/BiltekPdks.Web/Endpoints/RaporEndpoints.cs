@@ -68,5 +68,23 @@ public static class RaporEndpoints
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 $"bordro-pdks-uyum-{yil}-{ay:00}.xlsx");
         }).RequireAuthorization();
+
+        app.MapGet("/raporlar/maas-listesi.xlsx", async (
+            HttpContext http,
+            IFirmaVeritabanlari veritabanlari,
+            PuantajServisi puantaj,
+            int yil, int ay, int? personel, int? bolum) =>
+        {
+            if (ay is < 1 or > 12 || yil is < 2000 or > 2100) return Results.BadRequest("Geçersiz ay.");
+            if (!int.TryParse(http.User.FindFirstValue(Talepler.FirmaId), out var firmaId)) return Results.Forbid();
+
+            await using var db = await veritabanlari.Fabrika(http.User).CreateDbContextAsync(http.RequestAborted);
+            db.AktifFirmaId = firmaId;
+            var firmaAdi = await db.Firmalar.Where(f => f.Id == firmaId).Select(f => f.Ad).FirstOrDefaultAsync(http.RequestAborted) ?? "";
+            var pusulalar = await MaasHesabi.HesaplaAsync(db, puantaj, yil, ay, personel, bolum, http.RequestAborted);
+            return Results.File(MaasListesiExcel.Olustur(pusulalar, yil, ay, firmaAdi),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                $"maas-listesi-{yil}-{ay:00}.xlsx");
+        }).RequireAuthorization();
     }
 }
