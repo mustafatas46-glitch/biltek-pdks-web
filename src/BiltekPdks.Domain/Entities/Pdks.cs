@@ -37,6 +37,7 @@ public class Vardiya : TanimEntity
         CokluGiriseEksikYazma = CokluGiriseEksikYazma,
         MaxToleransDakika = MaxToleransDakika,
         GunDonumu = GunDonumu,
+        Molalar = Molalar.Where(m => !m.Ucretli).Select(m => (m.Baslangic, m.Bitis)).ToArray(),
     };
 }
 

@@ -30,6 +30,40 @@ public sealed record VardiyaKurali(
     /// </summary>
     public TimeOnly? GunDonumu { get; init; }
 
+    /// <summary>
+    /// Ücretsiz mola saatleri. Tanımlıysa düz mola süresi yerine, personelin içeride olduğu süreye denk gelen
+    /// molalar düşülür (fazla mesai saatlerindeki molalar dahil, ör. gece 00:00-00:30 yemek).
+    /// </summary>
+    public IReadOnlyList<(TimeOnly Baslangic, TimeOnly Bitis)> Molalar { get; init; } = Array.Empty<(TimeOnly, TimeOnly)>();
+
+    /// <summary>Molanın o güne ait zamanı: vardiya başlangıcından sonraki ilk denk geliş (gece yarısını aşabilir).</summary>
+    public IEnumerable<(DateTime Bas, DateTime Bit)> MolaAraliklari(DateOnly tarih)
+    {
+        foreach (var (mb, mbit) in Molalar)
+        {
+            var bas = (mb >= Baslangic ? tarih : tarih.AddDays(1)).ToDateTime(mb);
+            yield return (bas, bas + (mbit - mb)); // TimeOnly farkı gece yarısını kendisi aşar
+        }
+    }
+
+    /// <summary>[bas, bit) aralığına denk gelen ücretsiz mola dakikası.</summary>
+    public int MolaOrtusmesi(DateTime bas, DateTime bit)
+    {
+        var toplam = 0;
+        var gun = DateOnly.FromDateTime(bas);
+        // Her gün için molanın tek bir zamanı vardır; aralık gece yarısını aşabileceğinden komşu günlere de bakılır.
+        foreach (var g in new[] { gun.AddDays(-1), gun, gun.AddDays(1) })
+            foreach (var (mb, mbit) in MolaAraliklari(g))
+            {
+                var o = (Min(bit, mbit) - Max(bas, mb)).TotalMinutes;
+                if (o > 0) toplam += (int)o;
+            }
+        return toplam;
+    }
+
+    private static DateTime Min(DateTime a, DateTime b) => a < b ? a : b;
+    private static DateTime Max(DateTime a, DateTime b) => a > b ? a : b;
+
     /// <summary>Bitiş saati başlangıçtan önce ya da eşitse vardiya ertesi güne taşar (gece vardiyası).</summary>
     public bool GeceyiAsar => Bitis <= Baslangic;
 
@@ -40,7 +74,8 @@ public sealed record VardiyaKurali(
 
     /// <summary>Molası düşülmüş planlanan net çalışma süresi.</summary>
     public int PlanlananDakika(DateOnly tarih) =>
-        Math.Max(0, (int)(BitisZamani(tarih) - BaslangicZamani(tarih)).TotalMinutes - MolaDakika);
+        Math.Max(0, (int)(BitisZamani(tarih) - BaslangicZamani(tarih)).TotalMinutes
+            - (Molalar.Count > 0 ? MolaOrtusmesi(BaslangicZamani(tarih), BitisZamani(tarih)) : MolaDakika));
 }
 
 public enum PuantajDurumu
@@ -182,7 +217,9 @@ public static class PuantajMotoru
             brut = (int)(cikis!.Value - giris.Value).TotalMinutes;
         }
 
-        var netCalisma = Math.Max(0, brut - (brut > 240 ? v.MolaDakika : 0));
+        // Mola saatleri tanımlıysa içeride geçirilen süreye denk gelen molalar, yoksa düz mola süresi düşülür.
+        var molaDusulen = v.Molalar.Count > 0 ? v.MolaOrtusmesi(giris!.Value, cikis!.Value) : brut > 240 ? v.MolaDakika : 0;
+        var netCalisma = Math.Max(0, brut - molaDusulen);
 
         var gec = Math.Max(0, (int)(giris!.Value - vardiyaBas).TotalMinutes);
         var erken = Math.Max(0, (int)(vardiyaBit - cikis!.Value).TotalMinutes);

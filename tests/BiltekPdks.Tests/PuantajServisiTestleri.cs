@@ -142,4 +142,27 @@ public class PuantajServisiTestleri
         Assert.Equal(PuantajDurumu.EksikHareket, gunler[0].Durum);
         Assert.Equal(S(15, 7, 0), gunler[1].Giris);
     }
+
+    [Fact]
+    public void Mola_saatleri_icerideyken_duser_fazla_mesaideki_mola_da_duser()
+    {
+        var v = new Vardiya { Id = 1, Baslangic = new TimeOnly(8, 30), Bitis = new TimeOnly(18, 30), MolaDakika = 60 };
+        v.Molalar.Add(new VardiyaMola { Ad = "Öğle", Baslangic = new TimeOnly(12, 30), Bitis = new TimeOnly(13, 30) });
+        v.Molalar.Add(new VardiyaMola { Ad = "Gece yemeği", Baslangic = new TimeOnly(0, 0), Bitis = new TimeOnly(0, 30) });
+        v.Molalar.Add(new VardiyaMola { Ad = "Çay", Baslangic = new TimeOnly(16, 0), Bitis = new TimeOnly(16, 15), Ucretli = true });
+        Assert.Equal(540, v.Kural().PlanlananDakika(new DateOnly(2026, 10, 14))); // 10 saat − 1 saat öğle
+
+        var personel = new Personel { Id = 1, IseGirisTarihi = new DateOnly(2026, 1, 1) };
+        var gunler = PuantajServisi.Hesapla(personel, new DateOnly(2026, 10, 14), new DateOnly(2026, 10, 15),
+            new Dictionary<int, Vardiya> { [1] = v },
+            Enum.GetValues<DayOfWeek>().ToDictionary(g => g, _ => (int?)1),
+            new Dictionary<DateOnly, int?>(), new HashSet<DateOnly>(), Array.Empty<Izin>(),
+            new[] { S(14, 8, 30), S(15, 5, 30), S(15, 8, 30), S(15, 12, 45) });
+
+        // 14.10: 08:30 → 05:30; öğle (1 saat) normalden, gece yemeği (30 dk) mesaiden düşer.
+        Assert.Equal(540, gunler[0].NormalCalismaDakika);
+        Assert.Equal(630, gunler[0].FazlaMesaiDakika);
+        // 15.10: 12:45'te çıktı; öğle molasının yalnız içeride geçen 15 dakikası düşer.
+        Assert.Equal(240, gunler[1].CalismaDakika);
+    }
 }

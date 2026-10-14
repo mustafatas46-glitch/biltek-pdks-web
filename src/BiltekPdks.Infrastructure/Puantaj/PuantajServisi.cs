@@ -105,7 +105,7 @@ public class PuantajServisi
 
         var idSorgusu = personelSorgusu.Select(p => p.Id);
 
-        var vardiyalar = await db.Vardiyalar.AsNoTracking().ToDictionaryAsync(v => v.Id, ct);
+        var vardiyalar = await db.Vardiyalar.AsNoTracking().Include(v => v.Molalar).ToDictionaryAsync(v => v.Id, ct);
 
         var grupPlanlari = (await db.CalismaGrubuGunleri.AsNoTracking().ToListAsync(ct))
             .GroupBy(x => x.CalismaGrubuId)

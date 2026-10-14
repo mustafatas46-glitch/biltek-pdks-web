@@ -323,7 +323,7 @@
     protected override async Task OnInitializedAsync()
     {
         await using var db = await FirmaDb.AcAsync();
-        var vardiyalar = await db.Vardiyalar.AsNoTracking().Where(v => v.Aktif).OrderBy(v => v.Ad).ToListAsync();
+        var vardiyalar = await db.Vardiyalar.AsNoTracking().Include(v => v.Molalar).Where(v => v.Aktif).OrderBy(v => v.Ad).ToListAsync();
         _vardiyalar = vardiyalar.Select(v => new TanimSecenek(v.Id, v.Ad)).ToList();
         _vardiyaDakika = vardiyalar.ToDictionary(v => v.Id, v => v.Kural().PlanlananDakika(new DateOnly(2000, 1, 3)));
         await GruplariYukleAsync();

@@ -89,7 +89,7 @@
                 }
                 else
                 {
-                    <p class="text-muted">Ücretsiz molaların toplamı (@v.Molalar.Where(m => !m.Ucretli).Sum(m => m.Dakika) dk) 4 saati aşan çalışmadan düşülür.</p>
+                    <p class="text-muted">Ücretsiz molalar, personel o saatlerde içerideyse çalışmadan düşülür; fazla mesai saatlerine denk gelen molalar (ör. gece yemeği) fazla mesaiden düşülür. Ücretli molalar düşülmez.</p>
                 }
             }
             else
@@ -232,7 +232,8 @@
         if (v.GecCezaKatsayisi < 0 || v.ErkenCezaKatsayisi < 0 || v.EksikCezaKatsayisi < 0 || v.GecCezaKatsayisi > 10 || v.ErkenCezaKatsayisi > 10 || v.EksikCezaKatsayisi > 10)
         { _hata = "Ceza katsayıları 0 ile 10 arasında olmalı."; return; }
         if (v.Molalar.Any(m => string.IsNullOrWhiteSpace(m.Ad) || m.Baslangic == m.Bitis)) { _hata = "Her molanın adı olmalı; başlama ve bitiş farklı olmalı."; return; }
-        if (v.Molalar.Count > 0) v.MolaDakika = v.Molalar.Where(m => !m.Ucretli).Sum(m => m.Dakika);
+        // Mola süresi alanı: vardiya saatleri içine düşen ücretsiz molalar (fazla mesaideki molalar puantajda ayrıca düşülür).
+        if (v.Molalar.Count > 0) { var k0 = v.Kural(); v.MolaDakika = k0.MolaOrtusmesi(k0.BaslangicZamani(Ornek), k0.BitisZamani(Ornek)); }
         if (v.Kural().PlanlananDakika(Ornek) <= 0) { _hata = "Mola, çalışma süresinden uzun olamaz."; return; }
 
         await using var db = await FirmaDb.AcAsync();
