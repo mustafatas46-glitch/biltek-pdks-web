@@ -23,7 +23,7 @@ public static class KisiselPuantajExcel
         s.Cell(3, 1).Value = $"Kart: {p.KartNo}   Sicil: {p.SicilNo}   Bölüm: {p.Bolum?.Ad}   Grup: {p.CalismaGrubu?.Ad}   İşe giriş: {p.IseGirisTarihi:dd.MM.yyyy}";
 
         const int b = 5;
-        string[] basliklar = { "Tarih", "Gün", "Durum", "Giriş", "Çıkış", "N.Ç", "%50", "%100", "Geç", "Erken", "Eksik" };
+        string[] basliklar = { "Tarih", "Gün", "Durum", "Giriş", "Çıkış", "N.Ç", "%50", "%100", "Geç", "Erken", "Eksik", "Ceza" };
         for (var i = 0; i < basliklar.Length; i++) s.Cell(b, i + 1).Value = basliklar[i];
         var bas = s.Range(b, 1, b, basliklar.Length);
         bas.Style.Font.Bold = true;
@@ -39,7 +39,7 @@ public static class KisiselPuantajExcel
             s.Cell(r, 3).Value = g.Durum == PuantajDurumu.KapsamDisi ? "" : PuantajKodlari.DurumAdi(g);
             s.Cell(r, 4).Value = g.Giris?.ToString("HH:mm") ?? "";
             s.Cell(r, 5).Value = g.Cikis is { } c ? (DateOnly.FromDateTime(c) != g.Tarih ? c.ToString("dd.MM HH:mm") : c.ToString("HH:mm")) : "";
-            int[] dk = { g.NormalCalismaDakika, g.FazlaMesaiDakika, g.TatilMesaisiDakika, g.GecKalmaDakika, g.ErkenCikmaDakika, g.EksikDakika };
+            int[] dk = { g.NormalCalismaDakika, g.FazlaMesaiDakika, g.TatilMesaisiDakika, g.GecKalmaDakika, g.ErkenCikmaDakika, g.EksikDakika, g.CezaDakika };
             for (var i = 0; i < dk.Length; i++) s.Cell(r, 6 + i).Value = PuantajMotoru.SaatDakika(dk[i]);
             var renk = g.Durum switch
             {
@@ -55,7 +55,7 @@ public static class KisiselPuantajExcel
 
         var t = a.Toplam;
         s.Cell(r, 1).Value = "TOPLAM";
-        int[] top = { t.NormalCalismaDakika, t.FazlaMesaiDakika, t.TatilMesaisiDakika, t.GecKalmaDakika, t.ErkenCikmaDakika, t.EksikDakika };
+        int[] top = { t.NormalCalismaDakika, t.FazlaMesaiDakika, t.TatilMesaisiDakika, t.GecKalmaDakika, t.ErkenCikmaDakika, t.EksikDakika, t.CezaDakika };
         for (var i = 0; i < top.Length; i++) s.Cell(r, 6 + i).Value = PuantajMotoru.SaatDakika(top[i]);
         s.Range(r, 1, r, basliklar.Length).Style.Font.Bold = true;
         s.Range(r, 1, r, basliklar.Length).Style.Border.TopBorder = XLBorderStyleValues.Thin;

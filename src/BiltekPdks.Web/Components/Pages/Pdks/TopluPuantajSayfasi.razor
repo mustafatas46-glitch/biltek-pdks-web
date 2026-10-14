@@ -68,6 +68,7 @@ else
                     <th>Geç</th>
                     <th>Erken</th>
                     <th>Eksik</th>
+                    <th title="Ceza katsayıları uygulanmış kesilecek süre">Ceza</th>
                 </tr>
             </thead>
             <tbody>
@@ -94,6 +95,7 @@ else
                         <td class="text-end">@S(t.GecKalmaDakika)</td>
                         <td class="text-end">@S(t.ErkenCikmaDakika)</td>
                         <td class="text-end">@S(t.EksikDakika)</td>
+                        <td class="text-end @(t.CezaDakika > t.EksikDakika ? "text-danger fw-semibold" : "")">@S(t.CezaDakika)</td>
                     </tr>
                 }
             </tbody>
@@ -114,6 +116,7 @@ else
                     <td class="text-end">@S(gorunen.Sum(x => x.Toplam.GecKalmaDakika))</td>
                     <td class="text-end">@S(gorunen.Sum(x => x.Toplam.ErkenCikmaDakika))</td>
                     <td class="text-end">@S(gorunen.Sum(x => x.Toplam.EksikDakika))</td>
+                    <td class="text-end">@S(gorunen.Sum(x => x.Toplam.CezaDakika))</td>
                 </tr>
             </tfoot>
         </table>

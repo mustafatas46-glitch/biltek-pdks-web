@@ -26,13 +26,14 @@
         <Ozet Baslik="Eksik hareket" Deger="@t.EksikHareketGun.ToString()" Uyari="@(t.EksikHareketGun > 0)" />
         <Ozet Baslik="Normal çalışma" Deger="@S(t.NormalCalismaDakika)" />
         <Ozet Baslik="Eksik süre" Deger="@S(t.EksikDakika)" Uyari="@(t.EksikDakika > 0)" />
+        <Ozet Baslik="Ceza (kesilecek)" Deger="@S(t.CezaDakika)" Uyari="@(t.CezaDakika > 0)" />
         <Ozet Baslik="Fazla mesai" Deger="@S(t.FazlaMesaiDakika)" />
         <Ozet Baslik="Tatil mesaisi" Deger="@S(t.TatilMesaisiDakika)" />
     </div>
 
     <table class="table table-sm align-middle">
         <thead>
-            <tr><th>Tarih</th><th>Gün</th><th>Durum</th><th>Giriş</th><th>Çıkış</th><th>Plan</th><th>Çalışma</th><th>Geç</th><th>Erken</th><th>Eksik</th><th>FM</th><th>Tatil m.</th></tr>
+            <tr><th>Tarih</th><th>Gün</th><th>Durum</th><th>Giriş</th><th>Çıkış</th><th>Plan</th><th>Çalışma</th><th>Geç</th><th>Erken</th><th>Eksik</th><th title="Ceza katsayıları uygulanmış kesilecek süre">Ceza</th><th>FM</th><th>Tatil m.</th></tr>
         </thead>
         <tbody>
             @foreach (var g in _sonuc.Gunler)
@@ -48,6 +49,7 @@
                     <td>@S(g.GecKalmaDakika)</td>
                     <td>@S(g.ErkenCikmaDakika)</td>
                     <td>@S(g.EksikDakika)</td>
+                    <td class="@(g.CezaDakika > g.EksikDakika ? "text-danger fw-semibold" : "")">@S(g.CezaDakika)</td>
                     <td>@S(g.FazlaMesaiDakika)</td>
                     <td>@S(g.TatilMesaisiDakika)</td>
                 </tr>

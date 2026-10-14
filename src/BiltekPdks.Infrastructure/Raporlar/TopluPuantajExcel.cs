@@ -34,7 +34,7 @@ public static class TopluPuantajExcel
             if (t.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) c.Style.Fill.BackgroundColor = XLColor.LightGray;
         }
         var toplamlar = new[] { "Gün (30)", "Çalışılan gün", "Devamsız", "Ücretli izin", "Ücretsiz izin", "Eksik hareket",
-            "N.Ç (saat)", "%50 (saat)", "%100 (saat)", "Geç (saat)", "Erken (saat)", "Eksik (saat)" };
+            "N.Ç (saat)", "%50 (saat)", "%100 (saat)", "Geç (saat)", "Erken (saat)", "Eksik (saat)", "Ceza (saat)" };
         var ilkToplamSutunu = ilkGunSutunu + gunSayisi;
         for (var i = 0; i < toplamlar.Length; i++) s.Cell(baslik, ilkToplamSutunu + i).Value = toplamlar[i];
 
@@ -68,6 +68,7 @@ public static class TopluPuantajExcel
                 PuantajKodlari.Saat(t.NormalCalismaDakika), PuantajKodlari.Saat(t.FazlaMesaiDakika),
                 PuantajKodlari.Saat(t.TatilMesaisiDakika), PuantajKodlari.Saat(t.GecKalmaDakika),
                 PuantajKodlari.Saat(t.ErkenCikmaDakika), PuantajKodlari.Saat(t.EksikDakika),
+                PuantajKodlari.Saat(t.CezaDakika),
             };
             for (var i = 0; i < degerler.Length; i++)
                 s.Cell(r, ilkToplamSutunu + i).Value = degerler[i] is int n ? n : (double)degerler[i];
