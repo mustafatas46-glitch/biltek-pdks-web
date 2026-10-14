@@ -39,6 +39,7 @@ public static class HesapEndpoints
             };
             // Ekran yetkileri oturuma yazılır; değişiklik bir sonraki girişte geçerli olur.
             talepler.AddRange((sonuc.Yetkiler ?? Array.Empty<string>()).Select(y => new Claim(Talepler.Yetki, y)));
+            talepler.AddRange((sonuc.Bolumler ?? Array.Empty<int>()).Select(b => new Claim(Talepler.Bolum, b.ToString())));
             var kimlik = new ClaimsIdentity(talepler, CookieAuthenticationDefaults.AuthenticationScheme);
 
             await http.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(kimlik));

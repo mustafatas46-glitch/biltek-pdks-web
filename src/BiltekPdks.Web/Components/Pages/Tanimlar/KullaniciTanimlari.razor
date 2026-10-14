@@ -90,6 +90,23 @@
                     </tbody>
                 </table>
             }
+            @if (k.Rol != KullaniciRolu.Yonetici)
+            {
+                <div class="kirmizi-baslik px-0 mt-3 mb-1">GÖREBİLECEĞİ BÖLÜMLER</div>
+                <p class="text-muted mb-1">Hiçbiri seçilmezse tüm bölümleri görür. Seçilirse yalnızca bu bölümlerin personelini, hareketlerini, izinlerini ve puantajını görür.</p>
+                <div style="max-width:640px">
+                    @foreach (var b in _bolumler)
+                    {
+                        var bolum = b;
+                        <label class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" checked="@k.Bolumler.Contains(bolum.Id)"
+                                   @onchange="e => { if (e.Value is true) k.Bolumler.Add(bolum.Id); else k.Bolumler.Remove(bolum.Id); }" />
+                            @bolum.Ad
+                        </label>
+                    }
+                    @if (_bolumler.Count == 0) { <span class="text-muted">Bölüm tanımı yok.</span> }
+                </div>
+            }
             <div class="d-flex gap-2 mt-3">
                 <button class="btn btn-sm btn-primary px-4" @onclick="KaydetAsync">Kaydet</button>
                 <button class="btn btn-sm btn-outline-secondary" @onclick="() => Sec(_liste.FirstOrDefault(x => x.Id == k.Id))">Vazgeç</button>
@@ -103,6 +120,7 @@
     private SagTikMenu _menu = default!;
     private List<KullaniciBilgisi> _liste = new();
     private List<PersonelOgesi> _personeller = new();
+    private List<(int Id, string Ad)> _bolumler = new();
     private KullaniciBilgisi? _secili;
     private string? _mesaj;
     private bool _hata;
@@ -111,6 +129,7 @@
     {
         await using var db = await FirmaDb.AcAsync();
         _personeller = await PersonelOgesi.ListeleAsync(db, ayrilanlarDahil: false);
+        _bolumler = (await db.Bolumler.AsNoTracking().OrderBy(x => x.Ad).Select(x => new { x.Id, x.Ad }).ToListAsync()).Select(x => (x.Id, x.Ad)).ToList();
         await YukleAsync();
     }
 
@@ -126,7 +145,7 @@
         _secili = k is null ? null : new KullaniciBilgisi
         {
             Id = k.Id, KullaniciAdi = k.KullaniciAdi, AdSoyad = k.AdSoyad, Rol = k.Rol, Aktif = k.Aktif, OzelYetki = k.OzelYetki,
-            PersonelId = k.PersonelId, Yetkiler = new HashSet<string>(k.Yetkiler), SonGirisTarihi = k.SonGirisTarihi, Kilitli = k.Kilitli,
+            PersonelId = k.PersonelId, Yetkiler = new HashSet<string>(k.Yetkiler), Bolumler = new HashSet<int>(k.Bolumler), SonGirisTarihi = k.SonGirisTarihi, Kilitli = k.Kilitli,
         };
     }
 

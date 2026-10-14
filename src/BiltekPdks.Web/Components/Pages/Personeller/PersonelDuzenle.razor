@@ -352,6 +352,10 @@ else
         {
             _hata = "Kayıt sırasında bir sorun oluştu. Bilgileri kontrol edip tekrar deneyin.";
         }
+        catch (FirmaIzolasyonHatasi ex)
+        {
+            _hata = ex.Message;
+        }
         finally
         {
             _kaydediliyor = false;

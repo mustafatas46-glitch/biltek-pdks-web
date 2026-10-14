@@ -15,6 +15,8 @@ public static class AracEndpoints
         // Araçlar → Data Yedekle: veritabanının tutarlı bir kopyasını indirir (yalnızca yönetici).
         app.MapGet("/araclar/yedek", async (HttpContext http, IFirmaVeritabanlari veritabanlari) =>
         {
+            // Bölüm kısıtlı kullanıcı tüm veritabanını indiremez.
+            if (http.User.HasClaim(c => c.Type == Talepler.Bolum)) return Results.Forbid();
             // Ayrı veritabanı modunda yalnızca oturumdaki firmanın veritabanı yedeklenir.
             await using var db = await veritabanlari.Fabrika(http.User).CreateDbContextAsync(http.RequestAborted);
             if (!db.Database.IsSqlite())

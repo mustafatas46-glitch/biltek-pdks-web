@@ -176,3 +176,14 @@ internal sealed class KullaniciYetkisiYapilandirma : IEntityTypeConfiguration<Ku
         b.HasOne<Kullanici>().WithMany().HasForeignKey(x => x.KullaniciId).OnDelete(DeleteBehavior.Cascade);
     }
 }
+
+internal sealed class KullaniciBolumuYapilandirma : IEntityTypeConfiguration<KullaniciBolumu>
+{
+    public void Configure(EntityTypeBuilder<KullaniciBolumu> b)
+    {
+        b.ToTable("kullanici_bolumu");
+        b.HasIndex(x => new { x.KullaniciId, x.BolumId }).IsUnique();
+        b.HasOne<Kullanici>().WithMany().HasForeignKey(x => x.KullaniciId).OnDelete(DeleteBehavior.Cascade);
+        b.HasOne<Bolum>().WithMany().HasForeignKey(x => x.BolumId).OnDelete(DeleteBehavior.Cascade);
+    }
+}

@@ -32,11 +32,18 @@ public class PdksDbContext : DbContext
     /// </summary>
     public int? IslemYapanKullaniciId { get; set; }
 
+    /// <summary>
+    /// Doluysa kullanıcı yalnızca bu bölümlerdeki personeli ve onların hareket/izin/kazanç-kesinti/bordro kayıtlarını görür
+    /// (bölüm sorumlusu). Boşsa (null) bölüm kısıtı yoktur.
+    /// </summary>
+    public List<int>? IzinliBolumler { get; set; }
+
     private static readonly HashSet<string> GizliAlanlar = new() { nameof(Kullanici.SifreHash) };
 
     public DbSet<Firma> Firmalar => Set<Firma>();
     public DbSet<Kullanici> Kullanicilar => Set<Kullanici>();
     public DbSet<KullaniciYetkisi> KullaniciYetkileri => Set<KullaniciYetkisi>();
+    public DbSet<KullaniciBolumu> KullaniciBolumleri => Set<KullaniciBolumu>();
     public DbSet<Sube> Subeler => Set<Sube>();
     public DbSet<Bolum> Bolumler => Set<Bolum>();
     public DbSet<Gorev> Gorevler => Set<Gorev>();
@@ -71,6 +78,9 @@ public class PdksDbContext : DbContext
 
         FirmaKurallari<Kullanici>(modelBuilder);
         FirmaKurallari<KullaniciYetkisi>(modelBuilder);
+        FirmaKurallari<KullaniciBolumu>(modelBuilder);
+
+
         FirmaKurallari<Sube>(modelBuilder);
         FirmaKurallari<Bolum>(modelBuilder);
         FirmaKurallari<Gorev>(modelBuilder);
@@ -98,6 +108,20 @@ public class PdksDbContext : DbContext
         FirmaKurallari<AktarimKaydi>(modelBuilder);
         FirmaKurallari<AktarimSablonu>(modelBuilder);
         FirmaKurallari<BordroSatiri>(modelBuilder);
+
+        // Bölüm kısıtı: firma filtresiyle birleşik tek filtre (EF'de varlık başına bir filtre olur).
+        modelBuilder.Entity<Personel>().HasQueryFilter(e => FirmaFiltresiKapali
+            || (e.FirmaId == AktifFirmaId && (IzinliBolumler == null || (e.BolumId != null && IzinliBolumler.Contains(e.BolumId.Value)))));
+        modelBuilder.Entity<Hareket>().HasQueryFilter(e => FirmaFiltresiKapali
+            || (e.FirmaId == AktifFirmaId && (IzinliBolumler == null || (e.Personel!.BolumId != null && IzinliBolumler.Contains(e.Personel.BolumId.Value)))));
+        modelBuilder.Entity<Izin>().HasQueryFilter(e => FirmaFiltresiKapali
+            || (e.FirmaId == AktifFirmaId && (IzinliBolumler == null || (e.Personel!.BolumId != null && IzinliBolumler.Contains(e.Personel.BolumId.Value)))));
+        modelBuilder.Entity<KazancKesinti>().HasQueryFilter(e => FirmaFiltresiKapali
+            || (e.FirmaId == AktifFirmaId && (IzinliBolumler == null || (e.Personel!.BolumId != null && IzinliBolumler.Contains(e.Personel.BolumId.Value)))));
+        modelBuilder.Entity<PersonelVardiya>().HasQueryFilter(e => FirmaFiltresiKapali
+            || (e.FirmaId == AktifFirmaId && (IzinliBolumler == null || (e.Personel!.BolumId != null && IzinliBolumler.Contains(e.Personel.BolumId.Value)))));
+        modelBuilder.Entity<BordroSatiri>().HasQueryFilter(e => FirmaFiltresiKapali
+            || (e.FirmaId == AktifFirmaId && (IzinliBolumler == null || (e.Personel!.BolumId != null && IzinliBolumler.Contains(e.Personel.BolumId.Value)))));
     }
 
     private void FirmaKurallari<T>(ModelBuilder modelBuilder) where T : FirmaEntity
@@ -206,6 +230,13 @@ public class PdksDbContext : DbContext
             else if (entry.State == EntityState.Modified)
                 entry.Entity.GuncellemeTarihi = simdi;
         }
+
+        // Bölüm kısıtlı kullanıcı, yetkisi dışındaki bölüme personel ekleyemez / taşıyamaz.
+        if (IzinliBolumler is not null && !FirmaFiltresiKapali)
+            foreach (var entry in ChangeTracker.Entries<Personel>())
+                if (entry.State is EntityState.Added or EntityState.Modified
+                    && (entry.Entity.BolumId is not int b || !IzinliBolumler.Contains(b)))
+                    throw new FirmaIzolasyonHatasi("Yalnızca yetkili olduğunuz bölümlere personel kaydedebilirsiniz; bölüm seçin.");
 
         foreach (var entry in ChangeTracker.Entries<FirmaEntity>())
         {

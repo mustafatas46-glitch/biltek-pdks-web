@@ -24,6 +24,7 @@ public static class RaporEndpoints
 
             await using var db = await veritabanlari.Fabrika(http.User).CreateDbContextAsync(http.RequestAborted);
             db.AktifFirmaId = firmaId;
+            db.KisitlariUygula(http.User);
             var firmaAdi = await db.Firmalar.Where(f => f.Id == firmaId).Select(f => f.Ad).FirstOrDefaultAsync(http.RequestAborted) ?? "";
             var satirlar = await puantaj.TopluAsync(db, yil, ay, bolum, grup, http.RequestAborted);
             var dosya = TopluPuantajExcel.Olustur(satirlar, yil, ay, firmaAdi);
@@ -43,6 +44,7 @@ public static class RaporEndpoints
 
             await using var db = await veritabanlari.Fabrika(http.User).CreateDbContextAsync(http.RequestAborted);
             db.AktifFirmaId = firmaId;
+            db.KisitlariUygula(http.User);
             var sonuc = await puantaj.AylikAsync(db, personel, yil, ay, http.RequestAborted);
             if (sonuc is null) return Results.NotFound();
             var firmaAdi = await db.Firmalar.Where(f => f.Id == firmaId).Select(f => f.Ad).FirstOrDefaultAsync(http.RequestAborted) ?? "";
@@ -63,6 +65,7 @@ public static class RaporEndpoints
 
             await using var db = await veritabanlari.Fabrika(http.User).CreateDbContextAsync(http.RequestAborted);
             db.AktifFirmaId = firmaId;
+            db.KisitlariUygula(http.User);
             var firmaAdi = await db.Firmalar.Where(f => f.Id == firmaId).Select(f => f.Ad).FirstOrDefaultAsync(http.RequestAborted) ?? "";
             var satirlar = await BordroUyumu.HesaplaAsync(db, puantaj, yil, ay, bolum, http.RequestAborted);
             return Results.File(BordroUyumu.Excel(satirlar, yil, ay, firmaAdi),
@@ -81,6 +84,7 @@ public static class RaporEndpoints
 
             await using var db = await veritabanlari.Fabrika(http.User).CreateDbContextAsync(http.RequestAborted);
             db.AktifFirmaId = firmaId;
+            db.KisitlariUygula(http.User);
             var firmaAdi = await db.Firmalar.Where(f => f.Id == firmaId).Select(f => f.Ad).FirstOrDefaultAsync(http.RequestAborted) ?? "";
             var pusulalar = await MaasHesabi.HesaplaAsync(db, puantaj, yil, ay, personel, bolum, http.RequestAborted);
             return Results.File(MaasListesiExcel.Olustur(pusulalar, yil, ay, firmaAdi),

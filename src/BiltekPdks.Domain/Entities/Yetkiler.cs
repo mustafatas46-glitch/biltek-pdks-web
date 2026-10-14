@@ -61,3 +61,10 @@ public class KullaniciYetkisi : FirmaEntity
     public int KullaniciId { get; set; }
     public string Yetki { get; set; } = string.Empty;
 }
+
+/// <summary>Kullanıcının görebileceği bölüm. Kullanıcının hiç kaydı yoksa tüm bölümleri görür.</summary>
+public class KullaniciBolumu : FirmaEntity
+{
+    public int KullaniciId { get; set; }
+    public int BolumId { get; set; }
+}

@@ -5,7 +5,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace BiltekPdks.Infrastructure.Security;
 
-public sealed record GirisSonucu(bool Basarili, Kullanici? Kullanici, string? Hata, string? FirmaKodu = null, IReadOnlyList<string>? Yetkiler = null)
+public sealed record GirisSonucu(bool Basarili, Kullanici? Kullanici, string? Hata, string? FirmaKodu = null, IReadOnlyList<string>? Yetkiler = null,
+    IReadOnlyList<int>? Bolumler = null)
 {
     public static GirisSonucu Hatali(string hata) => new(false, null, hata);
 }
@@ -90,7 +91,10 @@ public class GirisServisi
         kullanici.SonGirisTarihi = simdi;
         await db.SaveChangesAsync(ct);
         var yetkiler = await GecerliYetkilerAsync(db, kullanici, ct);
-        return new GirisSonucu(true, kullanici, null, _veritabanlari.AyriVeritabani ? firmaKodu : firma.Kod, yetkiler);
+        // Bölüm kısıtı (yönetici hariç): kayıt yoksa tüm bölümler.
+        var bolumler = kullanici.Rol == KullaniciRolu.Yonetici ? new List<int>()
+            : await db.KullaniciBolumleri.Where(b => b.KullaniciId == kullanici.Id && b.FirmaId == kullanici.FirmaId).Select(b => b.BolumId).ToListAsync(ct);
+        return new GirisSonucu(true, kullanici, null, _veritabanlari.AyriVeritabani ? firmaKodu : firma.Kod, yetkiler, bolumler);
     }
 
     /// <summary>Kullanıcının geçerli yetkileri: yönetici hepsi; özel yetkili kullanıcı kendi listesi; diğerleri rol varsayılanı.</summary>

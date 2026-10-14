@@ -14,6 +14,8 @@ public sealed class KullaniciBilgisi
     public bool OzelYetki { get; set; }
     public int? PersonelId { get; set; }
     public HashSet<string> Yetkiler { get; set; } = new();
+    /// <summary>Görebileceği bölümler; boşsa tümü.</summary>
+    public HashSet<int> Bolumler { get; set; } = new();
     /// <summary>Doluysa şifre bu değere ayarlanır (yeni kullanıcıda zorunlu).</summary>
     public string? YeniSifre { get; set; }
     public DateTime? SonGirisTarihi { get; set; }
@@ -27,12 +29,14 @@ public static class KullaniciServisi
     {
         var liste = await db.Kullanicilar.AsNoTracking().OrderBy(k => k.KullaniciAdi).ToListAsync(ct);
         var yetkiler = (await db.KullaniciYetkileri.AsNoTracking().ToListAsync(ct)).ToLookup(y => y.KullaniciId, y => y.Yetki);
+        var bolumler = (await db.KullaniciBolumleri.AsNoTracking().ToListAsync(ct)).ToLookup(y => y.KullaniciId, y => y.BolumId);
         var simdi = DateTime.UtcNow;
         return liste.Select(k => new KullaniciBilgisi
         {
             Id = k.Id, KullaniciAdi = k.KullaniciAdi, AdSoyad = k.AdSoyad, Rol = k.Rol, Aktif = k.Aktif, OzelYetki = k.OzelYetki,
             PersonelId = k.PersonelId, SonGirisTarihi = k.SonGirisTarihi, Kilitli = k.KilitBitis is { } kb && kb > simdi,
             Yetkiler = (k.OzelYetki ? yetkiler[k.Id] : Domain.Entities.Yetkiler.RolVarsayilani(k.Rol)).ToHashSet(),
+            Bolumler = bolumler[k.Id].ToHashSet(),
         }).ToList();
     }
 
@@ -86,6 +90,10 @@ public static class KullaniciServisi
         db.KullaniciYetkileri.RemoveRange(mevcut);
         if (k.OzelYetki)
             db.KullaniciYetkileri.AddRange(b.Yetkiler.Distinct().Select(y => new KullaniciYetkisi { KullaniciId = k.Id, Yetki = y }));
+        var eskiBolumler = await db.KullaniciBolumleri.Where(x => x.KullaniciId == k.Id).ToListAsync(ct);
+        db.KullaniciBolumleri.RemoveRange(eskiBolumler);
+        if (k.Rol != KullaniciRolu.Yonetici)
+            db.KullaniciBolumleri.AddRange(b.Bolumler.Distinct().Select(x => new KullaniciBolumu { KullaniciId = k.Id, BolumId = x }));
         await db.SaveChangesAsync(ct);
         b.Id = k.Id;
         b.YeniSifre = null;
