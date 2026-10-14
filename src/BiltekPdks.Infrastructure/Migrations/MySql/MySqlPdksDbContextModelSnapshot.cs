@@ -130,6 +130,93 @@ namespace BiltekPdks.Infrastructure.Migrations.MySql
                     b.ToTable("aktarim_sablonu", (string)null);
                 });
 
+            modelBuilder.Entity("BiltekPdks.Domain.Entities.AltGrup", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Ad")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("varchar(120)");
+
+                    b.Property<bool>("Aktif")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int>("CalismaGrubuId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("EskiId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("FirmaId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("GuncellemeTarihi")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("GunlukCalismaDakika")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Kod")
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<DateTime>("OlusturmaTarihi")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CalismaGrubuId");
+
+                    b.HasIndex("FirmaId");
+
+                    b.HasIndex("FirmaId", "Ad");
+
+                    b.ToTable("alt_grup", (string)null);
+                });
+
+            modelBuilder.Entity("BiltekPdks.Domain.Entities.AltGrupGunu", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AltGrupId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("FirmaId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Gun")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("GuncellemeTarihi")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("OlusturmaTarihi")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("VardiyaId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FirmaId");
+
+                    b.HasIndex("VardiyaId");
+
+                    b.HasIndex("AltGrupId", "Gun")
+                        .IsUnique();
+
+                    b.ToTable("alt_grup_gunu", (string)null);
+                });
+
             modelBuilder.Entity("BiltekPdks.Domain.Entities.Birim", b =>
                 {
                     b.Property<int>("Id")
@@ -422,6 +509,67 @@ namespace BiltekPdks.Infrastructure.Migrations.MySql
                         .IsUnique();
 
                     b.ToTable("calisma_grubu_gunu", (string)null);
+                });
+
+            modelBuilder.Entity("BiltekPdks.Domain.Entities.DonemTanimi", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("AltGrupId")
+                        .HasColumnType("int");
+
+                    b.Property<DateOnly>("Baslangic")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly>("Bitis")
+                        .HasColumnType("date");
+
+                    b.Property<int>("CalismaGrubuId")
+                        .HasColumnType("int");
+
+                    b.Property<TimeOnly?>("CikisSaati")
+                        .HasColumnType("time(6)");
+
+                    b.Property<int>("EksikDakika")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EksikGun")
+                        .HasColumnType("int");
+
+                    b.Property<int>("FazlaDakika")
+                        .HasColumnType("int");
+
+                    b.Property<int>("FazlaGun")
+                        .HasColumnType("int");
+
+                    b.Property<int>("FirmaId")
+                        .HasColumnType("int");
+
+                    b.Property<TimeOnly?>("GirisSaati")
+                        .HasColumnType("time(6)");
+
+                    b.Property<int>("GunFarki")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("GuncellemeTarihi")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("OlusturmaTarihi")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AltGrupId");
+
+                    b.HasIndex("FirmaId");
+
+                    b.HasIndex("CalismaGrubuId", "Baslangic");
+
+                    b.ToTable("donem_tanimi", (string)null);
                 });
 
             modelBuilder.Entity("BiltekPdks.Domain.Entities.Firma", b =>
@@ -963,6 +1111,9 @@ namespace BiltekPdks.Infrastructure.Migrations.MySql
                     b.Property<int?>("AktarimId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("AltGrupId")
+                        .HasColumnType("int");
+
                     b.Property<string>("AnneAdi")
                         .HasMaxLength(60)
                         .HasColumnType("varchar(60)");
@@ -1278,6 +1429,8 @@ namespace BiltekPdks.Infrastructure.Migrations.MySql
                         .HasColumnType("decimal(18,2)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AltGrupId");
 
                     b.HasIndex("BirimId");
 
@@ -1646,6 +1799,45 @@ namespace BiltekPdks.Infrastructure.Migrations.MySql
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("BiltekPdks.Domain.Entities.AltGrup", b =>
+                {
+                    b.HasOne("BiltekPdks.Domain.Entities.CalismaGrubu", "CalismaGrubu")
+                        .WithMany()
+                        .HasForeignKey("CalismaGrubuId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("BiltekPdks.Domain.Entities.Firma", null)
+                        .WithMany()
+                        .HasForeignKey("FirmaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CalismaGrubu");
+                });
+
+            modelBuilder.Entity("BiltekPdks.Domain.Entities.AltGrupGunu", b =>
+                {
+                    b.HasOne("BiltekPdks.Domain.Entities.AltGrup", "AltGrup")
+                        .WithMany()
+                        .HasForeignKey("AltGrupId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("BiltekPdks.Domain.Entities.Firma", null)
+                        .WithMany()
+                        .HasForeignKey("FirmaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("BiltekPdks.Domain.Entities.Vardiya", null)
+                        .WithMany()
+                        .HasForeignKey("VardiyaId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("AltGrup");
+                });
+
             modelBuilder.Entity("BiltekPdks.Domain.Entities.Birim", b =>
                 {
                     b.HasOne("BiltekPdks.Domain.Entities.Firma", null)
@@ -1721,6 +1913,26 @@ namespace BiltekPdks.Infrastructure.Migrations.MySql
                     b.Navigation("CalismaGrubu");
 
                     b.Navigation("Vardiya");
+                });
+
+            modelBuilder.Entity("BiltekPdks.Domain.Entities.DonemTanimi", b =>
+                {
+                    b.HasOne("BiltekPdks.Domain.Entities.AltGrup", null)
+                        .WithMany()
+                        .HasForeignKey("AltGrupId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("BiltekPdks.Domain.Entities.CalismaGrubu", null)
+                        .WithMany()
+                        .HasForeignKey("CalismaGrubuId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("BiltekPdks.Domain.Entities.Firma", null)
+                        .WithMany()
+                        .HasForeignKey("FirmaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("BiltekPdks.Domain.Entities.Gorev", b =>
@@ -1853,6 +2065,11 @@ namespace BiltekPdks.Infrastructure.Migrations.MySql
 
             modelBuilder.Entity("BiltekPdks.Domain.Entities.Personel", b =>
                 {
+                    b.HasOne("BiltekPdks.Domain.Entities.AltGrup", "AltGrup")
+                        .WithMany()
+                        .HasForeignKey("AltGrupId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("BiltekPdks.Domain.Entities.Birim", "Birim")
                         .WithMany()
                         .HasForeignKey("BirimId")
@@ -1903,6 +2120,8 @@ namespace BiltekPdks.Infrastructure.Migrations.MySql
                         .WithMany()
                         .HasForeignKey("TakimId")
                         .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("AltGrup");
 
                     b.Navigation("Birim");
 

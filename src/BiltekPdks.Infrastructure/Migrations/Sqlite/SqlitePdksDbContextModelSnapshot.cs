@@ -121,6 +121,89 @@ namespace BiltekPdks.Infrastructure.Migrations.Sqlite
                     b.ToTable("aktarim_sablonu", (string)null);
                 });
 
+            modelBuilder.Entity("BiltekPdks.Domain.Entities.AltGrup", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Ad")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Aktif")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("CalismaGrubuId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("EskiId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("FirmaId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("GuncellemeTarihi")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("GunlukCalismaDakika")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Kod")
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("OlusturmaTarihi")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CalismaGrubuId");
+
+                    b.HasIndex("FirmaId");
+
+                    b.HasIndex("FirmaId", "Ad");
+
+                    b.ToTable("alt_grup", (string)null);
+                });
+
+            modelBuilder.Entity("BiltekPdks.Domain.Entities.AltGrupGunu", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("AltGrupId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("FirmaId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Gun")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("GuncellemeTarihi")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("OlusturmaTarihi")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("VardiyaId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FirmaId");
+
+                    b.HasIndex("VardiyaId");
+
+                    b.HasIndex("AltGrupId", "Gun")
+                        .IsUnique();
+
+                    b.ToTable("alt_grup_gunu", (string)null);
+                });
+
             modelBuilder.Entity("BiltekPdks.Domain.Entities.Birim", b =>
                 {
                     b.Property<int>("Id")
@@ -401,6 +484,65 @@ namespace BiltekPdks.Infrastructure.Migrations.Sqlite
                         .IsUnique();
 
                     b.ToTable("calisma_grubu_gunu", (string)null);
+                });
+
+            modelBuilder.Entity("BiltekPdks.Domain.Entities.DonemTanimi", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("AltGrupId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateOnly>("Baslangic")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly>("Bitis")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("CalismaGrubuId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<TimeOnly?>("CikisSaati")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("EksikDakika")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("EksikGun")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("FazlaDakika")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("FazlaGun")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("FirmaId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<TimeOnly?>("GirisSaati")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("GunFarki")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("GuncellemeTarihi")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("OlusturmaTarihi")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AltGrupId");
+
+                    b.HasIndex("FirmaId");
+
+                    b.HasIndex("CalismaGrubuId", "Baslangic");
+
+                    b.ToTable("donem_tanimi", (string)null);
                 });
 
             modelBuilder.Entity("BiltekPdks.Domain.Entities.Firma", b =>
@@ -920,6 +1062,9 @@ namespace BiltekPdks.Infrastructure.Migrations.Sqlite
                     b.Property<int?>("AktarimId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<int?>("AltGrupId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("AnneAdi")
                         .HasMaxLength(60)
                         .HasColumnType("TEXT");
@@ -1235,6 +1380,8 @@ namespace BiltekPdks.Infrastructure.Migrations.Sqlite
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AltGrupId");
 
                     b.HasIndex("BirimId");
 
@@ -1589,6 +1736,45 @@ namespace BiltekPdks.Infrastructure.Migrations.Sqlite
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("BiltekPdks.Domain.Entities.AltGrup", b =>
+                {
+                    b.HasOne("BiltekPdks.Domain.Entities.CalismaGrubu", "CalismaGrubu")
+                        .WithMany()
+                        .HasForeignKey("CalismaGrubuId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("BiltekPdks.Domain.Entities.Firma", null)
+                        .WithMany()
+                        .HasForeignKey("FirmaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CalismaGrubu");
+                });
+
+            modelBuilder.Entity("BiltekPdks.Domain.Entities.AltGrupGunu", b =>
+                {
+                    b.HasOne("BiltekPdks.Domain.Entities.AltGrup", "AltGrup")
+                        .WithMany()
+                        .HasForeignKey("AltGrupId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("BiltekPdks.Domain.Entities.Firma", null)
+                        .WithMany()
+                        .HasForeignKey("FirmaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("BiltekPdks.Domain.Entities.Vardiya", null)
+                        .WithMany()
+                        .HasForeignKey("VardiyaId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("AltGrup");
+                });
+
             modelBuilder.Entity("BiltekPdks.Domain.Entities.Birim", b =>
                 {
                     b.HasOne("BiltekPdks.Domain.Entities.Firma", null)
@@ -1664,6 +1850,26 @@ namespace BiltekPdks.Infrastructure.Migrations.Sqlite
                     b.Navigation("CalismaGrubu");
 
                     b.Navigation("Vardiya");
+                });
+
+            modelBuilder.Entity("BiltekPdks.Domain.Entities.DonemTanimi", b =>
+                {
+                    b.HasOne("BiltekPdks.Domain.Entities.AltGrup", null)
+                        .WithMany()
+                        .HasForeignKey("AltGrupId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("BiltekPdks.Domain.Entities.CalismaGrubu", null)
+                        .WithMany()
+                        .HasForeignKey("CalismaGrubuId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("BiltekPdks.Domain.Entities.Firma", null)
+                        .WithMany()
+                        .HasForeignKey("FirmaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("BiltekPdks.Domain.Entities.Gorev", b =>
@@ -1796,6 +2002,11 @@ namespace BiltekPdks.Infrastructure.Migrations.Sqlite
 
             modelBuilder.Entity("BiltekPdks.Domain.Entities.Personel", b =>
                 {
+                    b.HasOne("BiltekPdks.Domain.Entities.AltGrup", "AltGrup")
+                        .WithMany()
+                        .HasForeignKey("AltGrupId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("BiltekPdks.Domain.Entities.Birim", "Birim")
                         .WithMany()
                         .HasForeignKey("BirimId")
@@ -1846,6 +2057,8 @@ namespace BiltekPdks.Infrastructure.Migrations.Sqlite
                         .WithMany()
                         .HasForeignKey("TakimId")
                         .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("AltGrup");
 
                     b.Navigation("Birim");
 
