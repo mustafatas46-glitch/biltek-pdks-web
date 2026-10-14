@@ -57,6 +57,9 @@ public class PdksDbContext : DbContext
     public DbSet<KazancKesintiTuru> KazancKesintiTurleri => Set<KazancKesintiTuru>();
     public DbSet<KazancKesinti> KazancKesintiler => Set<KazancKesinti>();
     public DbSet<IslemKaydi> IslemKayitlari => Set<IslemKaydi>();
+    public DbSet<AktarimKaydi> AktarimKayitlari => Set<AktarimKaydi>();
+    public DbSet<AktarimSablonu> AktarimSablonlari => Set<AktarimSablonu>();
+    public DbSet<BordroSatiri> BordroSatirlari => Set<BordroSatiri>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -84,6 +87,9 @@ public class PdksDbContext : DbContext
         FirmaKurallari<KazancKesintiTuru>(modelBuilder);
         FirmaKurallari<KazancKesinti>(modelBuilder);
         FirmaKurallari<IslemKaydi>(modelBuilder);
+        FirmaKurallari<AktarimKaydi>(modelBuilder);
+        FirmaKurallari<AktarimSablonu>(modelBuilder);
+        FirmaKurallari<BordroSatiri>(modelBuilder);
     }
 
     private void FirmaKurallari<T>(ModelBuilder modelBuilder) where T : FirmaEntity

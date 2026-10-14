@@ -160,6 +160,7 @@ internal sealed class KazancKesintiYapilandirma : IEntityTypeConfiguration<Kazan
         b.Property(x => x.Tutar).HasPrecision(18, 2);
         b.Property(x => x.Aciklama).HasMaxLength(250);
         b.HasIndex(x => new { x.PersonelId, x.Tarih });
+        b.HasIndex(x => x.AktarimId);
         b.HasOne(x => x.Personel).WithMany().HasForeignKey(x => x.PersonelId).OnDelete(DeleteBehavior.Cascade);
         b.HasOne(x => x.KazancKesintiTuru).WithMany().HasForeignKey(x => x.KazancKesintiTuruId).OnDelete(DeleteBehavior.Restrict);
     }

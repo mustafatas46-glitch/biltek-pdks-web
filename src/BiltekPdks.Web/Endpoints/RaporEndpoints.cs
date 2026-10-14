@@ -50,5 +50,23 @@ public static class RaporEndpoints
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 $"puantaj-{ad}-{yil}-{ay:00}.xlsx");
         }).RequireAuthorization();
+
+        app.MapGet("/raporlar/bordro-uyum.xlsx", async (
+            HttpContext http,
+            IFirmaVeritabanlari veritabanlari,
+            PuantajServisi puantaj,
+            int yil, int ay, int? bolum) =>
+        {
+            if (ay is < 1 or > 12 || yil is < 2000 or > 2100) return Results.BadRequest("Geçersiz ay.");
+            if (!int.TryParse(http.User.FindFirstValue(Talepler.FirmaId), out var firmaId)) return Results.Forbid();
+
+            await using var db = await veritabanlari.Fabrika(http.User).CreateDbContextAsync(http.RequestAborted);
+            db.AktifFirmaId = firmaId;
+            var firmaAdi = await db.Firmalar.Where(f => f.Id == firmaId).Select(f => f.Ad).FirstOrDefaultAsync(http.RequestAborted) ?? "";
+            var satirlar = await BordroUyumu.HesaplaAsync(db, puantaj, yil, ay, bolum, http.RequestAborted);
+            return Results.File(BordroUyumu.Excel(satirlar, yil, ay, firmaAdi),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                $"bordro-pdks-uyum-{yil}-{ay:00}.xlsx");
+        }).RequireAuthorization();
     }
 }

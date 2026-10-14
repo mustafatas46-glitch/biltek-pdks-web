@@ -21,6 +21,8 @@ public class KazancKesinti : FirmaEntity
     public decimal Tutar { get; set; }
     public string? Aciklama { get; set; }
     public int? KaydedenKullaniciId { get; set; }
+    /// <summary>Excel aktarımıyla geldiyse aktarımın kaydı (kaynak izi).</summary>
+    public int? AktarimId { get; set; }
 }
 
 /// <summary>Kim, ne zaman, hangi kaydı değiştirdi (KVKK ve denetim için).</summary>

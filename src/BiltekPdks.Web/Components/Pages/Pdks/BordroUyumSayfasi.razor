@@ -1,0 +1,149 @@
+@page "/raporlar/bordro-uyum"
+@using BiltekPdks.Infrastructure.Puantaj
+@using BiltekPdks.Infrastructure.Raporlar
+@inject FirmaDb FirmaDb
+@inject PuantajServisi PuantajServisi
+@inject NavigationManager Nav
+
+<PageTitle>Bordro–PDKS uyum raporu</PageTitle>
+<SagTikMenu @ref="_menu" />
+
+<div class="d-flex gap-2 align-items-end mb-2 flex-wrap">
+    <h1 class="h4 me-3 mb-1">Bordro–PDKS Uyum Raporu</h1>
+    <div><label class="form-label small mb-0">Ay</label><input class="form-control form-control-sm" type="month" @bind="_ay" @bind:format="yyyy-MM" @bind:after="HesaplaAsync" /></div>
+    <div>
+        <label class="form-label small mb-0">Bölüm</label>
+        <select class="form-select form-select-sm" @bind="_bolumId" @bind:after="HesaplaAsync">
+            <option value="">Tümü</option>
+            @foreach (var b in _bolumler) { <option value="@b.Id">@b.Ad</option> }
+        </select>
+    </div>
+    <div><label class="form-label small mb-0">Ara</label><input class="form-control form-control-sm" placeholder="Ad, sicil, kart" @bind="_arama" @bind:event="oninput" /></div>
+    <div class="form-check mb-1 ms-1">
+        <input class="form-check-input" type="checkbox" id="farkli" @bind="_yalnizFarkli" />
+        <label class="form-check-label small" for="farkli">Yalnız farklı olanlar</label>
+    </div>
+    <a class="btn btn-sm btn-outline-primary ms-auto" href="araclar/excel-aktarim">Bordro aktar</a>
+    <a class="btn btn-sm btn-success" href="@($"raporlar/bordro-uyum.xlsx?yil={_ay.Year}&ay={_ay.Month}" + (_bolumId is int bi ? $"&bolum={bi}" : ""))" target="_blank">Excel'e aktar</a>
+</div>
+<p class="small text-muted mb-2">
+    Muhasebeden aktarılan bordro ile kart hareketlerinden hesaplanan puantaj yan yana gösterilir. Farklı satırlar kırmızıdır.
+    Farkın nedeni eksik hareket ya da girilmemiş izinse, düzeltme kişisel puantajdan açık kayıtla yapılır (elle girilen kayıtlar “Elle” olarak görünür).
+</p>
+
+@if (_yukleniyor)
+{
+    <p class="text-muted">Hesaplanıyor…</p>
+}
+else if (_satirlar.Count == 0)
+{
+    <p class="text-muted">Bu ay için personel ya da bordro bulunamadı.</p>
+}
+else
+{
+    var gorunen = Gorunen().ToList();
+    var bordroSayisi = _satirlar.Count(x => x.Bordro is not null);
+    <div class="small mb-2">
+        <span class="badge text-bg-secondary">@_satirlar.Count kişi</span>
+        <span class="badge text-bg-info">@bordroSayisi bordro satırı</span>
+        <span class="badge text-bg-success">@_satirlar.Count(x => x.Uyumlu) uyumlu</span>
+        <span class="badge text-bg-danger">@_satirlar.Count(x => !x.Uyumlu) farklı</span>
+        @if (bordroSayisi == 0) { <span class="text-danger ms-2">Bu ay için bordro aktarılmamış.</span> }
+    </div>
+    <div class="toplu-puantaj">
+        <table class="table table-sm table-bordered mb-0">
+            <thead>
+                <tr>
+                    <th rowspan="2" class="sabit s1">Sicil</th>
+                    <th rowspan="2" class="sabit s2">Ad Soyad</th>
+                    <th colspan="2">Gün (30)</th>
+                    <th colspan="2">İzin</th>
+                    <th colspan="2">Devamsız</th>
+                    <th colspan="2">FM (saat)</th>
+                    <th rowspan="2">Eks.<br /><small>hrk</small></th>
+                    <th rowspan="2">Durum</th>
+                </tr>
+                <tr>
+                    <th>PDKS</th><th>Bordro</th><th>PDKS</th><th>Bordro</th><th>PDKS</th><th>Bordro</th><th>PDKS</th><th>Bordro</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var s in gorunen)
+                {
+                    var satir = s;
+                    <tr @key="satir.Personel.Id" class="@(satir.Uyumlu ? "" : "table-danger")"
+                        @ondblclick="() => KisiselAc(satir.Personel.Id)" title="Çift tık: kişisel puantaj · sağ tık: menü"
+                        @oncontextmenu="e => _menu.Ac(e, Menu(satir))" @oncontextmenu:preventDefault="true">
+                        <td class="sabit s1">@(satir.Personel.SicilNo ?? satir.Personel.KartNo)</td>
+                        <td class="sabit s2">@satir.Personel.Ad @satir.Personel.Soyad</td>
+                        <td class="text-end">@Y(satir.PdksGun)</td>
+                        <td class="text-end @(Farkli(satir.GunFarki) ? "fw-bold" : "")">@Y(satir.Bordro?.CalisilanGun)</td>
+                        <td class="text-end">@Y(satir.PdksIzin)</td>
+                        <td class="text-end @(Farkli(satir.IzinFarki) ? "fw-bold" : "")">@Y(satir.Bordro?.IzinGun)</td>
+                        <td class="text-end">@Y(satir.PdksDevamsiz)</td>
+                        <td class="text-end @(Farkli(satir.DevamsizFarki) ? "fw-bold" : "")">@Y(satir.Bordro?.DevamsizGun)</td>
+                        <td class="text-end">@Y(satir.PdksFmSaat)</td>
+                        <td class="text-end @(satir.FmFarki is { } f && Math.Abs(f) > UyumSatiri.FmToleransSaat ? "fw-bold" : "")">@Y(satir.Bordro?.FazlaMesaiSaat)</td>
+                        <td class="text-end">@(satir.Puantaj is { Toplam.EksikHareketGun: > 0 } pp ? pp.Toplam.EksikHareketGun.ToString() : "")</td>
+                        <td class="small">@(satir.Uyumlu ? "Uyumlu" : string.Join(" · ", satir.Farklar))</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "ay")] public string? AyParametresi { get; set; }
+
+    private SagTikMenu _menu = default!;
+    private DateTime _ay = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1).AddMonths(-1);
+    private int? _bolumId;
+    private string _arama = "";
+    private bool _yalnizFarkli, _yukleniyor = true;
+    private List<(int Id, string Ad)> _bolumler = new();
+    private List<UyumSatiri> _satirlar = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (DateTime.TryParseExact(AyParametresi, "yyyy-MM", null, System.Globalization.DateTimeStyles.None, out var a)) _ay = a;
+        await using var db = await FirmaDb.AcAsync();
+        _bolumler = (await db.Bolumler.AsNoTracking().OrderBy(x => x.Ad).Select(x => new { x.Id, x.Ad }).ToListAsync())
+            .Select(x => (x.Id, x.Ad)).ToList();
+        await HesaplaAsync();
+    }
+
+    private async Task HesaplaAsync()
+    {
+        _yukleniyor = true;
+        await using var db = await FirmaDb.AcAsync();
+        _satirlar = await BordroUyumu.HesaplaAsync(db, PuantajServisi, _ay.Year, _ay.Month, _bolumId);
+        _yukleniyor = false;
+    }
+
+    private IEnumerable<UyumSatiri> Gorunen()
+    {
+        IEnumerable<UyumSatiri> q = _satirlar;
+        if (_yalnizFarkli) q = q.Where(x => !x.Uyumlu);
+        var a = _arama.Trim();
+        if (a.Length > 0)
+            q = q.Where(x => $"{x.Personel.Ad} {x.Personel.Soyad}".Contains(a, StringComparison.CurrentCultureIgnoreCase)
+                || (x.Personel.SicilNo?.Contains(a, StringComparison.CurrentCultureIgnoreCase) ?? false)
+                || x.Personel.KartNo.Contains(a, StringComparison.CurrentCultureIgnoreCase));
+        return q;
+    }
+
+    private void KisiselAc(int id) => Nav.NavigateTo($"puantaj?personel={id}&ay={_ay:yyyy-MM}");
+
+    private List<SagTikMenu.Oge> Menu(UyumSatiri s) => new()
+    {
+        SagTikMenu.Oge.Eylemli("Kişisel puantaj", () => KisiselAc(s.Personel.Id), "F9"),
+        SagTikMenu.Oge.Eylemli("Hareketleri göster", () => Nav.NavigateTo($"?personel={s.Personel.Id}"), "F8"),
+        SagTikMenu.Oge.Eylemli("Sicil kartı", () => Nav.NavigateTo($"personeller/{s.Personel.Id}")),
+        SagTikMenu.Oge.Cizgi(),
+        SagTikMenu.Oge.Eylemli(_yalnizFarkli ? "Tümünü göster" : "Yalnız farklıları göster", () => _yalnizFarkli = !_yalnizFarkli),
+    };
+
+    private static bool Farkli(decimal? fark) => fark is { } f && f != 0;
+    private static string Y(decimal? d) => d is { } x ? x.ToString("0.##") : "";
+}

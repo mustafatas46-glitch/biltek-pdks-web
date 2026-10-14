@@ -42,7 +42,7 @@ public class PersonelFormu : IValidatableObject
     // Formun kendisinin yönettiği ya da hiç değiştirilmemesi gereken alanlar.
     private static readonly HashSet<string> EktenKopyalanmaz = new()
     {
-        nameof(Personel.Id), nameof(Personel.FirmaId), nameof(Personel.EskiId),
+        nameof(Personel.Id), nameof(Personel.FirmaId), nameof(Personel.EskiId), nameof(Personel.AktarimId),
         nameof(KartNo), nameof(SicilNo), nameof(Ad), nameof(Soyad), nameof(TcKimlikNo), nameof(Cinsiyet), nameof(DogumTarihi),
         nameof(IseGirisTarihi), nameof(IstenCikisTarihi), nameof(IstenAyrilmaNedeni), nameof(CepTelefonu), nameof(Eposta), nameof(Adres),
         nameof(SubeId), nameof(BolumId), nameof(GorevId), nameof(CalismaGrubuId),

@@ -91,6 +91,8 @@ public class Izin : FirmaEntity
     public DateOnly Baslangic { get; set; }
     public DateOnly Bitis { get; set; }
     public string? Aciklama { get; set; }
+    /// <summary>Excel aktarımıyla geldiyse aktarımın kaydı (kaynak izi).</summary>
+    public int? AktarimId { get; set; }
 
     public bool Kapsar(DateOnly tarih) => Baslangic <= tarih && tarih <= Bitis;
 }
@@ -108,4 +110,6 @@ public class Hareket : FirmaEntity
     public string? Aciklama { get; set; }
     public bool Iptal { get; set; }
     public int? KaydedenKullaniciId { get; set; }
+    /// <summary>Excel aktarımıyla geldiyse aktarımın kaydı (kaynak izi).</summary>
+    public int? AktarimId { get; set; }
 }

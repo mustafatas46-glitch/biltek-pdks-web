@@ -1,4 +1,5 @@
 using BiltekPdks.Domain.Entities;
+using BiltekPdks.Infrastructure.Aktarim;
 using BiltekPdks.Infrastructure.Data;
 using BiltekPdks.Infrastructure.Firmalar;
 using BiltekPdks.Web.Services;
@@ -33,5 +34,26 @@ public static class AracEndpoints
                 try { File.Delete(gecici); } catch (IOException) { }
             }
         }).RequireAuthorization(p => p.RequireRole(nameof(KullaniciRolu.Yonetici)));
+
+        // Excel'den veri alma için boş örnek dosya: doğru başlıklarla doldurulup geri yüklenir.
+        app.MapGet("/araclar/aktarim-ornegi.xlsx", (AktarimTuru tur) =>
+        {
+            var alanlar = ExcelAktarimi.Alanlar(tur);
+            if (alanlar.Count == 0) return Results.NotFound();
+            using var kitap = new ClosedXML.Excel.XLWorkbook();
+            var s = kitap.Worksheets.Add(ExcelAktarimi.TurAdi(tur));
+            for (var i = 0; i < alanlar.Count; i++)
+            {
+                var c = s.Cell(1, i + 1);
+                c.Value = alanlar[i].Etiket;
+                c.Style.Font.Bold = true;
+                if (alanlar[i].Zorunlu) c.Style.Fill.BackgroundColor = ClosedXML.Excel.XLColor.LightYellow;
+            }
+            s.Columns().AdjustToContents();
+            using var ms = new MemoryStream();
+            kitap.SaveAs(ms);
+            return Results.File(ms.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                $"ornek-{tur.ToString().ToLowerInvariant()}.xlsx");
+        }).RequireAuthorization();
     }
 }

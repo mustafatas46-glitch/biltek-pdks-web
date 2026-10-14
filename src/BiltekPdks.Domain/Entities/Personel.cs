@@ -19,6 +19,8 @@ public class Personel : FirmaEntity
     public DateOnly IseGirisTarihi { get; set; }
     public DateOnly? IstenCikisTarihi { get; set; }
     public string? IstenAyrilmaNedeni { get; set; }
+    /// <summary>Excel aktarımıyla geldiyse aktarımın kaydı (kaynak izi).</summary>
+    public int? AktarimId { get; set; }
 
     public string? CepTelefonu { get; set; }
     public string? Eposta { get; set; }

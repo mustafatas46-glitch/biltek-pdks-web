@@ -1,0 +1,420 @@
+@page "/araclar/excel-aktarim"
+@using BiltekPdks.Infrastructure.Aktarim
+@inject FirmaDb FirmaDb
+
+<PageTitle>Excel'den veri al</PageTitle>
+<SagTikMenu @ref="_menu" />
+
+<div class="d-flex align-items-end gap-3 flex-wrap mb-2">
+    <h1 class="h4 mb-1">Excel'den Veri Al</h1>
+    <div class="btn-group btn-group-sm" role="group" aria-label="Veri türü">
+        @foreach (var t in Enum.GetValues<AktarimTuru>())
+        {
+            <button type="button" class="btn @(t == _tur ? "btn-primary" : "btn-outline-primary")" @onclick="() => TurSecAsync(t)">@ExcelAktarimi.TurAdi(t)</button>
+        }
+    </div>
+    <a class="small" href="@($"araclar/aktarim-ornegi.xlsx?tur={_tur}")" target="_blank">Örnek Excel indir</a>
+</div>
+<p class="small text-muted mb-3">
+    Müşteriden gelen dosya önce <b>önizlenir</b>; hiçbir şey yazılmadan her satırın ne olacağı gösterilir.
+    Aktarılan kayıtlar dosya adı, tarih ve kullanıcıyla işaretlenir; hareketlerin kaynağı “Aktarım” olarak görünür.
+</p>
+
+<div class="row g-3">
+    <div class="col-xl-5">
+        <div class="border rounded p-3 bg-white">
+            <div class="row g-2 align-items-end">
+                <div class="col-12">
+                    <label class="form-label small mb-0">Excel dosyası (.xlsx)</label>
+                    <InputFile class="form-control form-control-sm" accept=".xlsx" OnChange="DosyaSecAsync" />
+                </div>
+                <div class="col-4">
+                    <label class="form-label small mb-0" title="Sütun başlıklarının bulunduğu satır">Başlık satırı</label>
+                    <input class="form-control form-control-sm" type="number" min="1" max="50" @bind="_baslikSatiri" @bind:after="YenidenOkuAsync" />
+                </div>
+                <div class="col-8">
+                    <label class="form-label small mb-0">Kayıtlı eşleştirme (müşteri şablonu)</label>
+                    <select class="form-select form-select-sm" @bind="_sablonId" @bind:after="SablonUygula">
+                        <option value="0">— yok (otomatik) —</option>
+                        @foreach (var s in _sablonlar) { <option value="@s.Id">@s.Ad</option> }
+                    </select>
+                </div>
+                @if (_tur is AktarimTuru.KazancKesinti or AktarimTuru.Bordro)
+                {
+                    <div class="col-6">
+                        <label class="form-label small mb-0" title="Dosyada ay sütunu yoksa kullanılır">Ay (dosyada yoksa)</label>
+                        <input class="form-control form-control-sm" type="month" @bind="_donem" @bind:format="yyyy-MM" />
+                    </div>
+                }
+            </div>
+
+            @if (_tablo is not null)
+            {
+                <div class="small text-muted mt-2">@_dosyaAdi · sayfa “@_tablo.SayfaAdi” · @_tablo.Satirlar.Count.ToString("N0") satır · @_tablo.Basliklar.Count sütun</div>
+                <table class="table table-sm table-hover mt-2 mb-2 aktarim-eslesme">
+                    <thead><tr><th>Alan</th><th>Excel sütunu</th><th>İlk satırdaki değer</th></tr></thead>
+                    <tbody>
+                        @foreach (var a in ExcelAktarimi.Alanlar(_tur))
+                        {
+                            var alan = a;
+                            <tr @key="alan.Anahtar" @oncontextmenu="e => _menu.Ac(e, EslesmeMenusu(alan))" @oncontextmenu:preventDefault="true">
+                                <td title="@alan.Ipucu">
+                                    @(alan.Etiket + (alan.Zorunlu ? " *" : ""))
+                                    @if (alan.Ipucu is not null)
+                                    {
+                                        <div class="text-muted" style="font-size:.7rem">@alan.Ipucu</div>
+                                    }
+                                </td>
+                                <td>
+                                    <select class="form-select form-select-sm" value="@(_eslesme.GetValueOrDefault(alan.Anahtar) ?? "")"
+                                            @onchange="e => SutunSec(alan.Anahtar, e.Value?.ToString())">
+                                        <option value="">—</option>
+                                        @foreach (var b in _tablo.Basliklar) { <option value="@b">@b</option> }
+                                    </select>
+                                </td>
+                                <td class="text-muted small text-truncate" style="max-width:10rem">@Ornek(alan.Anahtar)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                <div class="d-flex gap-2 flex-wrap align-items-center">
+                    <button class="btn btn-sm btn-primary" @onclick="OnizleAsync" disabled="@_calisiyor">Önizle</button>
+                    <input class="form-control form-control-sm" style="max-width:12rem" placeholder="Şablon adı (ör. müşteri)" @bind="_sablonAdi" />
+                    <button class="btn btn-sm btn-outline-secondary" @onclick="SablonKaydetAsync" disabled="@string.IsNullOrWhiteSpace(_sablonAdi)">Eşleştirmeyi kaydet</button>
+                    @if (_sablonId != 0) { <button class="btn btn-sm btn-outline-danger" @onclick="SablonSilAsync">Şablonu sil</button> }
+                </div>
+            }
+            @if (_mesaj is not null) { <div class="alert @(_hata ? "alert-danger" : "alert-success") py-1 small mt-2 mb-0">@_mesaj</div> }
+        </div>
+    </div>
+
+    <div class="col-xl-7">
+        @if (_sonuc is not null)
+        {
+            var gorunen = Gorunen().ToList();
+            <div class="border rounded p-3 bg-white">
+                <div class="d-flex gap-2 flex-wrap align-items-center mb-2">
+                    <b class="me-2">Önizleme</b>
+                    <button class="btn btn-sm @(_filtre is null ? "btn-dark" : "btn-outline-dark")" @onclick="() => _filtre = null">Tümü @_sonuc.Satirlar.Count</button>
+                    <button class="btn btn-sm @(_filtre == SatirDurumu.Eklenecek ? "btn-success" : "btn-outline-success")" @onclick="() => _filtre = SatirDurumu.Eklenecek">Eklenecek @_sonuc.Eklenen</button>
+                    <button class="btn btn-sm @(_filtre == SatirDurumu.Guncellenecek ? "btn-primary" : "btn-outline-primary")" @onclick="() => _filtre = SatirDurumu.Guncellenecek">Güncellenecek @_sonuc.Guncellenen</button>
+                    <button class="btn btn-sm @(_filtre == SatirDurumu.Atlanacak ? "btn-secondary" : "btn-outline-secondary")" @onclick="() => _filtre = SatirDurumu.Atlanacak">Atlanacak @_sonuc.Atlanan</button>
+                    <button class="btn btn-sm @(_filtre == SatirDurumu.Hatali ? "btn-danger" : "btn-outline-danger")" @onclick="() => _filtre = SatirDurumu.Hatali">Hatalı @_sonuc.Hatali</button>
+                </div>
+                <div class="aktarim-onizleme">
+                    <table class="table table-sm mb-0">
+                        <thead><tr><th>Satır</th><th>Durum</th><th>Kayıt</th><th>Not</th></tr></thead>
+                        <tbody>
+                            @foreach (var s in gorunen.Take(GosterilecekSatir))
+                            {
+                                <tr class="@DurumSinifi(s.Durum)" @oncontextmenu="e => _menu.Ac(e, OnizlemeMenusu())" @oncontextmenu:preventDefault="true">
+                                    <td>@s.SatirNo</td><td>@DurumAdi(s.Durum)</td><td>@s.Ozet</td><td class="small">@s.Mesaj</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                @if (gorunen.Count > GosterilecekSatir) { <div class="small text-muted">İlk @GosterilecekSatir satır gösteriliyor (toplam @gorunen.Count).</div> }
+
+                <div class="mt-3 d-flex gap-2 align-items-center flex-wrap">
+                    @if (!_onayBekliyor)
+                    {
+                        <button class="btn btn-sm btn-success" disabled="@(_calisiyor || _sonuc.Eklenen + _sonuc.Guncellenen == 0)" @onclick="() => _onayBekliyor = true">
+                            Aktar (@(_sonuc.Eklenen + _sonuc.Guncellenen) kayıt)
+                        </button>
+                        @if (_sonuc.Hatali > 0) { <span class="small text-danger">Hatalı satırlar aktarılmaz; düzeltip dosyayı yeniden yükleyebilirsiniz.</span> }
+                    }
+                    else
+                    {
+                        <span class="small">@(_sonuc.Eklenen) kayıt eklenecek, @(_sonuc.Guncellenen) kayıt güncellenecek. Emin misiniz?</span>
+                        <button class="btn btn-sm btn-success" disabled="@_calisiyor" @onclick="AktarAsync">Evet, aktar</button>
+                        <button class="btn btn-sm btn-outline-secondary" @onclick="() => _onayBekliyor = false">Vazgeç</button>
+                    }
+                    @if (_calisiyor) { <span class="small text-muted">İşleniyor…</span> }
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<h2 class="h6 mt-4">Son aktarımlar</h2>
+<div class="small text-muted mb-1">Satıra sağ tıklayarak aktarımı geri alabilirsiniz (hareket, izin, kazanç-kesinti, bordro).</div>
+<table class="table table-sm table-hover bg-white">
+    <thead><tr><th>Zaman</th><th>Tür</th><th>Dosya</th><th>Kullanıcı</th><th class="text-end">Satır</th><th class="text-end">Eklenen</th><th class="text-end">Güncellenen</th><th class="text-end">Atlanan</th><th class="text-end">Hatalı</th><th>Durum</th></tr></thead>
+    <tbody>
+        @foreach (var k in _gecmis)
+        {
+            var kayit = k;
+            <tr @key="kayit.Id" class="@(kayit.GeriAlindi ? "text-muted text-decoration-line-through" : "")"
+                @oncontextmenu="e => _menu.Ac(e, GecmisMenusu(kayit))" @oncontextmenu:preventDefault="true">
+                <td>@kayit.Zaman.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
+                <td>@ExcelAktarimi.TurAdi(kayit.Tur)</td>
+                <td>@kayit.DosyaAdi</td>
+                <td>@(kayit.KullaniciId is int u && _kullanicilar.TryGetValue(u, out var ad) ? ad : "")</td>
+                <td class="text-end">@kayit.SatirSayisi</td>
+                <td class="text-end">@kayit.Eklenen</td>
+                <td class="text-end">@kayit.Guncellenen</td>
+                <td class="text-end">@kayit.Atlanan</td>
+                <td class="text-end">@kayit.Hatali</td>
+                <td>@(kayit.GeriAlindi ? "Geri alındı " + (kayit.GeriAlmaZamani?.ToLocalTime().ToString("dd.MM.yyyy HH:mm") ?? "") : "Aktarıldı")</td>
+            </tr>
+            @if (_geriAlinacak == kayit.Id)
+            {
+                <tr><td colspan="10" class="bg-warning-subtle small">
+                    Bu aktarımla gelen kayıtlar @(kayit.Tur == AktarimTuru.Hareket ? "iptal edilecek" : "silinecek"). Emin misiniz?
+                    <button class="btn btn-sm btn-danger ms-2" @onclick="() => GeriAlAsync(kayit.Id)">Evet, geri al</button>
+                    <button class="btn btn-sm btn-outline-secondary ms-1" @onclick="() => _geriAlinacak = null">Vazgeç</button>
+                </td></tr>
+            }
+        }
+        @if (_gecmis.Count == 0) { <tr><td colspan="10" class="text-muted">Henüz aktarım yok.</td></tr> }
+    </tbody>
+</table>
+
+@code {
+    private const int GosterilecekSatir = 500;
+    private const long AzamiDosya = 30L * 1024 * 1024;
+
+    private SagTikMenu _menu = default!;
+    private AktarimTuru _tur = AktarimTuru.Personel;
+    private int _baslikSatiri = 1;
+    private int _sablonId;
+    private string? _sablonAdi;
+    private DateTime? _donem;
+    private List<AktarimSablonu> _sablonlar = new();
+    private byte[]? _dosya;
+    private string _dosyaAdi = "";
+    private ExcelTablo? _tablo;
+    private Dictionary<string, string> _eslesme = new();
+    private AktarimSonucu? _sonuc;
+    private SatirDurumu? _filtre;
+    private bool _onayBekliyor, _calisiyor, _hata;
+    private string? _mesaj;
+    private int? _geriAlinacak;
+    private List<AktarimKaydi> _gecmis = new();
+    private Dictionary<int, string> _kullanicilar = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await SablonlariYukleAsync();
+        await GecmisiYukleAsync();
+    }
+
+    private async Task TurSecAsync(AktarimTuru t)
+    {
+        _tur = t;
+        _sablonId = 0;
+        _sonuc = null;
+        _mesaj = null;
+        await SablonlariYukleAsync();
+        if (_tablo is not null) _eslesme = ExcelAktarimi.OtomatikEslestir(_tur, _tablo.Basliklar);
+    }
+
+    private async Task SablonlariYukleAsync()
+    {
+        await using var db = await FirmaDb.AcAsync();
+        _sablonlar = await db.AktarimSablonlari.AsNoTracking().Where(s => s.Tur == _tur).OrderBy(s => s.Ad).ToListAsync();
+    }
+
+    private async Task GecmisiYukleAsync()
+    {
+        await using var db = await FirmaDb.AcAsync();
+        _gecmis = await db.AktarimKayitlari.AsNoTracking().OrderByDescending(k => k.Zaman).Take(30).ToListAsync();
+        var idler = _gecmis.Where(k => k.KullaniciId != null).Select(k => k.KullaniciId!.Value).Distinct().ToList();
+        _kullanicilar = await db.Kullanicilar.AsNoTracking().Where(k => idler.Contains(k.Id)).ToDictionaryAsync(k => k.Id, k => k.AdSoyad);
+    }
+
+    private async Task DosyaSecAsync(InputFileChangeEventArgs e)
+    {
+        _sonuc = null;
+        _mesaj = null;
+        _onayBekliyor = false;
+        if (e.File.Size > AzamiDosya) { Hata("Dosya 30 MB'tan büyük. Dosyayı bölerek yükleyin."); return; }
+        try
+        {
+            using var ms = new MemoryStream();
+            await e.File.OpenReadStream(AzamiDosya).CopyToAsync(ms);
+            _dosya = ms.ToArray();
+            _dosyaAdi = e.File.Name;
+            await YenidenOkuAsync();
+            if (_tablo is not null) SablonUygula();
+        }
+        catch (IOException) { Hata("Dosya yüklenemedi."); }
+    }
+
+    private Task YenidenOkuAsync()
+    {
+        if (_dosya is null) return Task.CompletedTask;
+        _sonuc = null;
+        try
+        {
+            using var ms = new MemoryStream(_dosya);
+            _tablo = ExcelTablo.Oku(ms, _baslikSatiri);
+            _eslesme = ExcelAktarimi.OtomatikEslestir(_tur, _tablo.Basliklar);
+            _mesaj = null;
+        }
+        catch (ArgumentException ex) { _tablo = null; Hata(ex.Message); }
+        return Task.CompletedTask;
+    }
+
+    private void SablonUygula()
+    {
+        var s = _sablonlar.FirstOrDefault(x => x.Id == _sablonId);
+        if (s is null)
+        {
+            if (_tablo is not null) _eslesme = ExcelAktarimi.OtomatikEslestir(_tur, _tablo.Basliklar);
+            return;
+        }
+        _sablonAdi = s.Ad;
+        if (s.BaslikSatiri != _baslikSatiri && _dosya is not null)
+        {
+            _baslikSatiri = s.BaslikSatiri;
+            YenidenOkuAsync();
+        }
+        if (_tablo is null) return;
+        _eslesme = ExcelAktarimi.EslesmeOku(s.Eslesme).Where(x => _tablo.SutunBul(x.Value) >= 0).ToDictionary(x => x.Key, x => x.Value);
+        _sonuc = null;
+    }
+
+    private void SutunSec(string alan, string? baslik)
+    {
+        if (string.IsNullOrEmpty(baslik)) _eslesme.Remove(alan); else _eslesme[alan] = baslik;
+        _sonuc = null;
+        _onayBekliyor = false;
+    }
+
+    private string Ornek(string alan)
+    {
+        if (_tablo is null || _tablo.Satirlar.Count == 0 || !_eslesme.TryGetValue(alan, out var b)) return "";
+        var i = _tablo.SutunBul(b);
+        return i < 0 ? "" : _tablo.Satirlar[0][i].Metin;
+    }
+
+    private AktarimSecenekleri Secenekler() => new(_donem is { } d ? new DateOnly(d.Year, d.Month, 1) : null);
+
+    private async Task OnizleAsync()
+    {
+        if (_tablo is null) return;
+        _calisiyor = true;
+        _onayBekliyor = false;
+        _filtre = null;
+        try
+        {
+            await using var db = await FirmaDb.AcAsync();
+            _sonuc = await ExcelAktarimi.IsleAsync(db, _tur, _tablo, _eslesme, false, _dosyaAdi, null, Secenekler());
+            _mesaj = null;
+        }
+        catch (ArgumentException ex) { _sonuc = null; Hata(ex.Message); }
+        finally { _calisiyor = false; }
+    }
+
+    private async Task AktarAsync()
+    {
+        if (_tablo is null) return;
+        _calisiyor = true;
+        try
+        {
+            await using var db = await FirmaDb.AcAsync();
+            var s = await ExcelAktarimi.IsleAsync(db, _tur, _tablo, _eslesme, true, _dosyaAdi, await FirmaDb.KullaniciIdAsync(), Secenekler());
+            _hata = false;
+            _mesaj = $"Aktarım tamamlandı: {s.Eklenen} eklendi, {s.Guncellenen} güncellendi, {s.Atlanan} atlandı, {s.Hatali} hatalı satır.";
+            _sonuc = null;
+            await GecmisiYukleAsync();
+        }
+        catch (ArgumentException ex) { Hata(ex.Message); }
+        catch (DbUpdateException) { Hata("Kayıtlar yazılamadı; hiçbir şey aktarılmadı. Dosyayı kontrol edip yeniden deneyin."); }
+        finally { _calisiyor = false; _onayBekliyor = false; }
+    }
+
+    private async Task SablonKaydetAsync()
+    {
+        var ad = _sablonAdi?.Trim();
+        if (string.IsNullOrEmpty(ad)) return;
+        await using var db = await FirmaDb.AcAsync();
+        var s = await db.AktarimSablonlari.FirstOrDefaultAsync(x => x.Tur == _tur && x.Ad == ad);
+        if (s is null) { s = new AktarimSablonu { Tur = _tur, Ad = ad.Length > 120 ? ad[..120] : ad }; db.AktarimSablonlari.Add(s); }
+        s.Eslesme = ExcelAktarimi.EslesmeJson(_eslesme);
+        s.BaslikSatiri = _baslikSatiri;
+        await db.SaveChangesAsync();
+        await SablonlariYukleAsync();
+        _sablonId = s.Id;
+        _hata = false;
+        _mesaj = $"\"{s.Ad}\" eşleştirmesi kaydedildi. Bu müşterinin dosyaları için listeden seçebilirsiniz.";
+    }
+
+    private async Task SablonSilAsync()
+    {
+        await using var db = await FirmaDb.AcAsync();
+        await db.AktarimSablonlari.Where(x => x.Id == _sablonId).ExecuteDeleteAsync();
+        _sablonId = 0;
+        await SablonlariYukleAsync();
+    }
+
+    private async Task GeriAlAsync(int id)
+    {
+        try
+        {
+            await using var db = await FirmaDb.AcAsync();
+            var n = await ExcelAktarimi.GeriAlAsync(db, id);
+            _hata = false;
+            _mesaj = $"Aktarım geri alındı ({n} kayıt).";
+        }
+        catch (ArgumentException ex) { Hata(ex.Message); }
+        _geriAlinacak = null;
+        await GecmisiYukleAsync();
+    }
+
+    private void Hata(string m) { _hata = true; _mesaj = m; }
+
+    private IEnumerable<SatirSonucu> Gorunen() =>
+        _sonuc is null ? Enumerable.Empty<SatirSonucu>() : _filtre is { } f ? _sonuc.Satirlar.Where(s => s.Durum == f) : _sonuc.Satirlar;
+
+    private List<SagTikMenu.Oge> EslesmeMenusu(AlanTanimi alan) => new()
+    {
+        SagTikMenu.Oge.Eylemli("Sütunu temizle", () => SutunSec(alan.Anahtar, null), pasif: !_eslesme.ContainsKey(alan.Anahtar)),
+        SagTikMenu.Oge.Eylemli("Tümünü otomatik eşleştir", () => { if (_tablo is not null) { _eslesme = ExcelAktarimi.OtomatikEslestir(_tur, _tablo.Basliklar); _sonuc = null; } }),
+        SagTikMenu.Oge.Eylemli("Tüm eşleştirmeyi temizle", () => { _eslesme.Clear(); _sonuc = null; }),
+        SagTikMenu.Oge.Cizgi(),
+        new("Önizle", OnizleAsync),
+    };
+
+    private List<SagTikMenu.Oge> OnizlemeMenusu() => new()
+    {
+        SagTikMenu.Oge.Eylemli("Yalnız hatalıları göster", () => _filtre = SatirDurumu.Hatali),
+        SagTikMenu.Oge.Eylemli("Yalnız eklenecekleri göster", () => _filtre = SatirDurumu.Eklenecek),
+        SagTikMenu.Oge.Eylemli("Tümünü göster", () => _filtre = null),
+        SagTikMenu.Oge.Cizgi(),
+        SagTikMenu.Oge.Eylemli("Aktar…", () => _onayBekliyor = true, pasif: _sonuc is null || _sonuc.Eklenen + _sonuc.Guncellenen == 0),
+    };
+
+    private List<SagTikMenu.Oge> GecmisMenusu(AktarimKaydi k) => new()
+    {
+        new("Aktarımı geri al…", () => { _geriAlinacak = k.Id; return Task.CompletedTask; },
+            Pasif: k.GeriAlindi || !ExcelAktarimi.GeriAlinabilir(k.Tur),
+            PasifNedeni: k.GeriAlindi ? "Zaten geri alındı." : "Personel ve ücret aktarımı geri alınamaz; değişiklikler işlem kaydında durur."),
+        SagTikMenu.Oge.Eylemli("Bu eşleştirmeyi kullan", () =>
+        {
+            _tur = k.Tur;
+            _eslesme = ExcelAktarimi.EslesmeOku(k.Eslesme);
+            _sonuc = null;
+        }),
+        SagTikMenu.Oge.Cizgi(),
+        new("Listeyi yenile", GecmisiYukleAsync),
+    };
+
+    private static string DurumAdi(SatirDurumu d) => d switch
+    {
+        SatirDurumu.Eklenecek => "Eklenecek",
+        SatirDurumu.Guncellenecek => "Güncellenecek",
+        SatirDurumu.Atlanacak => "Atlanacak",
+        _ => "Hatalı",
+    };
+
+    private static string DurumSinifi(SatirDurumu d) => d switch
+    {
+        SatirDurumu.Eklenecek => "table-success",
+        SatirDurumu.Guncellenecek => "table-primary",
+        SatirDurumu.Atlanacak => "table-light",
+        _ => "table-danger",
+    };
+}
