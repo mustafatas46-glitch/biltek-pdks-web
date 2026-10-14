@@ -39,7 +39,9 @@ public static class FirmaKodu
     /// <summary>Firma kodunu büyük harfe çevirir ve yalnızca A-Z, 0-9, _ içerdiğini doğrular (veritabanı adına girer).</summary>
     public static string Normallestir(string? kod)
     {
-        var k = (kod ?? "").Trim().ToUpperInvariant()
+        var k = (kod ?? "").Trim()
+            .Replace('ı', 'I').Replace('i', 'I').Replace('ş', 'S').Replace('ğ', 'G').Replace('ü', 'U').Replace('ö', 'O').Replace('ç', 'C')
+            .ToUpperInvariant()
             .Replace('İ', 'I').Replace('Ş', 'S').Replace('Ğ', 'G').Replace('Ü', 'U').Replace('Ö', 'O').Replace('Ç', 'C');
         if (!Gecerli.IsMatch(k)) throw new ArgumentException("Firma kodu 2-20 karakter olmalı; yalnızca harf, rakam ve _ içerebilir.");
         return k;
