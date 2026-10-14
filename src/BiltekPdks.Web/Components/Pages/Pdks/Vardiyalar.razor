@@ -1,92 +1,258 @@
 @page "/vardiyalar"
+@using BiltekPdks.Domain.Puantaj
 @inject FirmaDb FirmaDb
 
+<PageTitle>Günlük Çalışma Saatleri</PageTitle>
 <h1 class="h5 mb-1">Günlük Çalışma Saati (Puantaj Hesaplama) Parametreleri</h1>
-<p class="text-muted small mb-3">Her satır bir günlük çalışma planıdır (ör. HAFTAİÇİ 08:00-18:00, CUMARTESİ, PAZAR, VD1/VD2/VD3 vardiyaları); <a href="grup-tanimlama">Grup Tanımlama</a> ekranında günlere atanır.
-İ.G.S: içeri giriş saati · D.Ç.S: dışarı çıkış saati (girişten küçükse ertesi gün, gece vardiyası) · G.G.T / E.Ç.T: geç gelme / erken çıkma toleransı · Minimum FM: bu süreden az fazla mesai yazılmaz. Süreler dakikadır.</p>
+<p class="text-muted small mb-2">Her satır bir günlük çalışma planıdır (HAFTAİÇİ, CUMARTESİ, PAZAR, VD1/VD2/VD3…); <a href="grup-tanimlama">Grup Tanımlama</a> ekranında günlere atanır.</p>
 
-@if (_hata is not null) { <div class="alert alert-danger">@_hata</div> }
-@if (_bilgi is not null) { <div class="alert alert-success">@_bilgi</div> }
+@if (_hata is not null) { <div class="alert alert-danger py-1 small">@_hata</div> }
+@if (_bilgi is not null) { <div class="alert alert-success py-1 small">@_bilgi</div> }
 
-@if (_liste is null)
-{
-    <p class="text-muted">Yükleniyor…</p>
-}
-else
-{
-    <div class="table-responsive">
-    <table class="table align-middle">
-        <thead>
-            <tr>
-                <th style="width:80px">Kod</th><th>Plan adı</th><th style="width:120px">İ.G.S</th><th style="width:120px">D.Ç.S</th>
-                <th style="width:90px">Mola</th><th style="width:90px">G.G.T</th><th style="width:90px">E.Ç.T</th>
-                <th style="width:90px">Minimum FM</th><th style="width:70px">Aktif</th><th style="width:90px"></th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var v in _liste)
+<div class="grup-ekrani">
+    <section class="border rounded bg-white">
+        <div class="kirmizi-baslik">GÜNLÜK ÇALIŞMA SAATİ</div>
+        <div class="izgara" style="max-height:calc(100vh - 18rem)">
+            <table class="table table-sm table-hover mb-0">
+                <thead><tr><th>Plan adı</th><th>Saat</th><th>Günlük süre</th></tr></thead>
+                <tbody>
+                    @foreach (var v in _liste)
+                    {
+                        <tr class="@(v.Id == _secili?.Id ? "secili" : "") @(v.Aktif ? "" : "text-muted")" @onclick="() => Sec(v.Id)"
+                            @oncontextmenu="e => { Sec(v.Id); _menu.Ac(e, Menu()); }" @oncontextmenu:preventDefault="true">
+                            <td>@v.Ad</td><td>@v.Baslangic.ToString("HH:mm")-@v.Bitis.ToString("HH:mm")</td><td>@S(v.Kural().PlanlananDakika(Ornek))</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div class="alt-cubuk">
+            <button class="btn btn-sm btn-outline-success" @onclick="YeniAsync">Yeni plan</button>
+            <button class="btn btn-sm btn-outline-secondary" disabled="@(_secili is null)" @onclick="KopyalaAsync">Kopyala</button>
+            <span class="small text-muted ms-auto">Sağ tık: işlemler</span>
+        </div>
+    </section>
+
+    <section class="border rounded bg-white">
+        @if (_secili is null)
+        {
+            <p class="text-muted p-3">Soldan bir plan seçin.</p>
+        }
+        else
+        {
+            var v = _secili;
+            <ul class="nav nav-tabs small px-1 pt-1">
+                <li class="nav-item"><a class="nav-link @(_sekme == "hesap" ? "active" : "")" href="" @onclick:preventDefault @onclick='() => _sekme = "hesap"'>Hesap Prm</a></li>
+                <li class="nav-item"><a class="nav-link @(_sekme == "diger" ? "active" : "")" href="" @onclick:preventDefault @onclick='() => _sekme = "diger"'>Diğer Prm</a></li>
+            </ul>
+            <div class="p-3 small">
+            @if (_sekme == "hesap")
             {
-                <tr>
-                    <td><input class="form-control form-control-sm" @bind="v.Kod" /></td>
-                    <td><input class="form-control form-control-sm" @bind="v.Ad" /></td>
-                    <td><input class="form-control form-control-sm" type="time" @bind="v.Baslangic" /></td>
-                    <td><input class="form-control form-control-sm" type="time" @bind="v.Bitis" /></td>
-                    <td><input class="form-control form-control-sm" type="number" min="0" @bind="v.MolaDakika" /></td>
-                    <td><input class="form-control form-control-sm" type="number" min="0" @bind="v.GecKalmaToleransDakika" /></td>
-                    <td><input class="form-control form-control-sm" type="number" min="0" @bind="v.ErkenCikmaToleransDakika" /></td>
-                    <td><input class="form-control form-control-sm" type="number" min="0" @bind="v.FazlaMesaiEsikDakika" /></td>
-                    <td><input class="form-check-input" type="checkbox" @bind="v.Aktif" /></td>
-                    <td><button class="btn btn-sm btn-outline-primary" @onclick="() => KaydetAsync(v)">Kaydet</button></td>
-                </tr>
+                <div class="row g-2 align-items-end mb-2">
+                    <div class="col-md-2"><label class="form-label mb-0">Kod</label><input class="form-control form-control-sm" @bind="v.Kod" /></div>
+                    <div class="col-md-6"><label class="form-label mb-0">Plan adı</label><input class="form-control form-control-sm" @bind="v.Ad" /></div>
+                    <div class="col-md-2"><label class="form-check m-0"><input class="form-check-input" type="checkbox" @bind="v.Aktif" /> Aktif</label></div>
+                </div>
+                <div class="kirmizi-baslik px-0">ÇALIŞMA SAATLERİ</div>
+                <table class="table table-sm table-bordered align-middle mb-1" style="max-width:760px">
+                    <thead><tr><th>İ.G.S</th><th>D.Ç.S</th><th>G.G.T (dk)</th><th>E.Ç.T (dk)</th><th>Minimum FM (dk)</th></tr></thead>
+                    <tbody><tr>
+                        <td><input class="form-control form-control-sm" type="time" @bind="v.Baslangic" /></td>
+                        <td><input class="form-control form-control-sm" type="time" @bind="v.Bitis" /></td>
+                        <td><input class="form-control form-control-sm" type="number" min="0" @bind="v.GecKalmaToleransDakika" /></td>
+                        <td><input class="form-control form-control-sm" type="number" min="0" @bind="v.ErkenCikmaToleransDakika" /></td>
+                        <td><input class="form-control form-control-sm" type="number" min="0" @bind="v.FazlaMesaiEsikDakika" /></td>
+                    </tr></tbody>
+                </table>
+                <p class="text-muted mb-3">İ.G.S: içeri giriş saati · D.Ç.S: dışarı çıkış saati (girişten küçükse ertesi gün, gece vardiyası) · G.G.T / E.Ç.T: geç gelme / erken çıkma toleransı · Minimum FM: bundan az fazla mesai yazılmaz. Planlanan net süre: <b>@S(v.Kural().PlanlananDakika(Ornek))</b></p>
+
+                <div class="kirmizi-baslik px-0">MOLA SAATLERİ</div>
+                <table class="table table-sm table-bordered align-middle mb-1" style="max-width:760px">
+                    <thead><tr><th>Ad</th><th>Başlama</th><th>Bitiş</th><th>Tipi</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var m in v.Molalar)
+                        {
+                            <tr>
+                                <td><input class="form-control form-control-sm" @bind="m.Ad" /></td>
+                                <td><input class="form-control form-control-sm" type="time" @bind="m.Baslangic" /></td>
+                                <td><input class="form-control form-control-sm" type="time" @bind="m.Bitis" /></td>
+                                <td><select class="form-select form-select-sm" @bind="m.Ucretli"><option value="false">Ücretsiz (düşülür)</option><option value="true">Ücretli</option></select></td>
+                                <td><button class="btn btn-sm btn-outline-danger" @onclick="() => v.Molalar.Remove(m)">Sil</button></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                <button class="btn btn-sm btn-outline-secondary mb-2" @onclick="MolaEkle">Mola ekle</button>
+                @if (v.Molalar.Count == 0)
+                {
+                    <div class="d-flex align-items-center gap-2 mb-2"><span>Mola süresi (dk, 4 saati aşan çalışmadan düşülür)</span><input class="form-control form-control-sm" style="width:6rem" type="number" min="0" @bind="v.MolaDakika" /></div>
+                }
+                else
+                {
+                    <p class="text-muted">Ücretsiz molaların toplamı (@v.Molalar.Where(m => !m.Ucretli).Sum(m => m.Dakika) dk) 4 saati aşan çalışmadan düşülür.</p>
+                }
             }
-        </tbody>
-    </table>
-    </div>
-    <button class="btn btn-primary" @onclick="YeniAsync">Yeni plan</button>
-}
+            else
+            {
+                <div class="row g-3" style="max-width:860px">
+                    <div class="col-md-6">
+                        <div class="border rounded p-2 h-100">
+                            <div class="fw-semibold mb-1">Gün olarak devamsızlık cezası</div>
+                            <div class="d-flex align-items-center gap-2"><span>Devamsızlık cezası</span><SureKutusu @bind-Dakika="DevamsizlikCezasi" /></div>
+                            <div class="text-muted mt-1">Örn. günde 08:00 çalışılıyor ve 1'e 2 kesilmesi isteniyorsa 16:00 yazın. Boş (0:00) ise günlük süre kadar kesilir.</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="border rounded p-2 h-100">
+                            <div class="fw-semibold mb-1">Geç / erken / eksik cezası (katsayı)</div>
+                            <div class="row g-1 align-items-center">
+                                <span class="col-4">Geç</span><div class="col-8"><input class="form-control form-control-sm" style="width:6rem" type="number" step="0.5" min="0" @bind="v.GecCezaKatsayisi" /></div>
+                                <span class="col-4">Erken</span><div class="col-8"><input class="form-control form-control-sm" style="width:6rem" type="number" step="0.5" min="0" @bind="v.ErkenCezaKatsayisi" /></div>
+                                <span class="col-4">Eksik</span><div class="col-8"><input class="form-control form-control-sm" style="width:6rem" type="number" step="0.5" min="0" @bind="v.EksikCezaKatsayisi" /></div>
+                            </div>
+                            <div class="text-muted mt-1">Ne kadar geç / erken / eksik kaldıysa bu katı kesilir (1 = aynısı, 2 = iki katı).</div>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="border rounded p-2">
+                            <label class="form-check"><input class="form-check-input" type="checkbox" @bind="v.NormalTamamlaSonraFazlaMesai" /> Normal çalışmayı tamamla, sonra fazla mesai ver (geç / erken iptal olur)</label>
+                            <label class="form-check"><input class="form-check-input" type="checkbox" @bind="v.CokluGiriseEksikYazma" /> Aynı güne ait birden fazla giriş-çıkış varsa eksik süreyi yoksay</label>
+                            <div class="d-flex align-items-center gap-2 mt-1">
+                                <span>Max tolerans (dk)</span><input class="form-control form-control-sm" style="width:6rem" type="number" min="0" @bind="v.MaxToleransDakika" />
+                                <span class="text-muted">Giriş ile İ.G.S arasındaki fark bundan küçükse giriş saati İ.G.S kabul edilir. 0 = kapalı.</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+            <div class="d-flex gap-2 mt-3">
+                <button class="btn btn-sm btn-primary px-4" @onclick="KaydetAsync">Kaydet</button>
+                <button class="btn btn-sm btn-outline-secondary" @onclick="() => Sec(v.Id)">Vazgeç</button>
+            </div>
+            </div>
+        }
+    </section>
+</div>
+
+<SagTikMenu @ref="_menu" />
 
 @code {
-    private List<Vardiya>? _liste;
+    private static readonly DateOnly Ornek = new(2000, 1, 3);
+    private SagTikMenu _menu = default!;
+    private List<Vardiya> _liste = new();
+    private Vardiya? _secili;
+    private string _sekme = "hesap";
     private string? _hata, _bilgi;
+
+    private static string S(int dk) => PuantajMotoru.SaatDakika(dk);
+
+    private int DevamsizlikCezasi
+    {
+        get => _secili?.DevamsizlikCezaDakika ?? 0;
+        set { if (_secili is not null) _secili.DevamsizlikCezaDakika = value > 0 ? value : null; }
+    }
 
     protected override Task OnInitializedAsync() => YukleAsync();
 
-    private async Task YukleAsync()
+    private async Task YukleAsync(int? secilecek = null)
     {
         await using var db = await FirmaDb.AcAsync();
-        _liste = await db.Vardiyalar.AsNoTracking().OrderByDescending(v => v.Aktif).ThenBy(v => v.Baslangic).ToListAsync();
+        _liste = await db.Vardiyalar.AsNoTracking().Include(v => v.Molalar)
+            .OrderByDescending(v => v.Aktif).ThenBy(v => v.Ad).ToListAsync();
+        if (secilecek is int id) Sec(id);
+        else if (_secili is null && _liste.Count > 0) Sec(_liste[0].Id);
     }
+
+    private void Sec(int id)
+    {
+        var kaynak = _liste.FirstOrDefault(x => x.Id == id);
+        if (kaynak is null) return;
+        // Düzenleme kopya üzerinde yapılır; "Vazgeç" kaydedilmemiş değişiklikleri atar.
+        _secili = Kopya(kaynak);
+        _secili.Id = kaynak.Id;
+        _hata = _bilgi = null;
+    }
+
+    private static Vardiya Kopya(Vardiya k) => new()
+    {
+        Kod = k.Kod, Ad = k.Ad, Aktif = k.Aktif, Baslangic = k.Baslangic, Bitis = k.Bitis, MolaDakika = k.MolaDakika,
+        GecKalmaToleransDakika = k.GecKalmaToleransDakika, ErkenCikmaToleransDakika = k.ErkenCikmaToleransDakika,
+        FazlaMesaiEsikDakika = k.FazlaMesaiEsikDakika, DevamsizlikCezaDakika = k.DevamsizlikCezaDakika,
+        GecCezaKatsayisi = k.GecCezaKatsayisi, ErkenCezaKatsayisi = k.ErkenCezaKatsayisi, EksikCezaKatsayisi = k.EksikCezaKatsayisi,
+        NormalTamamlaSonraFazlaMesai = k.NormalTamamlaSonraFazlaMesai, CokluGiriseEksikYazma = k.CokluGiriseEksikYazma,
+        MaxToleransDakika = k.MaxToleransDakika,
+        Molalar = k.Molalar.Select(m => new VardiyaMola { Ad = m.Ad, Baslangic = m.Baslangic, Bitis = m.Bitis, Ucretli = m.Ucretli }).ToList(),
+    };
+
+    private List<SagTikMenu.Oge> Menu() => new()
+    {
+        new("Yeni plan", YeniAsync),
+        new("Seçili planı kopyala", KopyalaAsync),
+        SagTikMenu.Oge.Eylemli("Hesap parametreleri", () => _sekme = "hesap"),
+        SagTikMenu.Oge.Eylemli("Diğer parametreler", () => _sekme = "diger"),
+        SagTikMenu.Oge.Cizgi(),
+        new("Yenile", () => YukleAsync()),
+    };
+
+    private void MolaEkle() => _secili?.Molalar.Add(new VardiyaMola { Ad = "Öğle yemeği", Baslangic = new TimeOnly(12, 0), Bitis = new TimeOnly(13, 0) });
 
     private async Task YeniAsync()
     {
         await using var db = await FirmaDb.AcAsync();
-        db.Vardiyalar.Add(new Vardiya { Ad = "Yeni plan" });
+        var v = new Vardiya { Ad = "Yeni plan 08:00-17:00" };
+        db.Vardiyalar.Add(v);
         await db.SaveChangesAsync();
-        await YukleAsync();
+        await YukleAsync(v.Id);
     }
 
-    private async Task KaydetAsync(Vardiya v)
+    private async Task KopyalaAsync()
+    {
+        if (_secili is null) return;
+        await using var db = await FirmaDb.AcAsync();
+        var v = Kopya(_secili);
+        v.Ad = _secili.Ad + " (kopya)";
+        db.Vardiyalar.Add(v);
+        await db.SaveChangesAsync();
+        await YukleAsync(v.Id);
+    }
+
+    private async Task KaydetAsync()
     {
         _hata = _bilgi = null;
-        if (string.IsNullOrWhiteSpace(v.Ad)) { _hata = "Ad boş olamaz."; return; }
-        if (v.MolaDakika < 0 || v.GecKalmaToleransDakika < 0 || v.ErkenCikmaToleransDakika < 0 || v.FazlaMesaiEsikDakika < 0)
+        var v = _secili;
+        if (v is null) return;
+        if (string.IsNullOrWhiteSpace(v.Ad)) { _hata = "Plan adı boş olamaz."; return; }
+        if (v.MolaDakika < 0 || v.GecKalmaToleransDakika < 0 || v.ErkenCikmaToleransDakika < 0 || v.FazlaMesaiEsikDakika < 0 || v.MaxToleransDakika < 0)
         { _hata = "Süreler negatif olamaz."; return; }
-        if (v.Kural().PlanlananDakika(DateOnly.FromDateTime(DateTime.Today)) <= 0)
-        { _hata = "Mola, vardiya süresinden uzun olamaz."; return; }
+        if (v.GecCezaKatsayisi < 0 || v.ErkenCezaKatsayisi < 0 || v.EksikCezaKatsayisi < 0 || v.GecCezaKatsayisi > 10 || v.ErkenCezaKatsayisi > 10 || v.EksikCezaKatsayisi > 10)
+        { _hata = "Ceza katsayıları 0 ile 10 arasında olmalı."; return; }
+        if (v.Molalar.Any(m => string.IsNullOrWhiteSpace(m.Ad) || m.Baslangic == m.Bitis)) { _hata = "Her molanın adı olmalı; başlama ve bitiş farklı olmalı."; return; }
+        if (v.Molalar.Count > 0) v.MolaDakika = v.Molalar.Where(m => !m.Ucretli).Sum(m => m.Dakika);
+        if (v.Kural().PlanlananDakika(Ornek) <= 0) { _hata = "Mola, çalışma süresinden uzun olamaz."; return; }
 
         await using var db = await FirmaDb.AcAsync();
-        var kayit = await db.Vardiyalar.FirstOrDefaultAsync(x => x.Id == v.Id);
-        if (kayit is null) { _hata = "Kayıt bulunamadı."; return; }
-        kayit.Kod = string.IsNullOrWhiteSpace(v.Kod) ? null : v.Kod.Trim();
-        kayit.Ad = v.Ad.Trim();
-        kayit.Baslangic = v.Baslangic;
-        kayit.Bitis = v.Bitis;
-        kayit.MolaDakika = v.MolaDakika;
-        kayit.GecKalmaToleransDakika = v.GecKalmaToleransDakika;
-        kayit.ErkenCikmaToleransDakika = v.ErkenCikmaToleransDakika;
-        kayit.FazlaMesaiEsikDakika = v.FazlaMesaiEsikDakika;
-        kayit.Aktif = v.Aktif;
+        var k = await db.Vardiyalar.Include(x => x.Molalar).FirstOrDefaultAsync(x => x.Id == v.Id);
+        if (k is null) { _hata = "Kayıt bulunamadı."; return; }
+        k.Kod = string.IsNullOrWhiteSpace(v.Kod) ? null : v.Kod.Trim();
+        k.Ad = v.Ad.Trim();
+        k.Aktif = v.Aktif;
+        k.Baslangic = v.Baslangic;
+        k.Bitis = v.Bitis;
+        k.MolaDakika = v.MolaDakika;
+        k.GecKalmaToleransDakika = v.GecKalmaToleransDakika;
+        k.ErkenCikmaToleransDakika = v.ErkenCikmaToleransDakika;
+        k.FazlaMesaiEsikDakika = v.FazlaMesaiEsikDakika;
+        k.DevamsizlikCezaDakika = v.DevamsizlikCezaDakika;
+        k.GecCezaKatsayisi = v.GecCezaKatsayisi;
+        k.ErkenCezaKatsayisi = v.ErkenCezaKatsayisi;
+        k.EksikCezaKatsayisi = v.EksikCezaKatsayisi;
+        k.NormalTamamlaSonraFazlaMesai = v.NormalTamamlaSonraFazlaMesai;
+        k.CokluGiriseEksikYazma = v.CokluGiriseEksikYazma;
+        k.MaxToleransDakika = v.MaxToleransDakika;
+        db.VardiyaMolalari.RemoveRange(k.Molalar);
+        k.Molalar = v.Molalar.Select(m => new VardiyaMola { Ad = m.Ad.Trim(), Baslangic = m.Baslangic, Bitis = m.Bitis, Ucretli = m.Ucretli }).ToList();
         await db.SaveChangesAsync();
-        _bilgi = $"{kayit.Ad} kaydedildi.";
+        await YukleAsync(k.Id);
+        _bilgi = $"{k.Ad} kaydedildi.";
     }
 }

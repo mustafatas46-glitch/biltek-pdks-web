@@ -42,6 +42,7 @@ public class PdksDbContext : DbContext
     public DbSet<CalismaGrubu> CalismaGruplari => Set<CalismaGrubu>();
     public DbSet<Personel> Personeller => Set<Personel>();
     public DbSet<Vardiya> Vardiyalar => Set<Vardiya>();
+    public DbSet<VardiyaMola> VardiyaMolalari => Set<VardiyaMola>();
     public DbSet<CalismaGrubuGunu> CalismaGrubuGunleri => Set<CalismaGrubuGunu>();
     public DbSet<PersonelVardiya> PersonelVardiyalari => Set<PersonelVardiya>();
     public DbSet<ResmiTatil> ResmiTatiller => Set<ResmiTatil>();
@@ -68,6 +69,7 @@ public class PdksDbContext : DbContext
         FirmaKurallari<CalismaGrubu>(modelBuilder);
         FirmaKurallari<Personel>(modelBuilder);
         FirmaKurallari<Vardiya>(modelBuilder);
+        FirmaKurallari<VardiyaMola>(modelBuilder);
         FirmaKurallari<CalismaGrubuGunu>(modelBuilder);
         FirmaKurallari<PersonelVardiya>(modelBuilder);
         FirmaKurallari<ResmiTatil>(modelBuilder);

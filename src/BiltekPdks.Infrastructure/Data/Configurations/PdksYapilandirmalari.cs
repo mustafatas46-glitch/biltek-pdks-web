@@ -4,7 +4,29 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace BiltekPdks.Infrastructure.Data.Configurations;
 
-internal sealed class VardiyaYapilandirma : TanimYapilandirma<Vardiya> { protected override string Tablo => "vardiya"; }
+internal sealed class VardiyaYapilandirma : TanimYapilandirma<Vardiya>
+{
+    protected override string Tablo => "vardiya";
+
+    public override void Configure(EntityTypeBuilder<Vardiya> b)
+    {
+        base.Configure(b);
+        b.Property(x => x.GecCezaKatsayisi).HasPrecision(5, 2);
+        b.Property(x => x.ErkenCezaKatsayisi).HasPrecision(5, 2);
+        b.Property(x => x.EksikCezaKatsayisi).HasPrecision(5, 2);
+        b.HasMany(x => x.Molalar).WithOne().HasForeignKey(x => x.VardiyaId).OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+internal sealed class VardiyaMolaYapilandirma : IEntityTypeConfiguration<VardiyaMola>
+{
+    public void Configure(EntityTypeBuilder<VardiyaMola> b)
+    {
+        b.ToTable("vardiya_mola");
+        b.Ignore(x => x.Dakika);
+        b.Property(x => x.Ad).HasMaxLength(60).IsRequired();
+    }
+}
 
 internal sealed class IzinTuruYapilandirma : TanimYapilandirma<IzinTuru> { protected override string Tablo => "izin_turu"; }
 

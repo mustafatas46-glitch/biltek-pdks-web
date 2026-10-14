@@ -16,7 +16,8 @@ public sealed record PuantajToplamlari(
     int ErkenCikmaDakika,
     int EksikDakika,
     int FazlaMesaiDakika,
-    int TatilMesaisiDakika)
+    int TatilMesaisiDakika,
+    int CezaDakika = 0)
 {
     public static PuantajToplamlari Hesapla(IReadOnlyCollection<GunlukPuantaj> g) => new(
         g.Count(x => x.Durum == PuantajDurumu.Calisti),
@@ -29,7 +30,8 @@ public sealed record PuantajToplamlari(
         g.Sum(x => x.ErkenCikmaDakika),
         g.Sum(x => x.EksikDakika),
         g.Sum(x => x.FazlaMesaiDakika),
-        g.Sum(x => x.TatilMesaisiDakika));
+        g.Sum(x => x.TatilMesaisiDakika),
+        g.Sum(x => x.CezaDakika));
 }
 
 public sealed record AylikPuantaj(Personel Personel, int Yil, int Ay, IReadOnlyList<GunlukPuantaj> Gunler, PuantajToplamlari Toplam)

@@ -9,6 +9,22 @@ public sealed record VardiyaKurali(
     int ErkenCikmaToleransi = 0,
     int FazlaMesaiEsigi = 30)
 {
+    // --- "Diğer Prm" (eski programdaki günlük çalışma saati parametreleri) ---
+
+    /// <summary>Devamsız gün için kesilecek süre (örn. 8 saatlik günde "1'e 2" kesinti için 960). Boşsa planlanan süre.</summary>
+    public int? DevamsizlikCezaDakika { get; init; }
+    /// <summary>Geç kalınan süre bu katsayıyla çarpılarak kesilir (eski programda "2, 3, 4 katını kes").</summary>
+    public decimal GecCezaKatsayisi { get; init; } = 1;
+    public decimal ErkenCezaKatsayisi { get; init; } = 1;
+    /// <summary>Geç gelme ve erken çıkma dışındaki eksik süre için katsayı.</summary>
+    public decimal EksikCezaKatsayisi { get; init; } = 1;
+    /// <summary>Normal çalışma tamamlanırsa geç/erken iptal olur, fazlası fazla mesai yazılır.</summary>
+    public bool NormalTamamlaSonraFazlaMesai { get; init; }
+    /// <summary>Aynı güne ait ikiden fazla okutma varsa eksik süre yazılmaz.</summary>
+    public bool CokluGiriseEksikYazma { get; init; }
+    /// <summary>Giriş, vardiya başlangıcına bu süreden yakınsa vardiya başlangıcı kabul edilir.</summary>
+    public int MaxToleransDakika { get; init; }
+
     /// <summary>Bitiş saati başlangıçtan önce ya da eşitse vardiya ertesi güne taşar (gece vardiyası).</summary>
     public bool GeceyiAsar => Bitis <= Baslangic;
 
@@ -59,7 +75,9 @@ public sealed record GunlukPuantaj(
     int EksikDakika,
     int FazlaMesaiDakika,
     int TatilMesaisiDakika,
-    bool IzinUcretli = true);
+    bool IzinUcretli = true,
+    /// <summary>Ücretten kesilecek süre: ceza katsayıları uygulanmış geç + erken + eksik ya da devamsızlık cezası.</summary>
+    int CezaDakika = 0);
 
 /// <summary>
 /// Günlük puantaj hesaplama kuralları. Veritabanından bağımsızdır; aynı girdiye her zaman aynı sonucu verir.
@@ -144,13 +162,20 @@ public static class PuantajMotoru
         }
 
         if (hareketler.Count == 0)
-            return Bos(g.Tarih, PuantajDurumu.Devamsiz, planlanan) with { EksikDakika = planlanan };
+            return Bos(g.Tarih, PuantajDurumu.Devamsiz, planlanan) with { EksikDakika = planlanan, CezaDakika = v.DevamsizlikCezaDakika ?? planlanan };
 
         if (hareketler.Count == 1)
             return Bos(g.Tarih, PuantajDurumu.EksikHareket, planlanan, giris, null);
 
         var vardiyaBas = v.BaslangicZamani(g.Tarih);
         var vardiyaBit = v.BitisZamani(g.Tarih);
+
+        // Max tolerans: vardiya başlangıcına yakın giriş, başlangıç saati sayılır.
+        if (v.MaxToleransDakika > 0 && Math.Abs((giris!.Value - vardiyaBas).TotalMinutes) < v.MaxToleransDakika)
+        {
+            giris = vardiyaBas;
+            brut = (int)(cikis!.Value - giris.Value).TotalMinutes;
+        }
 
         var netCalisma = Math.Max(0, brut - (brut > 240 ? v.MolaDakika : 0));
 
@@ -164,7 +189,18 @@ public static class PuantajMotoru
         var normal = Math.Min(planlanan, netCalisma + tolereEdilen);
         var eksik = Math.Max(0, planlanan - normal);
         var fazla = Math.Max(0, netCalisma - planlanan);
+
+        if ((v.NormalTamamlaSonraFazlaMesai && netCalisma >= planlanan)
+            || (v.CokluGiriseEksikYazma && hareketler.Count > 2))
+        {
+            gec = erken = eksik = 0;
+            normal = Math.Min(planlanan, netCalisma);
+        }
         if (fazla < v.FazlaMesaiEsigi) fazla = 0;
+
+        // Ceza: geç ve erken kendi katsayısıyla, geri kalan eksik süre eksik katsayısıyla.
+        var digerEksik = Math.Max(0, eksik - gec - erken);
+        var ceza = (int)Math.Round(gec * v.GecCezaKatsayisi + erken * v.ErkenCezaKatsayisi + digerEksik * v.EksikCezaKatsayisi);
 
         return new GunlukPuantaj(
             g.Tarih, PuantajDurumu.Calisti, giris, cikis, planlanan,
@@ -174,7 +210,8 @@ public static class PuantajMotoru
             ErkenCikmaDakika: erken,
             EksikDakika: eksik,
             FazlaMesaiDakika: fazla,
-            TatilMesaisiDakika: 0);
+            TatilMesaisiDakika: 0,
+            CezaDakika: ceza);
     }
 
     private static GunlukPuantaj Bos(DateOnly tarih, PuantajDurumu durum, int planlanan, DateTime? giris = null, DateTime? cikis = null) =>
