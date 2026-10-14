@@ -31,7 +31,7 @@ builder.Services
     .AddCookie(o =>
     {
         o.LoginPath = "/hesap/giris";
-        o.AccessDeniedPath = "/hesap/giris";
+        o.AccessDeniedPath = "/hesap/yetkisiz";
         o.ReturnUrlParameter = "donus";
         o.Cookie.Name = "biltek.pdks";
         o.Cookie.HttpOnly = true;

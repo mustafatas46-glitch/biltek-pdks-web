@@ -209,8 +209,10 @@ public class UygulamaTestleri : IClassFixture<UygulamaFabrikasi>
         Assert.Equal(HttpStatusCode.OK, (await c.GetAsync("/raporlar/toplu-puantaj.xlsx?yil=2026&ay=10")).StatusCode);
         Assert.NotEqual(HttpStatusCode.OK, (await c.GetAsync("/raporlar/maas-listesi.xlsx?yil=2026&ay=10")).StatusCode);
         Assert.NotEqual(HttpStatusCode.OK, (await c.GetAsync("/araclar/yedek")).StatusCode);
-        var maas = WebUtility.HtmlDecode(await c.GetStringAsync("/raporlar/maas-pusulasi"));
-        Assert.Contains("yetkiniz yok", maas);
+        var maas = await c.GetAsync("/raporlar/maas-pusulasi");
+        Assert.Equal(HttpStatusCode.Redirect, maas.StatusCode);
+        Assert.Contains("/hesap/yetkisiz", maas.Headers.Location!.ToString());
+        Assert.Contains("yetkiniz yok", WebUtility.HtmlDecode(await c.GetStringAsync("/hesap/yetkisiz")));
         var toplu = WebUtility.HtmlDecode(await c.GetStringAsync("/puantaj/toplu"));
         Assert.DoesNotContain("yetkiniz yok", toplu);
         Assert.DoesNotContain("Maaş Pusulası</a>", toplu); // menüde görünmez
