@@ -1,0 +1,130 @@
+@page "/sistem/firmalar"
+@attribute [Authorize(Policy = SistemYetkisi.Ad)]
+@using BiltekPdks.Infrastructure.Firmalar
+@using BiltekPdks.Infrastructure.Security
+@using BiltekPdks.Infrastructure.Seed
+@inject IFirmaVeritabanlari Veritabanlari
+@inject SifreServisi SifreServisi
+
+<PageTitle>Firma işlemleri</PageTitle>
+<SagTikMenu @ref="_menu" />
+<h1 class="h5 mb-1">Firma İşlemleri (bulut)</h1>
+<p class="small text-muted mb-2">Her firmanın verisi ayrı veritabanında (ayrı klasörde) tutulur. Firma kullanıcıları girişte firma kodunu yazar.</p>
+
+@if (!Veritabanlari.AyriVeritabani)
+{
+    <div class="alert alert-warning small">Bu kurulum tek veritabanıyla çalışıyor (masaüstü). Firma işlemleri yalnızca bulut kurulumunda kullanılır.</div>
+}
+else
+{
+    @if (_mesaj is not null) { <div class="alert @(_hata ? "alert-danger" : "alert-success") py-1 small" style="white-space:pre-line">@_mesaj</div> }
+    <div class="grup-ekrani">
+        <section class="border rounded bg-white">
+            <div class="kirmizi-baslik">FİRMALAR (@_firmalar.Count)</div>
+            <div class="izgara" style="max-height:calc(100vh - 16rem)">
+                <table class="table table-sm table-hover mb-0">
+                    <thead><tr><th>Kod</th><th>Firma adı</th><th>Açılış</th><th>Durum</th></tr></thead>
+                    <tbody>
+                        @foreach (var f in _firmalar)
+                        {
+                            var firma = f;
+                            <tr class="@(firma.Aktif ? "" : "text-muted")" @oncontextmenu="e => _menu.Ac(e, Menu(firma))" @oncontextmenu:preventDefault="true">
+                                <td>@firma.Kod</td><td>@firma.Ad</td><td>@firma.OlusturmaZamani.ToLocalTime().ToString("dd.MM.yyyy")</td>
+                                <td>@(firma.Aktif ? "Aktif" : "Pasif")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div class="alt-cubuk"><span class="small text-muted">Sağ tık: aktif / pasif</span></div>
+        </section>
+
+        <section class="border rounded bg-white p-3 small">
+            <div class="kirmizi-baslik px-0 mb-2">YENİ FİRMA</div>
+            <div class="row g-2 align-items-center" style="max-width:560px">
+                <label class="col-4">Firma kodu</label><div class="col-8"><input class="form-control form-control-sm" placeholder="ör. ABCTEKSTIL" @bind="_kod" /></div>
+                <label class="col-4">Firma adı</label><div class="col-8"><input class="form-control form-control-sm" @bind="_ad" /></div>
+                <div class="col-12">
+                    <label class="form-check"><input class="form-check-input" type="radio" name="kaynak" checked="@(!_dosyadan)" @onchange="() => _dosyadan = false" /> Boş firma aç (admin kullanıcısı oluşturulur)</label>
+                    <label class="form-check"><input class="form-check-input" type="radio" name="kaynak" checked="@_dosyadan" @onchange="() => _dosyadan = true" /> Masaüstü sürümündeki verisiyle aç (pdks.db yükle)</label>
+                </div>
+                @if (_dosyadan)
+                {
+                    <label class="col-4">pdks.db dosyası</label>
+                    <div class="col-8"><InputFile class="form-control form-control-sm" accept=".db" OnChange="e => _dosya = e.File" /></div>
+                    <div class="col-12 text-muted">Firmanın kullanıcıları ve şifreleri dosyadaki gibi kalır. Dosyayı yüklemeden önce masaüstü programı kapatın.</div>
+                }
+                else
+                {
+                    <label class="col-4">admin şifresi</label>
+                    <div class="col-8"><input class="form-control form-control-sm" type="password" autocomplete="new-password" @bind="_sifre" /></div>
+                }
+            </div>
+            <button class="btn btn-sm btn-success mt-3" disabled="@_calisiyor" @onclick="AcAsync">Firmayı aç</button>
+            @if (_calisiyor) { <span class="ms-2 text-muted">İşleniyor…</span> }
+        </section>
+    </div>
+}
+
+@code {
+    private const long AzamiDosya = 2L * 1024 * 1024 * 1024;
+    private SagTikMenu _menu = default!;
+    private IReadOnlyList<KatalogFirma> _firmalar = Array.Empty<KatalogFirma>();
+    private string? _kod, _ad, _sifre, _mesaj;
+    private bool _dosyadan, _hata, _calisiyor;
+    private IBrowserFile? _dosya;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Veritabanlari.AyriVeritabani) _firmalar = await Veritabanlari.FirmalarAsync();
+    }
+
+    private async Task AcAsync()
+    {
+        _calisiyor = true;
+        _mesaj = null;
+        try
+        {
+            var kod = FirmaKodu.Normallestir(_kod);
+            var ad = _ad?.Trim() ?? "";
+            if (_dosyadan)
+            {
+                if (_dosya is null) throw new ArgumentException("pdks.db dosyasını seçin.");
+                await using var akis = _dosya.OpenReadStream(AzamiDosya);
+                await Veritabanlari.FirmaEkleAsync(kod, ad, akis);
+                await new KurulumServisi(Veritabanlari.Fabrika(kod), SifreServisi).CalistirAsync(kod, ad, null);
+                Bildir($"{kod} firması yüklenen veriyle açıldı. Kullanıcılar eski kullanıcı adı ve şifreleriyle, firma kodu {kod} yazarak girer.");
+            }
+            else
+            {
+                if (SifreServisi.KuralHatasi(_sifre) is { } kural) throw new ArgumentException(kural);
+                await Veritabanlari.FirmaEkleAsync(kod, ad);
+                await new KurulumServisi(Veritabanlari.Fabrika(kod), SifreServisi).CalistirAsync(kod, ad, _sifre);
+                Bildir($"{kod} firması açıldı.\nGiriş: firma kodu {kod}, kullanıcı admin, şifre: girdiğiniz şifre.");
+            }
+            _kod = _ad = _sifre = null;
+            _dosya = null;
+            _firmalar = await Veritabanlari.FirmalarAsync();
+        }
+        catch (Exception e) when (e is ArgumentException or InvalidOperationException or IOException)
+        {
+            Bildir(e.Message, true);
+        }
+        finally { _calisiyor = false; }
+    }
+
+    private async Task AktiflikAsync(KatalogFirma f, bool aktif)
+    {
+        await Veritabanlari.AktiflikAsync(f.Kod, aktif);
+        _firmalar = await Veritabanlari.FirmalarAsync();
+        Bildir($"{f.Kod} {(aktif ? "aktif yapıldı" : "pasif yapıldı; kullanıcıları giriş yapamaz, veri silinmedi")}.");
+    }
+
+    private List<SagTikMenu.Oge> Menu(KatalogFirma f) => new()
+    {
+        new("Aktif yap", () => AktiflikAsync(f, true), Pasif: f.Aktif),
+        new("Pasif yap (giriş kapanır)", () => AktiflikAsync(f, false), Pasif: !f.Aktif),
+    };
+
+    private void Bildir(string m, bool hata = false) { _mesaj = m; _hata = hata; }
+}

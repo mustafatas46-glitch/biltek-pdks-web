@@ -19,6 +19,9 @@ var builder = Directory.Exists(Path.Combine(paketKlasoru, "wwwroot"))
     ? WebApplication.CreateBuilder(new WebApplicationOptions { Args = args, ContentRootPath = paketKlasoru })
     : WebApplication.CreateBuilder(args);
 
+// Sunucuda Windows hizmeti olarak çalışabilir (normal çalıştırmada etkisi yoktur).
+builder.Host.UseWindowsService(o => o.ServiceName = "BiltekPdks");
+
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 // Türkçe karakterler HTML'de &#x131; gibi kodlanmadan, olduğu gibi yazılsın.
 builder.Services.Configure<WebEncoderOptions>(o => o.TextEncoderSettings = new TextEncoderSettings(UnicodeRanges.All));
@@ -42,6 +45,12 @@ builder.Services
 builder.Services.AddAuthorization(o =>
 {
     // Her yetki bir politika: yönetici her şeye, diğerleri oturumdaki "yetki" taleplerine göre erişir.
+    // Bulut: yönetim firmasının yöneticisi firma açar / kapatır (Sistem:YonetimFirmasi).
+    var yonetimFirmasi = builder.Configuration["Sistem:YonetimFirmasi"];
+    o.AddPolicy(SistemYetkisi.Ad, p => p.RequireAuthenticatedUser().RequireAssertion(c =>
+        !string.IsNullOrWhiteSpace(yonetimFirmasi)
+        && c.User.IsInRole(nameof(KullaniciRolu.Yonetici))
+        && string.Equals(c.User.FindFirst(Talepler.FirmaKodu)?.Value, yonetimFirmasi, StringComparison.OrdinalIgnoreCase)));
     foreach (var y in Yetkiler.Hepsi)
         o.AddPolicy(y.Kod, p => p.RequireAuthenticatedUser().RequireAssertion(c =>
             c.User.IsInRole(nameof(KullaniciRolu.Yonetici)) || c.User.HasClaim(Talepler.Yetki, y.Kod)));

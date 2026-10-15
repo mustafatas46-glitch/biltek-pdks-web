@@ -28,6 +28,7 @@ public sealed class FirmaBasinaFabrikasi : WebApplicationFactory<Program>
         builder.UseSetting("Kurulum:FirmaKodu", "ALFA");
         builder.UseSetting("Kurulum:FirmaAdi", "Alfa A.Ş.");
         builder.UseSetting("Kurulum:YoneticiSifresi", Sifre);
+        builder.UseSetting("Sistem:YonetimFirmasi", "ALFA");
     }
 
     protected override void Dispose(bool disposing)
@@ -125,6 +126,38 @@ public class FirmaBasinaVeritabaniTestleri : IClassFixture<FirmaBasinaFabrikasi>
         Assert.Contains("hata=", r.Headers.Location!.ToString());
         var r2 = await GirisYapAsync(c, "../x", FirmaBasinaFabrikasi.Sifre);
         Assert.Contains("hata=", r2.Headers.Location!.ToString());
+    }
+
+    [Fact]
+    public async Task Masaustu_veritabaniyla_firma_acilir_pasif_firma_giremez_firma_ekrani_yonetime_acik()
+    {
+        _ = _fabrika.Server;
+        var fv = _fabrika.Services.GetRequiredService<IFirmaVeritabanlari>();
+
+        // Masaüstü sürümünün pdks.db'si gibi ayrı bir veritabanı hazırla.
+        var kaynak = Path.Combine(_fabrika.Klasor, "masaustu.db");
+        using (var tv = new TestVeritabani(kaynak))
+        {
+            await new KurulumServisi(tv, new SifreServisi()).CalistirAsync("ESKI", "Eski Firma", "Masaustu123");
+        }
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+        await using (var akis = File.OpenRead(kaynak))
+            await fv.FirmaEkleAsync("gama", "Gama A.Ş.", akis);
+        await using (var bozuk = new MemoryStream(System.Text.Encoding.ASCII.GetBytes("bu bir veritabani degil")))
+            await Assert.ThrowsAsync<ArgumentException>(() => fv.FirmaEkleAsync("delta", "Delta", bozuk));
+
+        var c = Istemci();
+        Assert.Equal("/personeller", (await GirisYapAsync(c, "GAMA", "Masaustu123")).Headers.Location!.ToString());
+
+        await fv.AktiflikAsync("GAMA", false);
+        Assert.Contains("hata=", (await GirisYapAsync(Istemci(), "GAMA", "Masaustu123")).Headers.Location!.ToString());
+        await fv.AktiflikAsync("GAMA", true);
+
+        // Firma işlemleri ekranı yalnız yönetim firmasının (ALFA) yöneticisine açık.
+        var alfa = Istemci();
+        await GirisYapAsync(alfa, "ALFA", FirmaBasinaFabrikasi.Sifre);
+        Assert.Equal(HttpStatusCode.OK, (await alfa.GetAsync("/sistem/firmalar")).StatusCode);
+        Assert.NotEqual(HttpStatusCode.OK, (await c.GetAsync("/sistem/firmalar")).StatusCode);
     }
 
     [Fact]

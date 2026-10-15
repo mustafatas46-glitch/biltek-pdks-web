@@ -11,9 +11,12 @@ public sealed class TestVeritabani : IDbContextFactory<PdksDbContext>, IDisposab
     private readonly SqliteConnection _baglanti;
     private readonly DbContextOptions<SqlitePdksDbContext> _secenekler;
 
-    public TestVeritabani()
+    public TestVeritabani() : this(":memory:") { }
+
+    /// <summary>Dosyaya yazan test veritabanı (ör. masaüstü pdks.db yerine).</summary>
+    public TestVeritabani(string dosya)
     {
-        _baglanti = new SqliteConnection("Data Source=:memory:");
+        _baglanti = new SqliteConnection($"Data Source={dosya}");
         _baglanti.Open();
         _secenekler = new DbContextOptionsBuilder<SqlitePdksDbContext>().UseSqlite(_baglanti).Options;
         using var db = new SqlitePdksDbContext(_secenekler);

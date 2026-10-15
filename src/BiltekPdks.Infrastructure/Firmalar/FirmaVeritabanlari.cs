@@ -25,6 +25,15 @@ public interface IFirmaVeritabanlari
 
     /// <summary>Yeni firma veritabanını oluşturur ve kataloğa ekler (yalnız FirmaBasina modunda).</summary>
     Task<KatalogFirma> FirmaEkleAsync(string kod, string ad, CancellationToken ct = default);
+
+    /// <summary>
+    /// Var olan bir SQLite veritabanı dosyasıyla (ör. firmanın masaüstü sürümündeki pdks.db) firma açar.
+    /// Dosya firmanın klasörüne kopyalanır ve son sürüme güncellenir.
+    /// </summary>
+    Task<KatalogFirma> FirmaEkleAsync(string kod, string ad, Stream mevcutVeritabani, CancellationToken ct = default);
+
+    /// <summary>Firmayı aktif / pasif yapar. Pasif firmada kimse giriş yapamaz; veri silinmez.</summary>
+    Task AktiflikAsync(string kod, bool aktif, CancellationToken ct = default);
 }
 
 public sealed class FirmaBulunamadi : Exception
@@ -59,6 +68,10 @@ public sealed class TekVeritabani : IFirmaVeritabanlari
         Task.FromResult<IReadOnlyList<KatalogFirma>>(Array.Empty<KatalogFirma>());
     public Task<KatalogFirma> FirmaEkleAsync(string kod, string ad, CancellationToken ct = default) =>
         throw new InvalidOperationException("Tek veritabanı kurulumunda ayrı firma veritabanı oluşturulmaz.");
+    public Task<KatalogFirma> FirmaEkleAsync(string kod, string ad, Stream mevcutVeritabani, CancellationToken ct = default) =>
+        throw new InvalidOperationException("Tek veritabanı kurulumunda ayrı firma veritabanı oluşturulmaz.");
+    public Task AktiflikAsync(string kod, bool aktif, CancellationToken ct = default) =>
+        throw new InvalidOperationException("Tek veritabanı kurulumunda firma kataloğu yoktur.");
 }
 
 /// <summary>Firma başına ayrı veritabanı modu.</summary>
@@ -123,12 +136,48 @@ public sealed class FirmaBasinaVeritabani : IFirmaVeritabanlari
         return await k.Firmalar.AsNoTracking().OrderBy(f => f.Kod).ToListAsync(ct);
     }
 
-    public async Task<KatalogFirma> FirmaEkleAsync(string kod, string ad, CancellationToken ct = default)
+    public Task<KatalogFirma> FirmaEkleAsync(string kod, string ad, CancellationToken ct = default) => EkleAsync(kod, ad, null, ct);
+
+    public Task<KatalogFirma> FirmaEkleAsync(string kod, string ad, Stream mevcutVeritabani, CancellationToken ct = default) =>
+        EkleAsync(kod, ad, mevcutVeritabani, ct);
+
+    public async Task AktiflikAsync(string kod, bool aktif, CancellationToken ct = default)
+    {
+        kod = FirmaKodu.Normallestir(kod);
+        await using var k = _katalog();
+        var f = await k.Firmalar.FirstOrDefaultAsync(x => x.Kod == kod, ct) ?? throw new FirmaBulunamadi(kod);
+        f.Aktif = aktif;
+        await k.SaveChangesAsync(ct);
+        if (aktif) _bilinen[kod] = true;
+        else { _bilinen.TryRemove(kod, out _); _fabrikalar.TryRemove(kod, out _); }
+    }
+
+    private async Task<KatalogFirma> EkleAsync(string kod, string ad, Stream? mevcut, CancellationToken ct)
     {
         kod = FirmaKodu.Normallestir(kod);
         if (string.IsNullOrWhiteSpace(ad)) throw new ArgumentException("Firma adı boş olamaz.");
         await using var k = _katalog();
         if (await k.Firmalar.AnyAsync(f => f.Kod == kod, ct)) throw new ArgumentException($"{kod} kodlu firma zaten var.");
+
+        if (mevcut is not null)
+        {
+            if (!_sqlite) throw new InvalidOperationException("Var olan veritabanı dosyası yalnızca SQLite kurulumunda yüklenebilir.");
+            var dosya = Path.GetFullPath(new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder(BaglantiMetni(kod)).DataSource);
+            if (File.Exists(dosya)) throw new ArgumentException($"{kod} için veritabanı dosyası zaten var: {dosya}");
+            Directory.CreateDirectory(Path.GetDirectoryName(dosya)!);
+            var baslik = new byte[16];
+            await using (var hedef = File.Create(dosya))
+            {
+                await mevcut.CopyToAsync(hedef, ct);
+            }
+            await using (var oku = File.OpenRead(dosya))
+                _ = await oku.ReadAsync(baslik, ct);
+            if (System.Text.Encoding.ASCII.GetString(baslik, 0, 15) != "SQLite format 3")
+            {
+                File.Delete(dosya);
+                throw new ArgumentException("Yüklenen dosya bir SQLite veritabanı (pdks.db) değil.");
+            }
+        }
 
         // Önce veritabanı kurulur; hata olursa katalogda yarım kayıt kalmaz.
         await using (var db = Olustur(kod).CreateDbContext())

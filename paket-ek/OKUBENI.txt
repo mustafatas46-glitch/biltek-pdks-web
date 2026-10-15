@@ -21,3 +21,16 @@ eski veritabanina HICBIR SEKILDE yazilmaz; eski sistem aynen calismaya devam ede
    ayni ay icin sonuclari karsilastirin.
 
 Not: pdks.db dosyasi personel bilgilerini icerir; yedekleyin ve paylasmayin.
+
+BULUT SUNUCUYA KURULUM (Windows Server)
+=======================================
+1) Bu zip'i sunucuya Uzak Masaustu ile kopyalayip bir klasore cikarin.
+2) BiltekPdks klasorundeki 3-sunucuya-kur.ps1 dosyasini YONETICI PowerShell'de calistirin:
+     powershell -ExecutionPolicy Bypass -File .\3-sunucuya-kur.ps1
+   - Program C:\BiltekPdks altina kurulur, Windows hizmeti olarak calisir (sunucu acilinca kendiliginden baslar).
+   - Her firmanin verisi C:\BiltekPdks\veri\<firma kodu>\pdks.db dosyasinda ayri tutulur.
+   - Ilk kurulumda yonetim firmasi (BILTEK) icin admin sifresi sorulur.
+3) Tarayicidan http://<sunucu IP adresi> ile girin: firma kodu BILTEK, kullanici admin.
+4) Tanimlar > Firma Islemleri (bulut): yeni firma acin ya da masaustundeki pdks.db ile firma yukleyin.
+5) Guncelleme: yeni zip'i cikarip ayni dosyayi tekrar calistirin; veriler korunur.
+NOT: Gercek musteri verisi girmeden once alan adi ve HTTPS kurulmalidir.

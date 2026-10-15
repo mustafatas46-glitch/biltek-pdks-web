@@ -82,7 +82,7 @@ jobs:
         run: |
           dotnet publish src/BiltekPdks.Web -c Release -r win-x64 --self-contained true -o paket/BiltekPdks/web
           dotnet publish tools/BiltekPdks.Aktarim -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o paket/BiltekPdks/aktarim
-          Copy-Item paket-ek/*.bat, paket-ek/*.txt paket/BiltekPdks/
+          Copy-Item paket-ek/*.bat, paket-ek/*.txt, paket-ek/*.ps1 paket/BiltekPdks/
       - name: Windows'ta calistirip dogrula
         shell: pwsh
         run: |
@@ -110,6 +110,28 @@ jobs:
           if (-not $ok) { Get-Content "$env:RUNNER_TEMP/web.err" -Tail 40; Write-Output "::error title=Windows::Program acilmadi"; exit 1 }
           if (-not $css) { Write-Output "::error title=Windows::Stil dosyalari (app.css / bootstrap) gelmedi"; exit 1 }
           Write-Output "::notice title=Windows::Program Windows'ta acildi, giris sayfasi ve stil dosyalari 200 dondu"
+          # Bulut (firma basina ayri veritabani) modu da Windows'ta acilmali.
+          $env:ASPNETCORE_URLS = "http://localhost:5181"
+          $env:Veritabani__Mod = "FirmaBasina"
+          $env:ConnectionStrings__Katalog = "Data Source=$env:RUNNER_TEMP\bulut\katalog.db"
+          $env:ConnectionStrings__FirmaSablonu = "Data Source=$env:RUNNER_TEMP\bulut\{kod}\pdks.db"
+          $env:Kurulum__FirmaKodu = "BILTEK"
+          $env:Kurulum__YoneticiSifresi = "Deneme12345"
+          $env:Sistem__YonetimFirmasi = "BILTEK"
+          $p2 = Start-Process -FilePath "$kok/web/BiltekPdks.Web.exe" -WorkingDirectory "$env:RUNNER_TEMP" -PassThru -RedirectStandardOutput "$env:RUNNER_TEMP/web2.log" -RedirectStandardError "$env:RUNNER_TEMP/web2.err"
+          $ok2 = $false
+          for ($i = 0; $i -lt 60 -and -not $ok2; $i++) {
+            Start-Sleep -Seconds 2
+            try { $r = Invoke-WebRequest -Uri "http://localhost:5181/hesap/giris" -UseBasicParsing; $ok2 = $r.StatusCode -eq 200 } catch { }
+          }
+          Stop-Process -Id $p2.Id -Force
+          if (-not $ok2 -or -not (Test-Path "$env:RUNNER_TEMP\bulut\biltek\pdks.db")) { Get-Content "$env:RUNNER_TEMP/web2.err" -Tail 40; Write-Output "::error title=Windows::Bulut modu acilmadi"; exit 1 }
+          Write-Output "::notice title=Windows::Bulut modu (firma basina veritabani) Windows'ta acildi"
+          Remove-Item Env:Veritabani__Mod, Env:ConnectionStrings__Katalog, Env:ConnectionStrings__FirmaSablonu, Env:Kurulum__FirmaKodu, Env:Kurulum__YoneticiSifresi, Env:Sistem__YonetimFirmasi
+          # Sunucu kurulum betigi soz dizimi hatasiz olmali.
+          $hatalar = $null
+          [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path paket-ek/3-sunucuya-kur.ps1), [ref]$null, [ref]$hatalar) | Out-Null
+          if ($hatalar.Count -gt 0) { $hatalar | ForEach-Object { Write-Output "::error title=ps1::$($_.Message)" }; exit 1 }
           & "$kok/aktarim/pdks-aktarim.exe" | Out-Null
           if ($LASTEXITCODE -ne 2) { Write-Output "::error title=Windows::Aktarim araci beklenmedik cikis kodu $LASTEXITCODE"; exit 1 }
           Write-Output "::notice title=Windows::Aktarim araci calisiyor"
