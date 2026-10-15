@@ -45,8 +45,13 @@ $ilkKurulum = -not (Test-Path $ayar)
 if ($ilkKurulum) {
     Write-Host ""
     Write-Host "ILK KURULUM. Yonetim firmasi: $YonetimFirmaKodu ($YonetimFirmaAdi)"
-    $s1 = Read-Host "Yonetim firmasi 'admin' sifresi (en az 8 karakter, harf ve rakam)" -AsSecureString
-    $sifre = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($s1))
+    # Sifre ekranda gorunur yazilir (yanlis yazmayi onlemek icin); kurulumdan sonra ayar dosyasindan silinir.
+    while ($true) {
+        $sifre = (Read-Host "Yonetim firmasi 'admin' sifresi (en az 8 karakter, harf ve rakam)").Trim()
+        if ($sifre.Length -ge 8 -and $sifre -match '[A-Za-z]' -and $sifre -match '[0-9]') { break }
+        Write-Host "Sifre kurala uymuyor ($($sifre.Length) karakter alindi). Tekrar yazin." -ForegroundColor Yellow
+    }
+    Clear-Host
     $katalog = (Join-Path $veri "katalog.db")
     $sablon = (Join-Path $veri "{kod}\pdks.db")
     $json = [ordered]@{
