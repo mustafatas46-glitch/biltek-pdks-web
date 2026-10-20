@@ -1,0 +1,19 @@
+name: eski-kopru
+on:
+  push:
+    paths: ['tools/EskiMuhasebeKoprusu/**', '.github/workflows/eski-kopru.yml']
+  workflow_dispatch:
+jobs:
+  derle:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: csc (.NET Framework, C# 5, x86)
+        shell: cmd
+        run: |
+          cd tools\EskiMuhasebeKoprusu
+          "%WINDIR%\Microsoft.NET\Framework\v4.0.30319\csc.exe" /nologo /target:winexe /platform:x86 /optimize+ /codepage:65001 /out:BiltekMuhasebeKoprusu.exe /r:System.dll /r:System.Core.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:System.Xml.dll /r:System.IO.Compression.dll /r:System.IO.Compression.FileSystem.dll *.cs > sonuc.txt 2>&1
+          type sonuc.txt
+          for /f "usebackq delims=" %%L in (`findstr /i "error warning" sonuc.txt`) do echo ::warning::%%L
+          if not exist BiltekMuhasebeKoprusu.exe (echo ::error::DERLEME HATALI & exit /b 1)
+          echo ::notice::DERLEME TAMAM

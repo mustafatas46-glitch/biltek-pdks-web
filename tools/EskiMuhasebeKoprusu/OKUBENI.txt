@@ -1,0 +1,25 @@
+BILTEK PDKS - MUHASEBE KOPRUSU
+==============================
+Eski Biltek PDKS (biltek.exe) ile muhasebe / IKYS programini ayni personel ve puantajla calistirir.
+Eslestirme anahtari TC KIMLIK NO'dur.
+
+Kurulum: Bu klasor D:\Biltek-Pdks\MuhasebeKoprusu altinda durur. derle.bat -> BiltekMuhasebeKoprusu.exe olusur.
+Baglanti bilgileri bir ust klasordeki Settings.ini dosyasindan otomatik okunur.
+
+1. Personel Esitleme
+   Muhasebeden alinan liste (.xlsx / .csv / IKYS .txt) secilir. Her kisi TC ile, TC yoksa ad soyad ile aranir.
+   - TC eksik - isimle bulundu : PDKS kaydina TC yazilir
+   - PDKS'de yok              : PDKS'ye eklenir (kart no bos; karti eski programdan tanimlayin)
+   - Eslesti - isim farkli     : isaretlenirse isim muhasebeye gore duzeltilir
+   - Muhasebede yok            : isaretlenirse secilen tarihle isten cikis verilir
+   Kirmizi satirlar elle kontrol ister (gecersiz TC, mukerrer TC, ayni isimde birden fazla kisi).
+
+2. Muhasebeden Bilgi Al
+   Muhasebe dosyasinda Ise Giris / Isten Cikis / Ucret / Sicil No / SGK No sutunlari varsa farklar listelenir.
+
+3. Puantaji Muhasebeye Gonder
+   Eski programda hesaplanmis donem puantaji TC ile Excel/CSV olarak kaydedilir; muhasebe programina bu dosya aktarilir.
+   Saatler ondalik yazilir (7:30 = 7,5).
+
+Her yazma isleminden once GeriAlma klasorune .sql dosyasi yazilir. HeidiSQL'de calistirilirsa degisiklik geri alinir.
+Isleme baslamadan once eski programin "yedekleme" ile veritabani yedegini alin.
