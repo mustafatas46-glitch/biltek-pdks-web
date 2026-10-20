@@ -36,11 +36,12 @@ jobs:
             $d = "tools/EskiMuhasebeKoprusu/FbSema"
             Copy-Item fbemb/* $d -Recurse -Force
             Copy-Item fbemb/bin/* $d -Force
-            Copy-Item "$d/fbembed.dll" "$d/fbclient.dll" -Force
             $env:FIREBIRD = (Resolve-Path $d).Path
+            Start-Process -FilePath "$d/fbserver.exe" -ArgumentList "-a" -WorkingDirectory $d
+            Start-Sleep -Seconds 5
             $log.Add((Get-ChildItem fbemb/bin | ForEach-Object Name) -join " ")
             $db = (Resolve-Path $d).Path + "\TEST.GDB"
-            $sql = "CREATE DATABASE '$db' USER 'SYSDBA' PASSWORD 'masterkey' DEFAULT CHARACTER SET WIN1254;`r`n" +
+            $sql = "CREATE DATABASE '127.0.0.1:$db' USER 'SYSDBA' PASSWORD 'masterkey' DEFAULT CHARACTER SET WIN1254;`r`n" +
               "CREATE TABLE PERSONEL (PERID INTEGER NOT NULL PRIMARY KEY, KARTNO VARCHAR(10), AD VARCHAR(30), SOYAD VARCHAR(30), KIMLIKNO VARCHAR(11), IGTARIH DATE, MAAS NUMERIC(15,2), GSAAT TIME, ZAMAN TIMESTAMP, ADET SMALLINT, ORAN DOUBLE PRECISION, NOT1 CHAR(5));`r`n" +
               "INSERT INTO PERSONEL VALUES (1,'0001','" + [char]0x15E + "UKRU','GULCIN','12345678901','2024-03-15',12345.67,'08:30:00','2025-01-02 17:45:10',3,1.5,'ab');`r`n" +
               "INSERT INTO PERSONEL (PERID) VALUES (2);`r`nCOMMIT;`r`n"
