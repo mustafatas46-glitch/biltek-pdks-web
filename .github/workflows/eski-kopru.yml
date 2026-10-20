@@ -37,6 +37,7 @@ jobs:
             Copy-Item fbemb/* $d -Recurse -Force
             Copy-Item fbemb/bin/* $d -Force
             Copy-Item "$d/fbembed.dll" "$d/fbclient.dll" -Force
+            $env:FIREBIRD = (Resolve-Path $d).Path
             $log.Add((Get-ChildItem fbemb/bin | ForEach-Object Name) -join " ")
             $db = (Resolve-Path $d).Path + "\TEST.GDB"
             $sql = "CREATE DATABASE '$db' USER 'SYSDBA' PASSWORD 'masterkey' DEFAULT CHARACTER SET WIN1254;`r`n" +
