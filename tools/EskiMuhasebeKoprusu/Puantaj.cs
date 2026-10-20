@@ -26,6 +26,20 @@ namespace BiltekMuhasebeKoprusu
         public List<string> Basliklar = new List<string>();
         public List<object[]> Satirlar = new List<object[]>();
         public int TcEksik;
+        public string UstSatir;
+    }
+
+    internal sealed class PuantajKisi
+    {
+        public string Tc, Sicil, Kart, Ad, Soyad, FirmaKod;
+        public decimal[] Degerler;
+    }
+
+    internal sealed class PuantajHam
+    {
+        public Donem Donem;
+        public List<PuantajKolon> Kolonlar;
+        public List<PuantajKisi> Kisiler = new List<PuantajKisi>();
     }
 
     internal static class Puantaj
@@ -39,7 +53,7 @@ namespace BiltekMuhasebeKoprusu
             return db.Sorgu(sql).Where(r => r[0] != null).Select(r => new Donem { Bas = r[0], Bit = r[1] }).ToList();
         }
 
-        static List<PuantajKolon> Kolonlar(Db db)
+        public static List<PuantajKolon> Kolonlar(Db db)
         {
             var mevcut = new HashSet<string>(db.Sorgu("SHOW COLUMNS FROM pts_puantajtoplam").Select(r => r[0]), StringComparer.OrdinalIgnoreCase);
             var l = new List<PuantajKolon>();
@@ -76,32 +90,43 @@ namespace BiltekMuhasebeKoprusu
             return (kisa ?? "").Trim();
         }
 
-        public static PuantajSonuc Getir(Db db, Donem d, int? firmaId, bool bosKolonlariGizle)
+        public static PuantajHam Ham(Db db, Donem d, int? firmaId)
         {
             var kolonlar = Kolonlar(db);
-            string sql = "SELECT p.kimlikno, p.sicilno, p.kartno, p.ad, p.soyad" +
+            string sql = "SELECT p.kimlikno, p.sicilno, p.kartno, p.ad, p.soyad, f.kod" +
                          string.Concat(kolonlar.Select(k => ", t." + k.Sql)) +
-                         " FROM pts_puantajtoplam t JOIN personel p ON p.id = t.personelid" +
+                         " FROM pts_puantajtoplam t JOIN personel p ON p.id = t.personelid LEFT JOIN firma f ON f.id = p.firmaid" +
                          " WHERE t.bastarih = " + Db.Q(d.Bas) + " AND t.bittarih = " + Db.Q(d.Bit) +
                          (firmaId.HasValue ? " AND p.firmaid = " + firmaId.Value : "") +
                          " ORDER BY p.ad, p.soyad";
-            var ham = db.Sorgu(sql);
-            var degerler = ham.Select(r => kolonlar.Select((k, i) => Deger(r[5 + i], k.Saat)).ToArray()).ToList();
-            var gorunur = Enumerable.Range(0, kolonlar.Count)
-                                    .Where(i => !bosKolonlariGizle || degerler.Any(v => v[i] != 0m)).ToList();
+            var h = new PuantajHam { Kolonlar = kolonlar, Donem = d };
+            foreach (var r in db.Sorgu(sql))
+            {
+                h.Kisiler.Add(new PuantajKisi
+                {
+                    Tc = Metin.SadeceRakam(r[0]), Sicil = r[1] ?? "", Kart = r[2] ?? "", Ad = r[3] ?? "", Soyad = r[4] ?? "", FirmaKod = r[5] ?? "",
+                    Degerler = kolonlar.Select((k, i) => Deger(r[6 + i], k.Saat)).ToArray()
+                });
+            }
+            return h;
+        }
 
+        public static PuantajSonuc Getir(Db db, Donem d, int? firmaId, bool bosKolonlariGizle)
+        {
+            var h = Ham(db, d, firmaId);
+            var kolonlar = h.Kolonlar;
+            var gorunur = Enumerable.Range(0, kolonlar.Count)
+                                    .Where(i => !bosKolonlariGizle || h.Kisiler.Any(k => k.Degerler[i] != 0m)).ToList();
             var s = new PuantajSonuc();
             s.Basliklar.AddRange(new[] { "TC Kimlik No", "Sicil No", "Kart No", "Adı", "Soyadı" });
             s.Basliklar.AddRange(gorunur.Select(i => kolonlar[i].Baslik));
             s.Basliklar.Add("Uyarı");
-            for (int n = 0; n < ham.Count; n++)
+            foreach (var k in h.Kisiler)
             {
-                var r = ham[n];
-                string tc = Metin.SadeceRakam(r[0]);
-                string uyari = Metin.TcGecerli(tc) ? "" : "TC eksik/hatalı - muhasebeye aktarılamaz";
+                string uyari = Metin.TcGecerli(k.Tc) ? "" : "TC eksik/hatalı - muhasebeye aktarılamaz";
                 if (uyari.Length > 0) s.TcEksik++;
-                var satir = new List<object> { tc, r[1] ?? "", r[2] ?? "", r[3] ?? "", r[4] ?? "" };
-                satir.AddRange(gorunur.Select(i => (object)degerler[n][i]));
+                var satir = new List<object> { k.Tc, k.Sicil, k.Kart, k.Ad, k.Soyad };
+                satir.AddRange(gorunur.Select(i => (object)k.Degerler[i]));
                 satir.Add(uyari);
                 s.Satirlar.Add(satir.ToArray());
             }

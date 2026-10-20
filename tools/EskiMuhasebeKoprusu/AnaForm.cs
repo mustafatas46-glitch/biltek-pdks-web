@@ -26,6 +26,7 @@ namespace BiltekMuhasebeKoprusu
         readonly DateTimePicker dtCikis = new DateTimePicker { Width = 110, Format = DateTimePickerFormat.Short };
         readonly ComboBox cmbDonem = new ComboBox { Width = 220, DropDownStyle = ComboBoxStyle.DropDownList };
         readonly CheckBox chkBosGizle = new CheckBox { Text = "Boş sütunları gizle", Checked = true, AutoSize = true };
+        readonly ComboBox cmbSablon = new ComboBox { Width = 200, DropDownStyle = ComboBoxStyle.DropDownList };
 
         Db _db;
         Dictionary<string, string> _ayar;
@@ -64,6 +65,7 @@ namespace BiltekMuhasebeKoprusu
             txtSunucu.Text = Al("Sunucu", "localhost"); txtPort.Text = Al("Port", "3307"); txtVt.Text = Al("Veritabani", "data2015");
             txtKullanici.Text = Al("Kullanici", "root"); txtSifre.Text = Al("Sifre", "");
             dtCikis.Value = DateTime.Today;
+            SablonlariYukle(Al("Sablon", ""));
             Durum(_ayar.ContainsKey("Kaynak") ? "Bağlantı bilgileri okundu: " + _ayar["Kaynak"] : "Bağlantı bilgilerini girip Bağlan'a basın.");
         }
 
@@ -114,8 +116,17 @@ namespace BiltekMuhasebeKoprusu
             var btnGetir = new Button { Text = "Puantajı getir", Width = 110 };
             var btnExcel = new Button { Text = "Excel (.xlsx) kaydet", Width = 140, BackColor = Color.FromArgb(220, 252, 231) };
             var btnCsv = new Button { Text = "CSV kaydet", Width = 90 };
-            arac.Controls.AddRange(new Control[] { Etiket2("Dönem:"), cmbDonem, chkBosGizle, btnGetir, btnExcel, btnCsv });
+            var btnDuzenle = new Button { Text = "Şablonu düzenle", Width = 115 };
+            var btnYeni = new Button { Text = "Yeni program ekle...", Width = 135 };
+            var btnSil = new Button { Text = "Sil", Width = 40 };
+            arac.Controls.AddRange(new Control[] { Etiket2("Dönem:"), cmbDonem, Etiket2("Muhasebe programı:"), cmbSablon, btnDuzenle, btnYeni, btnSil, chkBosGizle, btnGetir, btnExcel, btnCsv });
+            arac.WrapContents = true; arac.Height = 66;
             btnGetir.Click += delegate { PuantajGetir(); };
+            btnDuzenle.Click += delegate { SablonDuzenle(cmbSablon.SelectedItem as Sablon); };
+            btnYeni.Click += delegate { SablonYeni(); };
+            btnSil.Click += delegate { SablonSil(); };
+            cmbSablon.SelectedIndexChanged += delegate { chkBosGizle.Enabled = !(cmbSablon.SelectedItem is Sablon); if (_ayar != null) _ayar["Sablon"] = cmbSablon.Text; if (_puantaj != null) PuantajGetir(); };
+
             btnExcel.Click += delegate { PuantajKaydet(false); };
             btnCsv.Click += delegate { PuantajKaydet(true); };
             tp.Controls.Add(gridPuantaj); tp.Controls.Add(lblPuantajOzet); tp.Controls.Add(arac);
@@ -362,7 +373,8 @@ namespace BiltekMuhasebeKoprusu
             if (_db == null || d == null) { Bilgi("Önce bağlanın ve dönem seçin. Dönem listesi boşsa eski programda puantajı hesaplatın."); return; }
             Islem(delegate
             {
-                _puantaj = Puantaj.Getir(_db, d, FirmaId, chkBosGizle.Checked);
+                var sablon = cmbSablon.SelectedItem as Sablon;
+                _puantaj = sablon == null ? Puantaj.Getir(_db, d, FirmaId, chkBosGizle.Checked) : SablonUygula.Uygula(sablon, Puantaj.Ham(_db, d, FirmaId));
                 gridPuantaj.Columns.Clear();
                 gridPuantaj.Rows.Clear();
                 foreach (var b in _puantaj.Basliklar) gridPuantaj.Columns.Add(b, b);
@@ -370,10 +382,11 @@ namespace BiltekMuhasebeKoprusu
                 foreach (var r in _puantaj.Satirlar)
                 {
                     int i = gridPuantaj.Rows.Add(r);
-                    if (((string)r[r.Length - 1]).Length > 0) gridPuantaj.Rows[i].DefaultCellStyle.BackColor = Color.FromArgb(254, 226, 226);
+                    var son = r[r.Length - 1] as string;
+                    if (sablon == null && !string.IsNullOrEmpty(son)) gridPuantaj.Rows[i].DefaultCellStyle.BackColor = Color.FromArgb(254, 226, 226);
                 }
                 lblPuantajOzet.Text = _puantaj.Satirlar.Count + " kişi" + (_puantaj.TcEksik > 0 ? "   •   " + _puantaj.TcEksik + " kişinin TC'si eksik/hatalı (kırmızı) - 1. sekmeden tamamlayın" : "   •   Tüm kişilerin TC'si tamam") +
-                                       "   •   Saatler ondalık (7:30 = 7,5)";
+                                       (sablon == null ? "   •   Saatler ondalık (7:30 = 7,5)" : "   •   " + sablon.Ad + " düzeninde");
             });
         }
 
@@ -382,14 +395,14 @@ namespace BiltekMuhasebeKoprusu
             if (_puantaj == null) PuantajGetir();
             if (_puantaj == null) return;
             var d = (Donem)cmbDonem.SelectedItem;
-            string ad = "Puantaj_" + Temiz(cmbFirma.Text) + "_" + d.ToString().Replace(" - ", "_").Replace(".", "");
+            string ad = "Puantaj_" + (cmbSablon.SelectedItem is Sablon ? Temiz(cmbSablon.Text) + "_" : "") + Temiz(cmbFirma.Text) + "_" + d.ToString().Replace(" - ", "_").Replace(".", "");
             using (var dlg = new SaveFileDialog { FileName = ad + (csv ? ".csv" : ".xlsx"), Filter = csv ? "CSV (*.csv)|*.csv" : "Excel (*.xlsx)|*.xlsx" })
             {
                 if (dlg.ShowDialog(this) != DialogResult.OK) return;
                 Islem(delegate
                 {
-                    if (csv) CsvYaz(dlg.FileName, _puantaj.Basliklar, _puantaj.Satirlar);
-                    else XlsxYazici.Yaz(dlg.FileName, "Puantaj", _puantaj.Basliklar, _puantaj.Satirlar);
+                    if (csv) CsvYaz(dlg.FileName, _puantaj.Basliklar, _puantaj.Satirlar, _puantaj.UstSatir);
+                    else XlsxYazici.Yaz(dlg.FileName, "Puantaj", _puantaj.Basliklar, _puantaj.Satirlar, _puantaj.UstSatir);
                     Durum("Kaydedildi: " + dlg.FileName);
                     if (MessageBox.Show(this, "Dosya kaydedildi. Açılsın mı?", "Puantaj", MessageBoxButtons.YesNo) == DialogResult.Yes)
                         System.Diagnostics.Process.Start(dlg.FileName);
@@ -397,11 +410,12 @@ namespace BiltekMuhasebeKoprusu
             }
         }
 
-        static void CsvYaz(string yol, IList<string> basliklar, IEnumerable<object[]> satirlar)
+        static void CsvYaz(string yol, IList<string> basliklar, IEnumerable<object[]> satirlar, string ustSatir)
         {
             var tr = new System.Globalization.CultureInfo("tr-TR");
             using (var w = new StreamWriter(yol, false, new System.Text.UTF8Encoding(true)))
             {
+                if (!string.IsNullOrEmpty(ustSatir)) w.WriteLine(Csv(ustSatir));
                 w.WriteLine(string.Join(";", basliklar.Select(Csv)));
                 foreach (var r in satirlar)
                     w.WriteLine(string.Join(";", r.Select(v => v is decimal ? ((decimal)v).ToString("0.##", tr) : Csv(v == null ? "" : v.ToString()))));
@@ -423,6 +437,70 @@ namespace BiltekMuhasebeKoprusu
                     Durum("Kaydedildi: " + dlg.FileName);
                 });
             }
+        }
+
+        void SablonlariYukle(string secilecek)
+        {
+            cmbSablon.Items.Clear();
+            cmbSablon.Items.Add("(Tüm sütunlar - TC ile)");
+            try { foreach (var x in Sablon.Hepsi()) cmbSablon.Items.Add(x); }
+            catch (Exception ex) { Hata("Şablonlar okunamadı: " + ex.Message); }
+            int sec = 0;
+            for (int i = 0; i < cmbSablon.Items.Count; i++) if (cmbSablon.Items[i].ToString() == secilecek) sec = i;
+            cmbSablon.SelectedIndex = sec;
+        }
+
+        List<PuantajKolon> KolonlarGerekli()
+        {
+            if (_db == null) { Bilgi("Şablon için önce veritabanına bağlanın (puantaj türleri oradan okunur)."); return null; }
+            List<PuantajKolon> k = null;
+            Islem(delegate { k = Puantaj.Kolonlar(_db); });
+            return k;
+        }
+
+        void SablonDuzenle(Sablon s)
+        {
+            if (s == null) { Bilgi("Listeden bir muhasebe programı seçin ya da 'Yeni program ekle' ile ekleyin."); return; }
+            var k = KolonlarGerekli();
+            if (k == null) return;
+            using (var f = new SablonForm(s, k))
+                if (f.ShowDialog(this) == DialogResult.OK) { SablonlariYukle(s.Ad); PuantajGetir(); }
+        }
+
+        void SablonYeni()
+        {
+            var k = KolonlarGerekli();
+            if (k == null) return;
+            var cevap = MessageBox.Show(this, "Muhasebe programının örnek puantaj aktarım Excel dosyası var mı?\r\n\r\n" +
+                "Evet: dosyayı seçin, sütun başlıkları oradan alınır ve otomatik eşleştirilir.\r\nHayır: boş şablonla başlanır, sütunları elle yazarsınız.",
+                "Yeni muhasebe programı", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
+            if (cevap == DialogResult.Cancel) return;
+            Sablon s = null;
+            if (cevap == DialogResult.Yes)
+            {
+                using (var dlg = new OpenFileDialog { Filter = "Örnek dosya (*.xlsx;*.csv;*.txt)|*.xlsx;*.csv;*.txt", Title = "Muhasebe programının örnek aktarım dosyası" })
+                {
+                    if (dlg.ShowDialog(this) != DialogResult.OK) return;
+                    Islem(delegate { s = Sablon.OrnektenOlustur(dlg.FileName); });
+                    if (s == null) return;
+                }
+            }
+            else
+            {
+                s = new Sablon { Ad = "Yeni program" };
+                foreach (var b in new[] { "TC Kimlik No", "Adı Soyadı" }) s.Sutunlar.Add(new SablonSutun { Baslik = b, Kaynak = "OTO" });
+            }
+            using (var f = new SablonForm(s, k))
+                if (f.ShowDialog(this) == DialogResult.OK) SablonlariYukle(s.Ad);
+        }
+
+        void SablonSil()
+        {
+            var s = cmbSablon.SelectedItem as Sablon;
+            if (s == null) return;
+            if (MessageBox.Show(this, s.Ad + " şablonu silinsin mi?", "Sil", MessageBoxButtons.YesNo) != DialogResult.Yes) return;
+            try { File.Delete(s.Dosya); } catch (Exception ex) { Hata(ex.Message); }
+            SablonlariYukle("");
         }
 
         // ---------------- Yardımcılar ----------------

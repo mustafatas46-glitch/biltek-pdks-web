@@ -216,7 +216,7 @@ namespace BiltekMuhasebeKoprusu
     // En basit .xlsx yazıcı: tek sayfa, ilk satır kalın başlık, sayılar sayı olarak.
     internal static class XlsxYazici
     {
-        public static void Yaz(string yol, string sayfaAdi, IList<string> basliklar, IEnumerable<object[]> satirlar)
+        public static void Yaz(string yol, string sayfaAdi, IList<string> basliklar, IEnumerable<object[]> satirlar, string ustSatir = null)
         {
             if (File.Exists(yol)) File.Delete(yol);
             using (var zip = ZipFile.Open(yol, ZipArchiveMode.Create))
@@ -227,13 +227,19 @@ namespace BiltekMuhasebeKoprusu
                 Ekle(zip, "xl/_rels/workbook.xml.rels", "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/><Relationship Id=\"rId2\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles\" Target=\"styles.xml\"/></Relationships>");
                 Ekle(zip, "xl/styles.xml", "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><styleSheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><fonts count=\"2\"><font><sz val=\"11\"/><name val=\"Calibri\"/></font><font><b/><sz val=\"11\"/><name val=\"Calibri\"/></font></fonts><fills count=\"3\"><fill><patternFill patternType=\"none\"/></fill><fill><patternFill patternType=\"gray125\"/></fill><fill><patternFill patternType=\"solid\"><fgColor rgb=\"FFDDEBF7\"/></patternFill></fill></fills><borders count=\"1\"><border/></borders><cellStyleXfs count=\"1\"><xf/></cellStyleXfs><cellXfs count=\"3\"><xf/><xf fontId=\"1\" fillId=\"2\" applyFont=\"1\" applyFill=\"1\"/><xf numFmtId=\"49\" applyNumberFormat=\"1\"/></cellXfs></styleSheet>");
                 var sb = new StringBuilder();
-                sb.Append("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><sheetViews><sheetView workbookViewId=\"0\"><pane ySplit=\"1\" topLeftCell=\"A2\" activePane=\"bottomLeft\" state=\"frozen\"/></sheetView></sheetViews><cols>");
+                sb.Append("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><sheetViews><sheetView workbookViewId=\"0\"><pane ySplit=\"" + (string.IsNullOrEmpty(ustSatir) ? 1 : 2) + "\" topLeftCell=\"A" + (string.IsNullOrEmpty(ustSatir) ? 2 : 3) + "\" activePane=\"bottomLeft\" state=\"frozen\"/></sheetView></sheetViews><cols>");
                 for (int i = 0; i < basliklar.Count; i++) sb.Append("<col min=\"" + (i + 1) + "\" max=\"" + (i + 1) + "\" width=\"" + Math.Max(10, Math.Min(40, basliklar[i].Length + 4)) + "\" customWidth=\"1\"/>");
                 sb.Append("</cols><sheetData>");
-                sb.Append("<row r=\"1\">");
-                for (int i = 0; i < basliklar.Count; i++) sb.Append("<c r=\"" + Ref(i, 1) + "\" t=\"inlineStr\" s=\"1\"><is><t>" + Xml(basliklar[i]) + "</t></is></c>");
+                int r = 1;
+                if (!string.IsNullOrEmpty(ustSatir))
+                {
+                    sb.Append("<row r=\"1\"><c r=\"A1\" t=\"inlineStr\"><is><t>" + Xml(ustSatir) + "</t></is></c></row>");
+                    r = 2;
+                }
+                sb.Append("<row r=\"" + r + "\">");
+                for (int i = 0; i < basliklar.Count; i++) sb.Append("<c r=\"" + Ref(i, r) + "\" t=\"inlineStr\" s=\"1\"><is><t>" + Xml(basliklar[i]) + "</t></is></c>");
                 sb.Append("</row>");
-                int r = 2;
+                r++;
                 foreach (var satir in satirlar)
                 {
                     sb.Append("<row r=\"" + r + "\">");
