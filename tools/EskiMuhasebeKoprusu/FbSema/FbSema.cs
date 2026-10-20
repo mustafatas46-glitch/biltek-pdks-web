@@ -20,7 +20,7 @@ static class FbSema
                 w.WriteLine("Istemci: " + Fb.DllYolu);
                 var dial = db.Sorgu("SELECT MON$SQL_DIALECT, MON$ODS_MAJOR, MON$ODS_MINOR FROM MON$DATABASE");
                 if (dial.Count > 0) w.WriteLine("Dialect: " + dial[0][0] + "  ODS: " + dial[0][1] + "." + dial[0][2]);
-                var tablolar = db.Sorgu("SELECT TRIM(RDB$RELATION_NAME), RDB$VIEW_BLR IS NOT NULL FROM RDB$RELATIONS WHERE COALESCE(RDB$SYSTEM_FLAG,0)=0 ORDER BY 1");
+                var tablolar = db.Sorgu("SELECT TRIM(RDB$RELATION_NAME), CASE WHEN RDB$VIEW_BLR IS NULL THEN 0 ELSE 1 END FROM RDB$RELATIONS WHERE COALESCE(RDB$SYSTEM_FLAG,0)=0 ORDER BY 1");
                 w.WriteLine("Tablo sayisi: " + tablolar.Count);
                 foreach (var t in tablolar)
                 {
