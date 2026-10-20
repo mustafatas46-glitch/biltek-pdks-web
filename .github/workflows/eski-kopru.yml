@@ -26,29 +26,33 @@ jobs:
       - name: Firebird 2.5 embedded ile dene
         shell: pwsh
         run: |
-          $u = "https://github.com/FirebirdSQL/firebird/releases/download/R2_5_9/Firebird-2.5.9.27139-0_Win32_embed.zip"
-          Invoke-WebRequest $u -OutFile fb.zip
-          Expand-Archive fb.zip -DestinationPath fbemb
-          $d = "tools/EskiMuhasebeKoprusu/FbSema"
-          Copy-Item fbemb/* $d -Recurse -Force
-          Copy-Item "$d/fbembed.dll" "$d/fbclient.dll" -Force
-          Get-ChildItem $d | Select-Object Name | Out-String | Write-Output
-          $db = (Resolve-Path $d).Path + "\TEST.GDB"
-          $sql = @"
-          CREATE DATABASE '$db' USER 'SYSDBA' PASSWORD 'masterkey' DEFAULT CHARACTER SET WIN1254;
-          CREATE TABLE PERSONEL (PERID INTEGER NOT NULL PRIMARY KEY, KARTNO VARCHAR(10), AD VARCHAR(30), SOYAD VARCHAR(30), KIMLIKNO VARCHAR(11), IGTARIH DATE, MAAS NUMERIC(15,2), GSAAT TIME, ZAMAN TIMESTAMP, ADET SMALLINT, ORAN DOUBLE PRECISION, NOT1 CHAR(5));
-          INSERT INTO PERSONEL VALUES (1,'0001','ŞÜKRÜ','ĞÜLÇİN','12345678901','2024-03-15',12345.67,'08:30:00','2025-01-02 17:45:10',3,1.5,'ab');
-          INSERT INTO PERSONEL (PERID) VALUES (2);
-          COMMIT;
-          "@
-          Set-Content -Path ilk.sql -Value $sql -Encoding Default
-          & "fbemb/isql.exe" -i ilk.sql -ch WIN1254 2>&1 | Write-Output
-          Push-Location $d
-          ./FbSema.exe $db masterkey
-          $kod = $LASTEXITCODE
-          Get-Content sema_raporu.txt -Encoding UTF8 | Write-Output
-          Pop-Location
-          if ($kod -ne 0) { Write-Output "::error::FbSema hata verdi"; exit 1 }
-          $r = Get-Content "$d/sema_raporu.txt" -Encoding UTF8 -Raw
-          if ($r -notmatch "2024-03-15" -or $r -notmatch "12345.67" -or $r -notmatch "08:30:00" -or $r -notmatch "2025-01-02 17:45:10") { Write-Output "::error::Tip cozme hatali"; exit 1 }
-          Write-Output "::notice::Firebird okuma testi TAMAM"
+          $ErrorActionPreference = "Continue"
+          $log = New-Object System.Collections.Generic.List[string]
+          function Bildir($t) { $m = ($log -join "`n"); if ($m.Length -gt 3500) { $m = $m.Substring($m.Length - 3500) }; $m = $m.Replace("%","%25").Replace("`r","").Replace("`n","%0A"); Write-Output "::error title=$t::$m" }
+          try {
+            $u = "https://github.com/FirebirdSQL/firebird/releases/download/R2_5_9/Firebird-2.5.9.27139-0_Win32_embed.zip"
+            Invoke-WebRequest $u -OutFile fb.zip
+            Expand-Archive fb.zip -DestinationPath fbemb
+            $d = "tools/EskiMuhasebeKoprusu/FbSema"
+            Copy-Item fbemb/* $d -Recurse -Force
+            Copy-Item "$d/fbembed.dll" "$d/fbclient.dll" -Force
+            $log.Add((Get-ChildItem fbemb | ForEach-Object Name) -join " ")
+            $db = (Resolve-Path $d).Path + "\TEST.GDB"
+            $sql = "CREATE DATABASE '$db' USER 'SYSDBA' PASSWORD 'masterkey' DEFAULT CHARACTER SET WIN1254;`r`n" +
+              "CREATE TABLE PERSONEL (PERID INTEGER NOT NULL PRIMARY KEY, KARTNO VARCHAR(10), AD VARCHAR(30), SOYAD VARCHAR(30), KIMLIKNO VARCHAR(11), IGTARIH DATE, MAAS NUMERIC(15,2), GSAAT TIME, ZAMAN TIMESTAMP, ADET SMALLINT, ORAN DOUBLE PRECISION, NOT1 CHAR(5));`r`n" +
+              "INSERT INTO PERSONEL VALUES (1,'0001','" + [char]0x15E + "UKRU','GULCIN','12345678901','2024-03-15',12345.67,'08:30:00','2025-01-02 17:45:10',3,1.5,'ab');`r`n" +
+              "INSERT INTO PERSONEL (PERID) VALUES (2);`r`nCOMMIT;`r`n"
+            [System.IO.File]::WriteAllText("$pwd\ilk.sql", $sql, [System.Text.Encoding]::GetEncoding(1254))
+            Push-Location $d
+            $o = & .\isql.exe -i "$pwd\..\..\..\ilk.sql" -ch WIN1254 2>&1
+            $log.Add("isql: " + ($o -join " | "))
+            $o2 = & .\FbSema.exe $db masterkey 2>&1
+            $kod = $LASTEXITCODE
+            $log.Add("FbSema cikis: $kod " + ($o2 -join " "))
+            if (Test-Path sema_raporu.txt) { $log.AddRange([string[]](Get-Content sema_raporu.txt -Encoding UTF8)) }
+            Pop-Location
+            $r = ($log -join "`n")
+            if ($kod -ne 0 -or $r -notmatch "2024-03-15" -or $r -notmatch "12345.67" -or $r -notmatch "08:30:00" -or $r -notmatch "2025-01-02 17:45:10") { Bildir "Firebird testi"; exit 1 }
+            Bildir "Firebird raporu (bilgi)"
+            Write-Output "::notice::Firebird okuma testi TAMAM"
+          } catch { $log.Add("ISTISNA: " + $_); Bildir "Firebird testi"; exit 1 }
