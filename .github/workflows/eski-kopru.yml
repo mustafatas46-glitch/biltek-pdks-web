@@ -30,13 +30,14 @@ jobs:
           $log = New-Object System.Collections.Generic.List[string]
           function Bildir($t) { $m = ($log -join "`n"); if ($m.Length -gt 3500) { $m = $m.Substring($m.Length - 3500) }; $m = $m.Replace("%","%25").Replace("`r","").Replace("`n","%0A"); Write-Output "::error title=$t::$m" }
           try {
-            $u = "https://github.com/FirebirdSQL/firebird/releases/download/R2_5_9/Firebird-2.5.9.27139-0_Win32_embed.zip"
+            $u = "https://github.com/FirebirdSQL/firebird/releases/download/R2_5_9/Firebird-2.5.9.27139-0_Win32.zip"
             Invoke-WebRequest $u -OutFile fb.zip
             Expand-Archive fb.zip -DestinationPath fbemb
             $d = "tools/EskiMuhasebeKoprusu/FbSema"
             Copy-Item fbemb/* $d -Recurse -Force
+            Copy-Item fbemb/bin/* $d -Force
             Copy-Item "$d/fbembed.dll" "$d/fbclient.dll" -Force
-            $log.Add((Get-ChildItem fbemb | ForEach-Object Name) -join " ")
+            $log.Add((Get-ChildItem fbemb/bin | ForEach-Object Name) -join " ")
             $db = (Resolve-Path $d).Path + "\TEST.GDB"
             $sql = "CREATE DATABASE '$db' USER 'SYSDBA' PASSWORD 'masterkey' DEFAULT CHARACTER SET WIN1254;`r`n" +
               "CREATE TABLE PERSONEL (PERID INTEGER NOT NULL PRIMARY KEY, KARTNO VARCHAR(10), AD VARCHAR(30), SOYAD VARCHAR(30), KIMLIKNO VARCHAR(11), IGTARIH DATE, MAAS NUMERIC(15,2), GSAAT TIME, ZAMAN TIMESTAMP, ADET SMALLINT, ORAN DOUBLE PRECISION, NOT1 CHAR(5));`r`n" +
