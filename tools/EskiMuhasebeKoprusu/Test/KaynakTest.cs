@@ -38,11 +38,9 @@ static class KaynakTest
                 Console.WriteLine("  yeni: " + k.YeniPersonelBilgi(null));
                 var sec = es.Where(s => s.Islem != Islem.Yok && s.Islem != Islem.IsimDuzelt).ToList();
                 foreach (var s in sec) s.Uygula = true;
-                using (var g = new GeriAlma("test", k.GeriAlmaBaslik))
-                {
-                    k.EsitlemeUygula(sec, new DateTime(2025, 3, 31), null, g);
-                    Console.WriteLine("  geri alma: " + System.IO.File.ReadAllText(g.Yol).Replace("\n", " / "));
-                }
+                string gy;
+                using (var g = new GeriAlma("test", k.GeriAlmaBaslik)) { k.EsitlemeUygula(sec, new DateTime(2025, 3, 31), null, g); gy = g.Yol; }
+                Console.WriteLine("  geri alma: " + System.IO.File.ReadAllText(gy).Replace("\r", "").Replace("\n", " / "));
                 var p2 = k.Personeller(null);
                 Bekle(p2.First(x => x.Id == 1).KimlikNo == "27176288124", "TC yazildi");
                 var yeni = p2.FirstOrDefault(x => x.KimlikNo == "48340914182");
