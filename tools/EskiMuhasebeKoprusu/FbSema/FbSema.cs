@@ -18,8 +18,12 @@ static class FbSema
             using (var db = new Fb(yol, "SYSDBA", args.Length > 1 ? args[1] : "masterkey"))
             {
                 w.WriteLine("Istemci: " + Fb.DllYolu);
-                var dial = db.Sorgu("SELECT MON$SQL_DIALECT, MON$ODS_MAJOR, MON$ODS_MINOR FROM MON$DATABASE");
-                if (dial.Count > 0) w.WriteLine("Dialect: " + dial[0][0] + "  ODS: " + dial[0][1] + "." + dial[0][2]);
+                try
+                {
+                    var dial = db.Sorgu("SELECT MON$SQL_DIALECT, MON$ODS_MAJOR, MON$ODS_MINOR FROM MON$DATABASE");
+                    if (dial.Count > 0) w.WriteLine("Dialect: " + dial[0][0] + "  ODS: " + dial[0][1] + "." + dial[0][2]);
+                }
+                catch (Exception ex) { w.WriteLine("Surum bilgisi yok (Firebird 2.0 veya eski): " + ex.Message.Split('\n')[0]); }
                 var tablolar = db.Sorgu("SELECT TRIM(RDB$RELATION_NAME), CASE WHEN RDB$VIEW_BLR IS NULL THEN 0 ELSE 1 END FROM RDB$RELATIONS WHERE COALESCE(RDB$SYSTEM_FLAG,0)=0 ORDER BY 1");
                 w.WriteLine("Tablo sayisi: " + tablolar.Count);
                 foreach (var t in tablolar)
