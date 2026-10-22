@@ -312,6 +312,7 @@ namespace BiltekMuhasebeKoprusu
                 foreach (var r in _db.Sorgu("SELECT KOD, AD, KAD FROM BORDRO ORDER BY KOD"))
                 {
                     string ad = !string.IsNullOrWhiteSpace(r[1]) ? r[1].Trim() : (r[2] ?? "").Trim();
+                    if (l.Any(x => x.Baslik == ad + " (Gün)" || x.Baslik == ad + " (Saat)")) ad += " [bordro " + r[0] + "]";
                     ekle(ad + " (Gün)", "GUN" + r[0], false);
                     ekle(ad + " (Saat)", "SAAT" + r[0], true);
                 }
