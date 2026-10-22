@@ -13,49 +13,57 @@ jobs:
         run: |
           cd tools\EskiMuhasebeKoprusu
           set CSC=%WINDIR%\Microsoft.NET\Framework\v4.0.30319\csc.exe
-          "%CSC%" /nologo /target:winexe /platform:x86 /optimize+ /codepage:65001 /out:BiltekMuhasebeKoprusu.exe /r:System.dll /r:System.Core.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:System.Xml.dll /r:System.IO.Compression.dll /r:System.IO.Compression.FileSystem.dll *.cs > sonuc.txt 2>&1
-          type sonuc.txt
-          for /f "usebackq delims=" %%L in (`findstr /i "error warning" sonuc.txt`) do echo ::warning::%%L
-          if not exist BiltekMuhasebeKoprusu.exe (echo ::error::DERLEME HATALI & exit /b 1)
+          set REFS=/r:System.dll /r:System.Core.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:System.Xml.dll /r:System.IO.Compression.dll /r:System.IO.Compression.FileSystem.dll
+          "%CSC%" /nologo /target:winexe /platform:x86 /optimize+ /codepage:65001 /out:BiltekMuhasebeKoprusu.exe %REFS% *.cs > s1.txt 2>&1
+          type s1.txt
+          for /f "usebackq delims=" %%L in (`findstr /i "error" s1.txt`) do echo ::warning::MYSQL %%L
+          if not exist BiltekMuhasebeKoprusu.exe (echo ::error::MYSQL DERLEME HATALI & exit /b 1)
+          "%CSC%" /nologo /target:winexe /platform:x86 /optimize+ /codepage:65001 /define:FIREBIRD /out:BilTekMuhasebeKoprusu_fb.exe %REFS% *.cs > s2.txt 2>&1
+          type s2.txt
+          for /f "usebackq delims=" %%L in (`findstr /i "error" s2.txt`) do echo ::warning::FB %%L
+          if not exist BilTekMuhasebeKoprusu_fb.exe (echo ::error::FIREBIRD DERLEME HATALI & exit /b 1)
+          "%CSC%" /nologo /target:exe /platform:x86 /codepage:65001 /main:KaynakTest /out:Test\KaynakTest.exe %REFS% *.cs Test\KaynakTest.cs > s3.txt 2>&1
+          type s3.txt
+          for /f "usebackq delims=" %%L in (`findstr /i "error" s3.txt`) do echo ::warning::TEST %%L
+          if not exist Test\KaynakTest.exe (echo ::error::TEST DERLEME HATALI & exit /b 1)
           cd FbSema
-          "%CSC%" /nologo /target:exe /platform:x86 /codepage:65001 /out:FbSema.exe /r:System.dll /r:System.Core.dll FbSema.cs ..\Fb.cs > sonuc.txt 2>&1
-          type sonuc.txt
-          for /f "usebackq delims=" %%L in (`findstr /i "error warning" sonuc.txt`) do echo ::warning::FbSema %%L
-          if not exist FbSema.exe (echo ::error::FbSema DERLEME HATALI & exit /b 1)
-          echo ::notice::DERLEME TAMAM
-      - name: Firebird 2.5 embedded ile dene
+          "%CSC%" /nologo /target:exe /platform:x86 /codepage:65001 /out:FbSema.exe /r:System.dll /r:System.Core.dll FbSema.cs ..\Fb.cs > s4.txt 2>&1
+          if not exist FbSema.exe (type s4.txt & echo ::error::FbSema DERLEME HATALI & exit /b 1)
+          echo ::notice::DERLEME TAMAM (MySQL + Firebird + test)
+      - name: Firebird 2.5 sunucusu ile test
         shell: pwsh
         run: |
           $ErrorActionPreference = "Continue"
           $log = New-Object System.Collections.Generic.List[string]
-          function Bildir($t) { $m = ($log -join "`n"); if ($m.Length -gt 3500) { $m = $m.Substring($m.Length - 3500) }; $m = $m.Replace("%","%25").Replace("`r","").Replace("`n","%0A"); Write-Output "::error title=$t::$m" }
+          function Bildir($t) { $m = ($log -join "`n"); if ($m.Length -gt 3800) { $m = $m.Substring($m.Length - 3800) }; $m = $m.Replace("%","%25").Replace("`r","").Replace("`n","%0A"); Write-Output "::error title=$t::$m" }
           try {
-            $u = "https://github.com/FirebirdSQL/firebird/releases/download/R2_5_9/Firebird-2.5.9.27139-0_Win32.zip"
-            Invoke-WebRequest $u -OutFile fb.zip
-            Expand-Archive fb.zip -DestinationPath fbemb
-            $d = "tools/EskiMuhasebeKoprusu/FbSema"
-            Copy-Item fbemb/* $d -Recurse -Force
-            Copy-Item fbemb/bin/* $d -Force
-            $env:FIREBIRD = (Resolve-Path $d).Path
-            Start-Process -FilePath "$d/fbserver.exe" -ArgumentList "-a" -WorkingDirectory $d
+            Invoke-WebRequest "https://github.com/FirebirdSQL/firebird/releases/download/R2_5_9/Firebird-2.5.9.27139-0_Win32.zip" -OutFile fb.zip
+            Expand-Archive fb.zip -DestinationPath fb
+            $fb = (Resolve-Path fb).Path
+            $env:FIREBIRD = $fb
+            Start-Process -FilePath "$fb\bin\fbserver.exe" -ArgumentList "-a" -WorkingDirectory "$fb\bin"
             Start-Sleep -Seconds 5
-            $log.Add((Get-ChildItem fbemb/bin | ForEach-Object Name) -join " ")
-            $db = (Resolve-Path $d).Path + "\TEST.GDB"
-            $sql = "CREATE DATABASE '127.0.0.1:$db' USER 'SYSDBA' PASSWORD 'masterkey' DEFAULT CHARACTER SET WIN1254;`r`n" +
-              "CREATE TABLE PERSONEL (PERID INTEGER NOT NULL PRIMARY KEY, KARTNO VARCHAR(10), AD VARCHAR(30), SOYAD VARCHAR(30), KIMLIKNO VARCHAR(11), IGTARIH DATE, MAAS NUMERIC(15,2), GSAAT TIME, ZAMAN TIMESTAMP, ADET SMALLINT, ORAN DOUBLE PRECISION, NOT1 CHAR(5));`r`n" +
-              "INSERT INTO PERSONEL VALUES (1,'0001','" + [char]0x15E + "UKRU','GULCIN','12345678901','2024-03-15',12345.67,'08:30:00','2025-01-02 17:45:10',3,1.5,'ab');`r`n" +
-              "INSERT INTO PERSONEL (PERID) VALUES (2);`r`nCOMMIT;`r`n"
-            [System.IO.File]::WriteAllText("$pwd\ilk.sql", $sql, [System.Text.Encoding]::GetEncoding(1254))
-            Push-Location $d
-            $o = & .\isql.exe -i "$pwd\..\..\..\ilk.sql" -ch WIN1254 2>&1
+            $t = (Resolve-Path tools/EskiMuhasebeKoprusu/Test).Path
+            Copy-Item "$fb\bin\fbclient.dll","$fb\bin\msvcr80.dll","$fb\bin\msvcp80.dll","$fb\bin\Microsoft.VC80.CRT.manifest" $t -Force
+            $gdb = "$t\BILTEK.GDB"
+            $sql = "CREATE DATABASE '127.0.0.1:$gdb' USER 'SYSDBA' PASSWORD 'masterkey' DEFAULT CHARACTER SET WIN1254;`r`n" + [System.IO.File]::ReadAllText("$t\biltek_test.sql", [System.Text.Encoding]::UTF8)
+            [System.IO.File]::WriteAllText("$t\kur.sql", $sql, [System.Text.Encoding]::GetEncoding(1254))
+            $o = & "$fb\bin\isql.exe" -i "$t\kur.sql" -ch WIN1254 2>&1
             $log.Add("isql: " + ($o -join " | "))
-            $o2 = & .\FbSema.exe $db masterkey 2>&1
+            Push-Location $t
+            $o2 = & .\KaynakTest.exe $gdb 2>&1
             $kod = $LASTEXITCODE
-            $log.Add("FbSema cikis: $kod " + ($o2 -join " "))
-            if (Test-Path sema_raporu.txt) { $log.AddRange([string[]](Get-Content sema_raporu.txt -Encoding UTF8)) }
             Pop-Location
-            $r = ($log -join "`n")
-            if ($kod -ne 0 -or $r -notmatch "2024-03-15" -or $r -notmatch "12345.67" -or $r -notmatch "08:30:00" -or $r -notmatch "2025-01-02 17:45:10") { Bildir "Firebird testi"; exit 1 }
-            Bildir "Firebird raporu (bilgi)"
-            Write-Output "::notice::Firebird okuma testi TAMAM"
+            $log.Add("KaynakTest cikis: $kod")
+            $log.AddRange([string[]]$o2)
+            $s = (Resolve-Path tools/EskiMuhasebeKoprusu/FbSema).Path
+            Copy-Item "$t\fbclient.dll","$t\msvcr80.dll","$t\msvcp80.dll","$t\Microsoft.VC80.CRT.manifest" $s -Force
+            Push-Location $s
+            & .\FbSema.exe "127.0.0.1:$gdb" masterkey | Out-Null
+            $kod3 = $LASTEXITCODE
+            Pop-Location
+            $log.Add("FbSema cikis: $kod3")
+            if ($kod -ne 0 -or $kod3 -ne 0) { Bildir "Firebird testi"; exit 1 }
+            Bildir "Firebird test raporu (bilgi)"
+            Write-Output "::notice::Firebird testleri TAMAM"
           } catch { $log.Add("ISTISNA: " + $_); Bildir "Firebird testi"; exit 1 }

@@ -41,6 +41,31 @@ namespace BiltekMuhasebeKoprusu
         public static Dictionary<string, string> Oku()
         {
             var d = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+#if FIREBIRD
+            // BilTek: Data\Settings.ini [Database] Path=127.0.0.1:C:\...\DATABASE.GDB  (en yeni BilTek5xx klasörü)
+            var fbAdaylar = new List<string> { Path.Combine(Klasor, "Data", "Settings.ini"), Path.Combine(Klasor, "..", "Data", "Settings.ini") };
+            try
+            {
+                var ust = Path.GetFullPath(Path.Combine(Klasor, ".."));
+                fbAdaylar.AddRange(Directory.GetDirectories(ust, "BilTek*").OrderByDescending(x => x, StringComparer.OrdinalIgnoreCase).Select(x => Path.Combine(x, "Data", "Settings.ini")));
+            }
+            catch { }
+            foreach (var aday in fbAdaylar)
+            {
+                if (!File.Exists(aday)) continue;
+                var ini = IniOku(aday);
+                string yol;
+                if (!ini.TryGetValue("Database.Path", out yol) || yol.Trim().Length == 0) continue;
+                yol = yol.Trim();
+                int i = yol.IndexOf(':');
+                if (i > 1 && !(i == 1)) { d["Sunucu"] = yol.Substring(0, i); d["Veritabani"] = yol.Substring(i + 1); }
+                else { d["Sunucu"] = ""; d["Veritabani"] = yol; }
+                if (d["Sunucu"].Contains("/")) { var p = d["Sunucu"].Split('/'); d["Sunucu"] = p[0]; d["Port"] = p[1]; }
+                d["Kaynak"] = Path.GetFullPath(aday);
+                break;
+            }
+            if (false)
+#endif
             // Önce eski programın Settings.ini dosyası, sonra köprünün kendi ayarları.
             foreach (var aday in new[] { Path.Combine(Klasor, "Settings.ini"), Path.Combine(Klasor, "..", "Settings.ini"), @"D:\Biltek-Pdks\Settings.ini", @"C:\Biltek-Pdks\Settings.ini" })
             {
@@ -113,6 +138,7 @@ namespace BiltekMuhasebeKoprusu
         {
             DateTime t;
             if (s == null || s.StartsWith("0000")) return null;
+            if (s.Length > 10) s = s.Substring(0, 10);
             return DateTime.TryParseExact(s, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out t) ? t : (DateTime?)null;
         }
 
@@ -140,7 +166,7 @@ namespace BiltekMuhasebeKoprusu
         public readonly string Yol;
         public int Sayi;
 
-        public GeriAlma(string islem, string veritabani)
+        public GeriAlma(string islem, string[] baslik)
         {
             string klasor = Path.Combine(Ayarlar.Klasor, "GeriAlma");
             Directory.CreateDirectory(klasor);
@@ -148,9 +174,7 @@ namespace BiltekMuhasebeKoprusu
             _w = new StreamWriter(Yol, false, new UTF8Encoding(false));
             _w.WriteLine("-- Biltek Muhasebe Köprüsü geri alma dosyası");
             _w.WriteLine("-- İşlem: " + islem + "   Tarih: " + DateTime.Now.ToString("dd.MM.yyyy HH:mm:ss"));
-            _w.WriteLine("-- HeidiSQL ile " + veritabani + " veritabanında çalıştırınca bu işlemdeki değişiklikler geri alınır.");
-            _w.WriteLine("SET NAMES utf8;");
-            _w.WriteLine("USE `" + veritabani + "`;");
+            foreach (var b in baslik) _w.WriteLine(b);
             _w.Flush();
         }
 

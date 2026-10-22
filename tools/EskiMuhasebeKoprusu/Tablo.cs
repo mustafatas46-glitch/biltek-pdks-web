@@ -326,6 +326,18 @@ namespace BiltekMuhasebeKoprusu
             return sb.ToString();
         }
 
+        // UTF-8 olarak yazılıp Türkçe (1254) okunan bozuk metni onarır: "YÄ±llÄ±k" -> "Yıllık"
+        public static string Onar(string s)
+        {
+            if (string.IsNullOrEmpty(s) || (s.IndexOf('Ã') < 0 && s.IndexOf('Ä') < 0 && s.IndexOf('Å') < 0)) return s;
+            try
+            {
+                var b = Encoding.GetEncoding(1254).GetBytes(s);
+                return new UTF8Encoding(false, true).GetString(b);
+            }
+            catch { return s; }
+        }
+
         public static string SadeceRakam(string s)
         {
             if (s == null) return "";

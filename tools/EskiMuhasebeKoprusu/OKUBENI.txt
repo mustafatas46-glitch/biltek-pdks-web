@@ -23,3 +23,10 @@ Baglanti bilgileri bir ust klasordeki Settings.ini dosyasindan otomatik okunur.
 
 Her yazma isleminden once GeriAlma klasorune .sql dosyasi yazilir. HeidiSQL'de calistirilirsa degisiklik geri alinir.
 Isleme baslamadan once eski programin "yedekleme" ile veritabani yedegini alin.
+
+MUHASEBE PROGRAMI SABLONLARI (3. sekme)
+   Muhasebe programi secilirse puantaj dosyasi o programin sutun duzeninde cikar.
+   - Nebim ve Link hazir gelir (eski programin Excel klasorundeki sablonlardan).
+   - "Yeni program ekle" ile Logo, Mikro, Netsis, Luca, ETA, Zirve vb. eklenir: programin ornek
+     aktarim Excel'i secilir, basliklar okunur ve otomatik eslestirilir. "Sablonu duzenle" ile kontrol edilir.
+   - Sablonlar "Sablonlar" klasorunde durur, baska bilgisayara kopyalanabilir.

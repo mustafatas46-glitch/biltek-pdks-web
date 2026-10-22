@@ -7,11 +7,12 @@ namespace BiltekMuhasebeKoprusu
 {
     internal sealed class Donem
     {
-        public string Bas, Bit;
+        public string Bas, Bit, Ad;
         public override string ToString()
         {
             var b = PdksVeri.Trh(Bas); var e = PdksVeri.Trh(Bit);
-            return (b.HasValue ? b.Value.ToString("dd.MM.yyyy") : Bas) + " - " + (e.HasValue ? e.Value.ToString("dd.MM.yyyy") : Bit);
+            return (b.HasValue ? b.Value.ToString("dd.MM.yyyy") : Bas) + " - " + (e.HasValue ? e.Value.ToString("dd.MM.yyyy") : Bit) +
+                   (string.IsNullOrEmpty(Ad) ? "" : "  (" + Ad + ")");
         }
     }
 
@@ -111,9 +112,8 @@ namespace BiltekMuhasebeKoprusu
             return h;
         }
 
-        public static PuantajSonuc Getir(Db db, Donem d, int? firmaId, bool bosKolonlariGizle)
+        public static PuantajSonuc Gorunum(PuantajHam h, bool bosKolonlariGizle)
         {
-            var h = Ham(db, d, firmaId);
             var kolonlar = h.Kolonlar;
             var gorunur = Enumerable.Range(0, kolonlar.Count)
                                     .Where(i => !bosKolonlariGizle || h.Kisiler.Any(k => k.Degerler[i] != 0m)).ToList();
@@ -134,7 +134,7 @@ namespace BiltekMuhasebeKoprusu
         }
 
         // "07:30" -> 7.5 ; "-01:15" -> -1.25 ; sayısal alanlar olduğu gibi.
-        static decimal Deger(string s, bool saat)
+        internal static decimal Deger(string s, bool saat)
         {
             if (string.IsNullOrWhiteSpace(s)) return 0m;
             s = s.Trim();

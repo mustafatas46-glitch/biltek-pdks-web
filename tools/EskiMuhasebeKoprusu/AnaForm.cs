@@ -28,7 +28,7 @@ namespace BiltekMuhasebeKoprusu
         readonly CheckBox chkBosGizle = new CheckBox { Text = "Boş sütunları gizle", Checked = true, AutoSize = true };
         readonly ComboBox cmbSablon = new ComboBox { Width = 200, DropDownStyle = ComboBoxStyle.DropDownList };
 
-        Db _db;
+        IKaynak _db;
         Dictionary<string, string> _ayar;
         List<MuhasebeKisi> _kisiler;
         List<EsitlemeSatiri> _esit = new List<EsitlemeSatiri>(), _alan = new List<EsitlemeSatiri>();
@@ -36,7 +36,11 @@ namespace BiltekMuhasebeKoprusu
 
         public AnaForm()
         {
+#if FIREBIRD
+            Text = "BilTek - Muhasebe Köprüsü (Firebird)";
+#else
             Text = "Biltek PDKS - Muhasebe Köprüsü";
+#endif
             Width = 1280; Height = 760; StartPosition = FormStartPosition.CenterScreen;
             Font = new Font("Segoe UI", 9f);
             BackColor = Color.White;
@@ -62,8 +66,14 @@ namespace BiltekMuhasebeKoprusu
             FormClosed += delegate { if (_db != null) _db.Dispose(); AyarKaydet(); };
 
             _ayar = Ayarlar.Oku();
+#if FIREBIRD
+            txtVt.Width = 330;
+            txtSunucu.Text = Al("Sunucu", "127.0.0.1"); txtPort.Text = Al("Port", "3050"); txtVt.Text = Al("Veritabani", "");
+            txtKullanici.Text = Al("Kullanici", "SYSDBA"); txtSifre.Text = Al("Sifre", "masterkey");
+#else
             txtSunucu.Text = Al("Sunucu", "localhost"); txtPort.Text = Al("Port", "3307"); txtVt.Text = Al("Veritabani", "data2015");
             txtKullanici.Text = Al("Kullanici", "root"); txtSifre.Text = Al("Sifre", "");
+#endif
             dtCikis.Value = DateTime.Today;
             SablonlariYukle(Al("Sablon", ""));
             Durum(_ayar.ContainsKey("Kaynak") ? "Bağlantı bilgileri okundu: " + _ayar["Kaynak"] : "Bağlantı bilgilerini girip Bağlan'a basın.");
@@ -142,9 +152,12 @@ namespace BiltekMuhasebeKoprusu
                 if (_db != null) { _db.Dispose(); _db = null; }
                 int port;
                 if (!int.TryParse(txtPort.Text, out port)) throw new Exception("Port sayı olmalı.");
-                _db = new Db(txtSunucu.Text.Trim(), port, txtVt.Text.Trim(), txtKullanici.Text.Trim(), txtSifre.Text);
-                if (!_db.TabloVar("personel")) throw new Exception(txtVt.Text + " bir Biltek PDKS veritabanı değil (personel tablosu yok).");
-                var firmalar = PdksVeri.Firmalar(_db);
+#if FIREBIRD
+                _db = new FbKaynak(txtSunucu.Text.Trim(), port, txtVt.Text.Trim(), txtKullanici.Text.Trim(), txtSifre.Text);
+#else
+                _db = new MySqlKaynak(txtSunucu.Text.Trim(), port, txtVt.Text.Trim(), txtKullanici.Text.Trim(), txtSifre.Text);
+#endif
+                var firmalar = _db.Firmalar();
                 cmbFirma.Items.Clear();
                 cmbFirma.Items.Add(new Firma { Id = 0, Ad = "(Tüm firmalar)" });
                 foreach (var f in firmalar) cmbFirma.Items.Add(f);
@@ -153,7 +166,7 @@ namespace BiltekMuhasebeKoprusu
                 for (int i = 0; i < cmbFirma.Items.Count; i++) if (((Firma)cmbFirma.Items[i]).Id.ToString() == kayitli) sec = i;
                 if (sec == 0 && firmalar.Count == 1) sec = 1;
                 cmbFirma.SelectedIndex = sec;
-                Durum("Bağlandı: " + txtVt.Text + " (" + firmalar.Count + " firma)");
+                Durum("Bağlandı: " + _db.Ad + " (" + firmalar.Count + " firma)");
                 AyarKaydet();
             });
         }
@@ -165,7 +178,7 @@ namespace BiltekMuhasebeKoprusu
             Islem(delegate
             {
                 cmbDonem.Items.Clear();
-                foreach (var d in Puantaj.Donemler(_db, FirmaId)) cmbDonem.Items.Add(d);
+                foreach (var d in _db.Donemler(FirmaId)) cmbDonem.Items.Add(d);
                 if (cmbDonem.Items.Count > 0) cmbDonem.SelectedIndex = 0;
             });
             Yenile();
@@ -191,7 +204,7 @@ namespace BiltekMuhasebeKoprusu
             {
                 var tablo = Tablo.Oku(txtDosya.Text);
                 _kisiler = Esitleme.Kisiler(tablo);
-                var pdks = PdksVeri.Personeller(_db, FirmaId);
+                var pdks = _db.Personeller(FirmaId);
                 _esit = Esitleme.Karsilastir(_kisiler, pdks);
                 _alan = Esitleme.AlanFarklari(_kisiler, pdks);
                 var secili = cmbDurumFiltre.SelectedItem as string;
@@ -245,67 +258,25 @@ namespace BiltekMuhasebeKoprusu
             int tc = secilen.Count(s => s.Islem == BiltekMuhasebeKoprusu.Islem.TcYaz), ekle = secilen.Count(s => s.Islem == BiltekMuhasebeKoprusu.Islem.Ekle),
                 isim = secilen.Count(s => s.Islem == BiltekMuhasebeKoprusu.Islem.IsimDuzelt), pasif = secilen.Count(s => s.Islem == BiltekMuhasebeKoprusu.Islem.Pasife);
 
-            string grupId = null, durum = null, grupAdi = "";
+            string yeniBilgi = "";
             if (ekle > 0)
             {
-                if (!FirmaId.HasValue) { Bilgi("Yeni personel eklemek için üstten bir firma seçin."); return; }
-                grupId = PdksVeri.EnCok(_db, "grupid", FirmaId);
-                durum = PdksVeri.EnCok(_db, "durum", FirmaId);
-                grupAdi = PdksVeri.GrupAdi(_db, grupId);
+                try { yeniBilgi = _db.YeniPersonelBilgi(FirmaId); }
+                catch (Exception ex) { Bilgi(ex.Message); return; }
             }
-            var mesaj = "Eski PDKS veritabanında (" + txtVt.Text + ") şu değişiklikler yapılacak:\r\n\r\n";
+            var mesaj = "PDKS veritabanında (" + _db.Ad + ") şu değişiklikler yapılacak:\r\n\r\n";
             if (tc > 0) mesaj += "• " + tc + " kişiye TC kimlik no yazılacak\r\n";
             if (isim > 0) mesaj += "• " + isim + " kişinin adı soyadı muhasebeye göre düzeltilecek\r\n";
-            if (ekle > 0) mesaj += "• " + ekle + " yeni personel eklenecek (firma: " + cmbFirma.Text + ", grup: " + grupAdi + ", kart no boş)\r\n";
+            if (ekle > 0) mesaj += "• " + ekle + " yeni personel eklenecek (firma: " + cmbFirma.Text + ", " + yeniBilgi + ")\r\n";
             if (pasif > 0) mesaj += "• " + pasif + " kişiye " + dtCikis.Value.ToString("dd.MM.yyyy") + " tarihiyle işten çıkış verilecek\r\n";
             mesaj += "\r\nGeri alma dosyası GeriAlma klasörüne yazılacak. Devam edilsin mi?";
             if (MessageBox.Show(this, mesaj, "Onay", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
 
             Islem(delegate
             {
-                using (var geri = new GeriAlma("personel_esitleme", txtVt.Text))
+                using (var geri = new GeriAlma("personel_esitleme", _db.GeriAlmaBaslik))
                 {
-                    _db.Yaz("START TRANSACTION");
-                    try
-                    {
-                        foreach (var s in secilen)
-                        {
-                            var p = s.Personel;
-                            switch (s.Islem)
-                            {
-                                case BiltekMuhasebeKoprusu.Islem.TcYaz:
-                                    geri.Ekle("UPDATE personel SET kimlikno = " + Db.Q(p.KimlikNo) + " WHERE id = " + p.Id + ";");
-                                    _db.Yaz("UPDATE personel SET kimlikno = " + Db.Q(s.MuhasebeTc) + " WHERE id = " + p.Id);
-                                    break;
-                                case BiltekMuhasebeKoprusu.Islem.IsimDuzelt:
-                                    string ad, soyad;
-                                    Metin.AdSoyadBol(s.MuhasebeAdSoyad, out ad, out soyad);
-                                    geri.Ekle("UPDATE personel SET ad = " + Db.Q(p.Ad) + ", soyad = " + Db.Q(p.Soyad) + " WHERE id = " + p.Id + ";");
-                                    _db.Yaz("UPDATE personel SET ad = " + Db.Q(ad) + ", soyad = " + Db.Q(soyad) + " WHERE id = " + p.Id);
-                                    break;
-                                case BiltekMuhasebeKoprusu.Islem.Pasife:
-                                    geri.Ekle("UPDATE personel SET istencikistarihi = " + Db.QTarih(p.IstenCikis) + " WHERE id = " + p.Id + ";");
-                                    _db.Yaz("UPDATE personel SET istencikistarihi = " + Db.QTarih(dtCikis.Value.Date) + " WHERE id = " + p.Id);
-                                    break;
-                                case BiltekMuhasebeKoprusu.Islem.Ekle:
-                                    string a, sy;
-                                    Metin.AdSoyadBol(s.MuhasebeAdSoyad, out a, out sy);
-                                    var k = s.Kisi;
-                                    _db.Yaz("INSERT INTO personel (kartfc, kartno, kartid, ad, soyad, kimlikno, sicilno, firmaid, grupid, durum, isegiristarihi, ucret) VALUES ('', '', '', " +
-                                            Db.Q(a) + ", " + Db.Q(sy) + ", " + Db.Q(s.MuhasebeTc) + ", " + Db.Q(k.SicilNo) + ", " + FirmaId.Value + ", " +
-                                            (grupId == null ? "NULL" : grupId) + ", " + Db.Q(durum) + ", " + Db.QTarih(k.IseGiris) + ", " + Db.QSayi(k.Ucret) + ")");
-                                    geri.Ekle("DELETE FROM personel WHERE id = " + _db.SonId() + ";  -- " + s.MuhasebeAdSoyad);
-                                    break;
-                            }
-                        }
-                        _db.Yaz("COMMIT");
-                    }
-                    catch
-                    {
-                        _db.Yaz("ROLLBACK");
-                        geri.Ekle("-- HATA: islem iptal edildi, veritabani DEGISMEDI. Bu dosyayi calistirmayin.");
-                        throw;
-                    }
+                    _db.EsitlemeUygula(secilen, dtCikis.Value.Date, FirmaId, geri);
                     Bilgi(secilen.Count + " değişiklik kaydedildi.\r\nGeri alma dosyası: " + geri.Yol);
                 }
             });
@@ -319,8 +290,10 @@ namespace BiltekMuhasebeKoprusu
             gridAlan.Rows.Clear();
             foreach (var s in _alan)
             {
-                int i = gridAlan.Rows.Add(s.Uygula, s.PdksAdSoyad, s.MuhasebeTc, s.PdksKartNo, s.Alan, s.EskiDeger, s.YeniDeger, s.PdksId);
+                bool yaz = _db == null || _db.AlanYazilabilir(s.Alan);
+                int i = gridAlan.Rows.Add(s.Uygula && yaz, s.PdksAdSoyad, s.MuhasebeTc, s.PdksKartNo, s.Alan + (yaz ? "" : " (yalnız bilgi)"), s.EskiDeger, s.YeniDeger, s.PdksId);
                 gridAlan.Rows[i].Tag = s;
+                if (!yaz) { gridAlan.Rows[i].Cells[0].ReadOnly = true; gridAlan.Rows[i].DefaultCellStyle.ForeColor = Color.Gray; }
             }
             lblAlanOzet.Text = _alan.Count == 0 ? "Fark yok (ya da muhasebe dosyasında ek bilgi sütunu yok)." :
                 string.Join("    ", _alan.GroupBy(x => x.Alan).Select(g => g.Key + ": " + g.Count()));
@@ -330,35 +303,15 @@ namespace BiltekMuhasebeKoprusu
         {
             if (_db == null) return;
             gridAlan.EndEdit();
-            var secilen = gridAlan.Rows.Cast<DataGridViewRow>().Where(r => true.Equals(r.Cells[0].Value)).Select(r => (EsitlemeSatiri)r.Tag).ToList();
+            var secilen = gridAlan.Rows.Cast<DataGridViewRow>().Where(r => true.Equals(r.Cells[0].Value)).Select(r => (EsitlemeSatiri)r.Tag)
+                                  .Where(s => _db.AlanYazilabilir(s.Alan)).ToList();
             if (secilen.Count == 0) { Bilgi("Seçili satır yok."); return; }
             if (MessageBox.Show(this, secilen.Count + " alan PDKS'de muhasebedeki değerle güncellenecek. Devam edilsin mi?", "Onay", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
             Islem(delegate
             {
-                using (var geri = new GeriAlma("bilgi_guncelleme", txtVt.Text))
+                using (var geri = new GeriAlma("bilgi_guncelleme", _db.GeriAlmaBaslik))
                 {
-                    _db.Yaz("START TRANSACTION");
-                    try
-                    {
-                        foreach (var s in secilen)
-                        {
-                            var p = s.Personel; var k = s.Kisi;
-                            string kolon, eski, yeni;
-                            switch (s.Alan)
-                            {
-                                case "İşe giriş tarihi": kolon = "isegiristarihi"; eski = Db.QTarih(p.IseGiris); yeni = Db.QTarih(k.IseGiris); break;
-                                case "İşten çıkış tarihi": kolon = "istencikistarihi"; eski = Db.QTarih(p.IstenCikis); yeni = Db.QTarih(k.IstenCikis); break;
-                                case "Ücret": kolon = "ucret"; eski = Db.QSayi(p.Ucret); yeni = Db.QSayi(k.Ucret); break;
-                                case "Sicil no": kolon = "sicilno"; eski = Db.Q(p.SicilNo); yeni = Db.Q(k.SicilNo); break;
-                                case "SGK no": kolon = "sgk_no"; eski = Db.Q(p.SgkNo); yeni = Db.Q(k.SgkNo); break;
-                                default: continue;
-                            }
-                            geri.Ekle("UPDATE personel SET " + kolon + " = " + eski + " WHERE id = " + p.Id + ";");
-                            _db.Yaz("UPDATE personel SET " + kolon + " = " + yeni + " WHERE id = " + p.Id);
-                        }
-                        _db.Yaz("COMMIT");
-                    }
-                    catch { _db.Yaz("ROLLBACK"); geri.Ekle("-- HATA: islem iptal edildi, veritabani DEGISMEDI. Bu dosyayi calistirmayin."); throw; }
+                    _db.AlanUygula(secilen, geri);
                     Bilgi(geri.Sayi + " alan güncellendi.\r\nGeri alma dosyası: " + geri.Yol);
                 }
             });
@@ -374,7 +327,8 @@ namespace BiltekMuhasebeKoprusu
             Islem(delegate
             {
                 var sablon = cmbSablon.SelectedItem as Sablon;
-                _puantaj = sablon == null ? Puantaj.Getir(_db, d, FirmaId, chkBosGizle.Checked) : SablonUygula.Uygula(sablon, Puantaj.Ham(_db, d, FirmaId));
+                var ham = _db.Puantaj(d, FirmaId);
+                _puantaj = sablon == null ? Puantaj.Gorunum(ham, chkBosGizle.Checked) : SablonUygula.Uygula(sablon, ham);
                 gridPuantaj.Columns.Clear();
                 gridPuantaj.Rows.Clear();
                 foreach (var b in _puantaj.Basliklar) gridPuantaj.Columns.Add(b, b);
@@ -454,7 +408,7 @@ namespace BiltekMuhasebeKoprusu
         {
             if (_db == null) { Bilgi("Şablon için önce veritabanına bağlanın (puantaj türleri oradan okunur)."); return null; }
             List<PuantajKolon> k = null;
-            Islem(delegate { k = Puantaj.Kolonlar(_db); });
+            Islem(delegate { k = _db.PuantajKolonlari(); });
             return k;
         }
 
